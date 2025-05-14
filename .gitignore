@@ -19,7 +19,6 @@ backend/venv/
 backend/env/
 backend/*.pyc
 backend/uploads/  # Add this if you don't want to track uploaded files
-# If SIDDHI is a virtual environment or contains generated files, add backend/SIDDHI/
 
 # Other
 .vscode/
