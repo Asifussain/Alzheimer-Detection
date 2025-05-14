@@ -1,0 +1,218 @@
+/* alzheimer-detection-app/frontend/styles/PreviousUploads.module.css */
+
+.pageContainer {
+    max-width: 1200px; /* Wider container for two columns */
+    margin: 2rem auto;
+    padding: 1rem 2rem;
+    color: #eee;
+  }
+  
+  .pageTitle {
+    font-size: 2.2rem;
+    margin-bottom: 2rem; /* Keep consistent margin */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 1rem;
+    font-weight: 500;
+    color: #fff;
+  }
+  
+  /* --- New Layout Styles --- */
+  .mainContentLayout {
+    display: flex;
+    gap: 2rem; /* Space between columns */
+    margin-top: 1.5rem; /* Space below title */
+  }
+  
+  .historyColumn {
+    flex: 3; /* Take up more space (e.g., 3 parts) */
+    display: flex;
+    flex-direction: column; /* Stack table and pagination */
+  }
+  
+  .filterColumn {
+    flex: 1; /* Take less space (e.g., 1 part) */
+    min-width: 240px; /* Minimum width for filters */
+  }
+  /* --- End Layout Styles --- */
+  
+  
+  /* Filter Styles (Adjusted for Vertical Layout) */
+  .filterContainer {
+    display: flex;
+    flex-direction: column; /* Stack filter groups vertically */
+    gap: 1.5rem; /* Increased gap between filter groups */
+    padding: 1.5rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    /* Remove margin-bottom, parent layout handles spacing */
+  }
+  
+  .filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  
+  .filterLabel {
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+  
+  .dateInput {
+    width: 100%; /* Make inputs fill filter container width */
+    padding: 0.5rem 0.8rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color-scheme: dark; 
+  }
+  .dateInput::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+  }
+  
+  .filterButton {
+    width: 100%; /* Make button fill width */
+    padding: 0.7rem 1.2rem; /* Slightly larger padding */
+    font-size: 0.9rem;
+    background-color: #2b6cbb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 0.5rem; /* Add a little space above button */
+  }
+  .filterButton:hover {
+    background-color: #0e4a97;
+  }
+  .filterButton:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+  }
+  
+  /* Table Styles (Mostly unchanged) */
+  .predictionsTableWrapper {
+      flex-grow: 1; /* Allow table area to grow if needed */
+      overflow-x: auto; /* Add horizontal scroll only if table overflows */
+  }
+  .predictionsTable {
+    width: 100%;
+    border-collapse: collapse;
+    /* Removed margin-top, handled by parent flex */
+  }
+  /* ... other table styles (th, td, hover, cell colors) remain the same ... */
+  .predictionsTable th,
+  .predictionsTable td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    white-space: nowrap; /* Prevent wrapping in cells initially */
+  }
+  .predictionsTable th {
+    color: #ccc;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: 500; 
+  }
+  .predictionsTable tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: background-color 0.2s;
+  }
+  .predictionsTable tbody tr:hover {
+     background-color: rgba(255, 255, 255, 0.03);
+  }
+  .predictionCellAlzheimer {
+    font-weight: bold;
+    color: #ff6b6b;
+  }
+  .predictionCellNormal {
+    font-weight: bold;
+    color: #6bff9f;
+  }
+  .dateCell {
+     font-size: 0.9em; 
+     color: #aaa;
+  }
+  
+  
+  /* Pagination Styles (Adjusted margin) */
+  .paginationContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem; /* Space above pagination */
+    padding: 1rem 0; /* Vertical padding only */
+  }
+  /* ... other pagination styles remain the same ... */
+  .paginationButton {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: transparent;
+    color: #ccc;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  .paginationButton:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: #777;
+  }
+  .paginationButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .pageInfo {
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+  
+  
+  /* Loading/Error/Empty States (Unchanged) */
+  .stateContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    padding: 2rem;
+    text-align: center;
+    color: #aaa;
+    /* Make state container span full width if needed, or place within history column */
+    width: 100%; 
+  }
+  .loadingContainer {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+  }
+  .errorContainer {
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b; 
+    border-radius: 8px; 
+    background-color: rgba(255, 107, 107, 0.1);
+    padding: 1.5rem;
+  }
+
+  /* Add to frontend/styles/PreviousUploads.module.css */
+.reportLinkButton {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  background-color: #4a5568; /* Example dark gray */
+  color: #edf2f7;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s ease-in-out;
+  display: inline-block; /* Important for padding/sizing */
+  text-align: center;
+}
+
+.reportLinkButton:hover {
+  background-color: #2d3748; /* Example darker gray */
+}

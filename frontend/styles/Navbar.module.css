@@ -1,0 +1,176 @@
+/* frontend/styles/Navbar.module.css */
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&family=Manrope:wght@300;400;500;700&display=swap');
+@import url('https://fonts.cdnfonts.com/css/nasalization');
+
+@keyframes subtleGlow {
+  0%, 100% { text-shadow: 0 0 5px rgba(80, 227, 194, 0.4), 0 0 10px rgba(80, 227, 194, 0.3); }
+  50% { text-shadow: 0 0 8px rgba(80, 227, 194, 0.6), 0 0 15px rgba(80, 227, 194, 0.4); }
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 5%;
+    background-color: rgba(17, 24, 39, 0.85); /* Slightly less transparent */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-family: var(--font-body); /* Manrope */
+    font-size: 0.95rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  .navbarBrand {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    font-size: 1.6rem;
+    color: var(--text-heading);
+    /* Subtle Glow Animation */
+    animation: subtleGlow 4s ease-in-out infinite;
+  }
+  .navbarBrand a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .navbarLinks {
+    display: flex;
+    gap: 2.2rem;
+    list-style: none;
+  }
+
+  .navbarLinks a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500; /* Manrope medium */
+    transition: color 0.3s;
+    position: relative;
+    padding-bottom: 5px;
+    font-family: 'Nasalization Rg', sans-serif; /* Nasalization for links */
+  }
+
+  /* Refined Underline effect */
+  .navbarLinks a::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -2px; /* Position slightly below text */
+    left: 0; /* Start from left */
+    background: var(--accent-teal);
+    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother transition */
+    transform-origin: left;
+  }
+
+  .navbarLinks a:hover {
+    color: var(--accent-teal);
+    text-decoration: none;
+  }
+   .navbarLinks a:hover::after {
+     width: 100%; /* Full underline on hover */
+   }
+
+  .rightSection {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Login button */
+  .loginBtn {
+    border: 1px solid var(--accent-teal);
+    padding: 0.6rem 1.3rem; /* Adjusted padding */
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent-teal);
+    font-weight: 600; /* Bolder button text */
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .loginBtn:hover {
+    background-color: var(--accent-teal);
+    color: var(--background-start);
+    box-shadow: 0 3px 10px rgba(80, 227, 194, 0.3);
+  }
+
+  /* --- Profile & Dropdown Styles (Keep the fix from previous response) --- */
+  .profileContainer {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .profilePicture {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    object-fit: cover;
+    transition: border-color 0.3s, transform 0.2s;
+  }
+  .profilePicture:hover {
+      border-color: var(--accent-teal);
+      transform: scale(1.1);
+  }
+
+  .dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 12px);
+    background-color: var(--background-end);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.8rem;
+    min-width: 180px;
+    z-index: 100;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px) scale(0.95);
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s, transform 0.2s ease;
+  }
+
+  .dropdown.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+      transition: opacity 0.2s ease, visibility 0s linear 0s, transform 0.2s ease;
+  }
+
+  .userInfo {
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+  }
+  .userInfo span {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .logoutBtn {
+    width: 100%;
+    padding: 0.6rem;
+    border: none;
+    background-color: var(--error-color);
+    color: var(--text-heading);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600; /* Bolder */
+    transition: background-color 0.3s, transform 0.1s;
+  }
+
+  .logoutBtn:hover {
+    background-color: #d9534f;
+  }
+  .logoutBtn:active {
+      transform: scale(0.98);
+  }

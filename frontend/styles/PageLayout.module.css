@@ -1,0 +1,65 @@
+.pageContainer {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 1rem 2rem;
+    color: #eee; /* Lighter text for readability */
+}
+
+.pageTitle {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 1rem;
+    font-weight: 500; /* Adjust weight */
+    color: #fff;
+}
+
+.section {
+    margin-bottom: 2.5rem;
+}
+
+.sectionTitle {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    color: #00ffff; /* Use an accent color */
+    font-weight: 400; /* Adjust weight */
+}
+
+.paragraph {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #ccc; /* Slightly dimmer paragraph text */
+    margin-bottom: 1rem;
+}
+
+.orderedList, .unorderedList {
+    padding-left: 2rem;
+    line-height: 1.8;
+    color: #ccc;
+}
+.orderedList li, .unorderedList li {
+    margin-bottom: 0.75rem;
+}
+.orderedList li::marker, .unorderedList li::marker {
+    color: #00ffff; /* Accent color for markers */
+}
+
+.link {
+    color: #00ffff;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.disclaimerSection {
+    background-color: rgba(255, 107, 107, 0.05); /* Subtle warning background */
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+.disclaimerSection .sectionTitle {
+    color: #ff6b6b; /* Warning color for title */
+}

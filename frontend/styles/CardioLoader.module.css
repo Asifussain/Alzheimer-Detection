@@ -1,0 +1,63 @@
+/* frontend/styles/CardioLoader.module.css */
+
+.container {
+    /* Define CSS variables for easy customization */
+    --uib-size: 45px; /* Overall size control */
+    --uib-color: #00ffff; /* Cyan color for visibility */
+    --uib-speed: 1.75s;
+    --uib-bg-opacity: 0.1;
+  
+    height: calc(var(--uib-size) * 0.625); /* Maintain aspect ratio (31.25 / 50) */
+    width: var(--uib-size);
+    transform-origin: center;
+    overflow: visible;
+  }
+  
+  .car {
+    stroke: var(--uib-color);
+    stroke-dasharray: 100; /* Corresponds to pathLength="100" */
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation:
+      travel var(--uib-speed) ease-in-out infinite,
+      fade var(--uib-speed) ease-out infinite;
+    will-change: stroke-dasharray, stroke-dashoffset;
+    transition: stroke 0.5s ease;
+  }
+  
+  .track {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke: var(--uib-color);
+    opacity: var(--uib-bg-opacity);
+  }
+  
+  @keyframes travel {
+    0% {
+      stroke-dashoffset: 100;
+    }
+  
+    75% {
+      stroke-dashoffset: 0;
+    }
+    100% { /* Ensure it resets for the loop */
+       stroke-dashoffset: 0;
+    }
+  }
+  
+  @keyframes fade {
+    0% {
+      opacity: 0;
+    }
+  
+    20%,
+    55% {
+      opacity: 1;
+    }
+  
+    100% {
+      opacity: 0;
+    }
+  }
+  

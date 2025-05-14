@@ -1,0 +1,10 @@
+Flask
+Flask-CORS
+supabase
+python-dotenv
+numpy
+fpdf2
+matplotlib 
+scipy
+pandas
+dtaidistance

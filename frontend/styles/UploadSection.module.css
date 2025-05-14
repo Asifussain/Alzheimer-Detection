@@ -1,0 +1,57 @@
+.uploadSection {
+    margin-top: 2rem;
+    width: 100%;
+  }
+  
+  .fileInputContainer {
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .hiddenInput {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+  
+  .customFileUpload {
+    padding: 0.8rem 1rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s;
+  }
+  
+  .customFileUpload:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .fileName {
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+  
+  .analyseBtn {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    background-color: #2b6cbb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .analyseBtn:hover {
+    background-color: #0e4a97;
+  }
+  

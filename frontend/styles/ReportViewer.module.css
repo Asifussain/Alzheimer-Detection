@@ -1,0 +1,241 @@
+/* frontend/styles/ReportViewer.module.css */
+.container {
+    padding: 1.5rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #eee;
+    margin-top: 2rem;
+}
+
+.loadingContainer, .errorContainer {
+    padding: 2rem;
+    text-align: center;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 150px;
+}
+.errorContainer {
+    color: #ff6b6b;
+    border: 1px dashed #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.05);
+}
+
+.title {
+    font-size: 1.8rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 0.8rem;
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive grid */
+    gap: 0.8rem 1.5rem; /* Row and column gap */
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.infoGrid strong {
+    color: #ccc;
+}
+
+.predictionAlz {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+.predictionNorm {
+     color: #6bff9f;
+     font-weight: bold;
+}
+
+.section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sectionTitle {
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    color: #00ffff;
+}
+
+.statsBlock {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+}
+
+.statsBlock h4 {
+     font-size: 1rem;
+     font-weight: 500;
+     color: #ccc;
+     margin-bottom: 0.5rem;
+}
+
+.statsBlock ul {
+    list-style: none;
+    padding-left: 0.5rem;
+}
+.statsBlock li {
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+}
+
+.smallText {
+    font-size: 0.85rem;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.plotContainer {
+    margin-top: 1.5rem;
+    text-align: center; /* Center plot images */
+}
+.plotContainer h4 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #ccc;
+}
+
+.plotImage {
+    max-width: 100%;
+    height: auto;
+    background-color: #fff; /* Add white background for plots */
+    border: 1px solid #ddd;
+    margin-top: 0.5rem;
+    border-radius: 4px;
+}
+
+.downloadButtonContainer {
+    margin-bottom: 1.5rem;
+    text-align: right;
+}
+
+.downloadButton {
+     padding: 0.6rem 1.2rem;
+     font-size: 0.9rem;
+     background-color: #2b6cbb;
+     color: #fff;
+     border: none;
+     border-radius: 4px;
+     cursor: pointer;
+     text-decoration: none;
+     transition: background-color 0.3s;
+     display: inline-block;
+}
+.downloadButton:hover {
+    background-color: #0e4a97;
+}
+
+.interpretationBlock {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    border-left: 3px solid var(--accent-teal);
+}
+
+.interpretationText {
+    white-space: pre-wrap; 
+    word-wrap: break-word;
+    font-family: 'Courier New', Courier, monospace; 
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #ccc;
+}
+
+.metricsDisclaimer {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 1.5rem;
+    padding: 0.8rem;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-left: 3px solid var(--primary-blue); /* Use a different color for emphasis */
+    border-radius: 4px;
+    line-height: 1.6;
+}
+
+.metricsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive columns */
+    gap: 1.5rem; /* Gap between metric items */
+    margin-bottom: 1.5rem;
+}
+
+.metricItem {
+    background-color: rgba(255, 255, 255, 0.05); /* Slightly lighter card background */
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.metricItem:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.metricIconLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.metricIcon {
+    font-size: 1.2rem; /* Adjust icon size */
+    color: var(--accent-teal); /* Teal icons */
+    flex-shrink: 0; /* Prevent icon shrinking */
+}
+
+.metricLabel {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #ccc;
+}
+
+.metricValue {
+    font-size: 1.6rem; /* Larger value */
+    font-weight: 600;
+    color: #fff; /* White value */
+    margin-bottom: 0.2rem;
+    text-align: right; /* Align value to the right */
+}
+
+.metricDescription {
+    font-size: 0.8rem;
+    color: #9CA3AF; /* --text-secondary */
+    text-align: right; /* Align description to the right */
+    margin-top: auto; /* Push description to the bottom if space allows */
+}
+
+.confusionMatrix {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-top: 1rem;
+    text-align: center;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1rem;
+}
+.confusionMatrix span {
+    margin: 0 0.5rem;
+}
+
+.errorTextSmall, .loadingTextSmall { /* For consistency */
+    font-size: 0.9rem;
+    color: #aaa;
+    padding: 1rem;
+    text-align: center;
+}
+.errorTextSmall {
+    color: var(--error-color);
+}
