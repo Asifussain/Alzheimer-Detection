@@ -1,0 +1,112 @@
+/* frontend/styles/SelectRole.module.css */
+.selectRoleContainer {
+    max-width: 800px;
+    margin: 3rem auto;
+    padding: 2rem;
+    text-align: center;
+}
+
+.subheading {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+}
+
+.roleForm {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.roleOptionsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.roleOption {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 150px; /* Ensure consistent height */
+}
+
+.roleOption:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    border-color: var(--primary-blue);
+}
+
+.roleOption.selected {
+    border-color: var(--accent-teal);
+    box-shadow: 0 0 0 3px rgba(80, 227, 194, 0.4); /* Teal glow */
+    background-color: rgba(80, 227, 194, 0.1); /* Subtle teal background */
+}
+
+.roleName {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--text-heading);
+    margin-bottom: 0.75rem;
+}
+
+.roleDescription {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.submitButton {
+    /* Base styles from globals.css are inherited for button */
+    background-color: var(--accent-teal);
+    color: var(--background-start); /* Dark text on teal button */
+    padding: 0.9rem 2rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border-radius: 6px;
+    align-self: center; /* Center button */
+    margin-top: 1.5rem;
+    min-width: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.submitButton:hover:not(:disabled) {
+    background-color: #45ccb4; /* Lighter teal on hover */
+    box-shadow: 0 4px 15px rgba(80, 227, 194, 0.25);
+}
+
+.submitButton:disabled {
+    background-color: var(--border-color);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Reuse loading spinner component if it's small, or style it here */
+.submitButton svg { /* If LoadingSpinner is an SVG */
+    width: 20px;
+    height: 20px;
+    /* Assuming LoadingSpinner component's styles handle its color */
+}
+
+
+.errorMessage {
+    color: var(--error-color);
+    background-color: rgba(248, 113, 113, 0.1); /* Light red background */
+    border: 1px solid var(--error-color);
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}

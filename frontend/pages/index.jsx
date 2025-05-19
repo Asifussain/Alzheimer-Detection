@@ -1,41 +1,39 @@
 // frontend/pages/index.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react'; // Removed useState as it's not used for fileName here
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth } from '../components/AuthProvider';
+import { useAuth, PENDING_ROLE_SELECTION } from '../components/AuthProvider'; // Import PENDING_ROLE_SELECTION
 import { useRouter } from 'next/router';
-// --- IMPORT THE NEW CSS MODULE ---
 import styles from '../styles/IndexPage.module.css';
+import pageStyles from '../styles/PageLayout.module.css'; // For overall page container
 import { FiUploadCloud, FiCpu, FiShield, FiBarChart2, FiZap, FiLock } from 'react-icons/fi';
 import Link from 'next/link';
 import supabase from '../lib/supabaseClient';
 
 export default function Home() {
-  const [fileName, setFileName] = useState('Input EEG data (.npy)');
   const { user, profile, loading: authLoading, session } = useAuth();
   const router = useRouter();
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef(null); // Still keep for disabled form aesthetic
 
-  // --- Redirect Logic (Keep as is) ---
   useEffect(() => {
-    if (!authLoading && user && profile?.role) {
-      const role = profile.role;
-      if (role === 'patient') {
-        router.replace('/patient/dashboard');
-      } else if (role === 'technician') {
-        router.replace('/technician/dashboard');
-      } else if (role === 'clinician') {
-        router.replace('/clinician/dashboard');
+    if (!authLoading && user && profile) {
+      // If role needs selection, AuthProvider or withAuth will redirect to /select-role.
+      // If role is confirmed and valid, redirect to the specific dashboard.
+      if (profile.role && profile.role !== PENDING_ROLE_SELECTION && profile.role_confirmed) {
+        const dashboardPath = `/${profile.role}/dashboard`;
+        console.log(`IndexPage: Role confirmed ('${profile.role}'), redirecting to ${dashboardPath}`);
+        router.replace(dashboardPath);
       }
+      // If role is PENDING_ROLE_SELECTION or !role_confirmed, no redirect from here;
+      // AuthProvider or withAuth (if trying to access a protected route) will handle it.
     }
   }, [user, profile, authLoading, router]);
 
-  // --- Login Handler (Keep as is) ---
   const handleLogin = async () => {
      try {
          const { error } = await supabase.auth.signInWithOAuth({
            provider: 'google',
-           options: { /* Optional: Add redirect URL */ }
+           options: { redirectTo: `${window.location.origin}/` } // Ensure redirect after login
          });
          if (error) {
              console.error("Google Sign-In Error:", error.message);
@@ -47,22 +45,23 @@ export default function Home() {
      }
   };
 
-  // --- Render Logic ---
-   if (authLoading || (user && profile?.role)) {
-        return (
-            <>
-             <Navbar />
-             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 80px)', gap: '1rem' }}>
-                <LoadingSpinner />
-                <p style={{ color: 'var(--text-secondary)' }}>{user ? 'Redirecting to dashboard...' : 'Loading...'}</p>
-             </div>
-            </>
-        );
-   }
+  // Show loading page if auth is loading OR if user is logged in but profile/role check is pending (and will redirect)
+  if (authLoading || (user && (!profile || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed))) {
+    return (
+      <>
+        <Navbar />
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 70px)', gap: '1rem', backgroundColor: 'var(--background-start)' }}>
+          <LoadingSpinner />
+          <p style={{ color: 'var(--text-secondary)' }}>
+            {authLoading ? 'Loading authentication...' : 'Checking profile & redirecting...'}
+          </p>
+        </div>
+      </>
+    );
+  }
 
-  // Render Logged-Out Index Page
-  if (!user || !session) {
-    // --- Use classes from IndexPage.module.css (imported as styles) ---
+  // Render Logged-Out Index Page (if not loading and no user/session)
+  if (!user && !session) {
     return (
       <>
         <Navbar />
@@ -90,7 +89,7 @@ export default function Home() {
                             disabled
                         />
                         <div className={styles.fileInputTrigger}>
-                            {fileName}
+                            Input EEG data (.npy)
                         </div>
                         <button type="button" className={styles.analyseBtnDisabled} disabled>
                             Analyse
@@ -107,7 +106,6 @@ export default function Home() {
             <section className={styles.featuresSection}>
                 <h2 className={styles.sectionTitle}>How AI4NEURO Works</h2>
                 <div className={styles.featuresGrid}>
-                    {/* Feature Cards using styles from IndexPage.module.css */}
                     <div className={styles.featureCard}> <FiUploadCloud className={styles.featureIcon} /> <h3 className={styles.featureTitle}>1. Secure Upload</h3> <p className={styles.featureDescription}> Log in and easily upload your anonymized EEG data in the standard .npy format. </p> </div>
                     <div className={styles.featureCard}> <FiCpu className={styles.featureIcon} /> <h3 className={styles.featureTitle}>2. AI Analysis</h3> <p className={styles.featureDescription}> Our fine-tuned ADFormer model processes the complex patterns within your EEG signals. </p> </div>
                     <div className={styles.featureCard}> <FiBarChart2 className={styles.featureIcon} /> <h3 className={styles.featureTitle}>3. Clear Insights</h3> <p className={styles.featureDescription}> Receive a clear pattern indication (Normal/Alzheimer's) and access detailed reports. </p> </div>
@@ -121,7 +119,7 @@ export default function Home() {
                     <div className={styles.featureCard}> <FiLock className={styles.featureIcon} /> <h3 className={styles.featureTitle}>Secure & Private</h3> <p className={styles.featureDescription}> Your data is handled with care using secure authentication and storage practices via Supabase. </p> </div>
                 </div>
                  <p style={{textAlign: 'center', marginTop: '3rem', color: 'var(--text-secondary)'}}>
-                    Powered by the ADFormer deep learning model for time-series analysis. <Link href="/about">Learn More</Link>
+                    Powered by the ADFormer deep learning model for time-series analysis. <Link href="/about" className={pageStyles.link}>Learn More</Link>
                  </p>
             </section>
         </main>
@@ -129,5 +127,14 @@ export default function Home() {
     );
   }
 
-  return <Navbar />;
+  // Fallback, should ideally be covered by the conditions above
+  // or user is already redirected to their dashboard.
+  return (
+    <>
+      <Navbar />
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 70px)', backgroundColor: 'var(--background-start)' }}>
+        <p style={{ color: 'var(--text-primary)' }}>Loading your experience...</p>
+      </div>
+    </>
+  );
 }

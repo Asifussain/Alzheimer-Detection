@@ -239,3 +239,183 @@
 .errorTextSmall {
     color: var(--error-color);
 }
+
+/* frontend/styles/ReportViewer.module.css */
+
+/* ... (your existing styles) ... */
+
+.sectionSeparator {
+    border: 0;
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 1.5rem 0;
+}
+
+.predictionSummary {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-blue);
+}
+
+.predictionSummary h4 {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.mainPredictionValue {
+    font-size: 1.8rem; /* Larger for patient's main result */
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+/* .predictionAlz and .predictionNorm are already defined for color */
+
+.technicalDetail {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.patientExplanationBlock {
+    background-color: rgba(0,0,0,0.15); /* Slightly darker than card-bg to stand out */
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-teal); /* Accent color for emphasis */
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    display: flex;
+    align-items: flex-start; /* Align icon and text to top */
+    gap: 1rem;
+}
+
+.patientExplanationIcon {
+    font-size: 1.8em; /* Larger icon */
+    color: var(--accent-teal);
+    margin-top: 0.1em; /* Align with text better */
+    flex-shrink: 0;
+}
+
+.patientExplanationContent h4 {
+    font-size: 1rem;
+    color: var(--text-heading);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.patientExplanationContent p {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.metricsGridSimple { /* For patient view of consistency */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metricsGridSimple .metricItem { /* Can reuse metricItem or create a simpler version */
+    padding: 0.8rem 1rem; /* Slightly less padding */
+}
+.metricsGridSimple .metricValue {
+    font-size: 1.4rem; /* Slightly smaller value for patient */
+}
+
+.disclaimer {
+    margin-top: 2rem;
+    padding: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border-color);
+    border-radius: 6px;
+    line-height: 1.6;
+    display: flex;
+    align-items: center;
+}
+
+.patientFinalNote {
+    background-color: rgba(74, 144, 226, 0.05); /* primary-blue with alpha */
+    border: 1px solid rgba(74, 144, 226, 0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+.patientFinalNote h4 {
+    font-size: 1.2rem;
+    color: var(--primary-blue);
+    margin-bottom: 0.75rem;
+}
+.patientFinalNote p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+
+/* frontend/styles/ReportViewer.module.css */
+
+/* ... (your existing styles from previous response, including .patientExplanationBlock etc.) ... */
+
+.patientSimpleMetric {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+.patientSimpleMetric strong {
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+
+.patientList {
+    list-style: disc;
+    padding-left: 1.5rem; /* Indent list */
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.patientList li {
+    margin-bottom: 0.3rem;
+    line-height: 1.5;
+}
+
+.disclaimer span { /* To allow disclaimer text to wrap with icon */
+    flex-grow: 1;
+}
+
+/* Ensure titleIcon is styled if you use it (similar to patientExplanationIcon) */
+.patientExplanationContent h4 { /* Ensure this is distinct enough */
+    font-size: 1.05rem; /* Slightly larger */
+    color: var(--text-heading); /* White for patient explanation titles */
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.patientExplanationContent div p,
+.patientExplanationContent div ul { /* Target paragraphs and lists inside the children */
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+
+/* Adjustments for patient-friendly prediction display */
+.predictionSummary h4 { /* "AI Pattern Assessment:" */
+    font-size: 1.2rem; /* Make it a bit more prominent */
+    color: var(--text-heading);
+    margin-bottom: 0.75rem;
+}
+.mainPredictionValue {
+    font-size: 2rem; /* Make the actual prediction text large */
+    font-weight: 700; /* Bold */
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+    /* Colors are handled by .predictionAlz and .predictionNorm */
+}
