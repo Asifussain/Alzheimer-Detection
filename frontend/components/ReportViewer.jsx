@@ -4,7 +4,7 @@ import supabase from '../lib/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import styles from '../styles/ReportViewer.module.css';
 import pageStyles from '../styles/PageLayout.module.css';
-import { useAuth } from './AuthProvider'; 
+import { useAuth } from './AuthProvider';
 
 import { FiDownload, FiActivity, FiCheckCircle, FiAlertTriangle, FiBarChart2, FiTarget, FiZap, FiCompass, FiHash, FiMessageSquare, FiInfo, FiCpu, FiShield, FiThumbsUp, FiThumbsDown, FiPercent } from 'react-icons/fi';
 
@@ -12,11 +12,11 @@ const formatMetric = (value, type = 'float', precision = 1) => {
     if (value === null || value === undefined || isNaN(value)) return 'N/A';
     if (type === 'percent') return `${(value * 100).toFixed(precision)}%`;
     if (type === 'float') return value.toFixed(precision);
-    return String(value); 
+    return String(value);
 };
 
 const MetricItem = ({ icon, label, value, unit = '', description = '', variant = 'technical', highlightValue = false }) => (
-    <div className={styles.metricItem} style={{ 
+    <div className={styles.metricItem} style={{
         backgroundColor: variant === 'patient' ? 'rgba(74, 144, 226, 0.07)' : 'rgba(50, 50, 70, 0.5)',
         borderLeft: variant === 'patient' ? '4px solid var(--primary-blue)' : '4px solid var(--accent-teal)',
         padding: variant === 'patient' ? '0.8rem 1rem' : '1rem 1.2rem',
@@ -27,7 +27,7 @@ const MetricItem = ({ icon, label, value, unit = '', description = '', variant =
             <span className={styles.metricLabel} style={{color: variant === 'patient' ? 'var(--text-heading)' : '#e0e0e0', fontWeight: variant === 'patient' ? '500' : 'normal', fontSize: variant === 'patient' ? '0.9rem' : '0.9rem'}}>{label}</span>
         </div>
         <span className={styles.metricValue} style={{
-            color: highlightValue ? (String(value).includes("Alzheimer") ? 'var(--error-color)' : 'var(--success-color)') : (variant === 'patient' ? 'var(--primary-blue)' : '#fff'), 
+            color: highlightValue ? (String(value).includes("Alzheimer") ? 'var(--error-color)' : 'var(--success-color)') : (variant === 'patient' ? 'var(--primary-blue)' : '#fff'),
             fontSize: variant === 'patient' ? '1.3rem' : '1.6rem',
             fontWeight: variant === 'patient' ? '600' : '600'
             }}>{value}{unit}</span>
@@ -76,20 +76,36 @@ export default function ReportViewer({ predictionId }) {
   const {
       filename, created_at, prediction, probabilities,
       stats_data, timeseries_plot_url, psd_plot_url,
-      pdf_report_url, technical_pdf_url, patient_pdf_url, // Crucial: ensure these are fetched
+      technical_pdf_url, patient_pdf_url, // Use these directly
       similarity_results, similarity_plot_url, consistency_metrics
   } = reportData;
 
-  // Correctly determine which PDF URL to use
+  // --- Updated PDF URL and Filename Logic ---
   let displayPdfUrl;
+  let downloadFilename;
+  let reportTypeString; // For the button text
+
   if (userRole === 'patient') {
-    displayPdfUrl = patient_pdf_url || technical_pdf_url || pdf_report_url; // Fallback if patient_pdf_url is missing
+    displayPdfUrl = patient_pdf_url;
+    downloadFilename = `AI_EEG_Patient_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Patient Report (PDF)';
   } else { // Technician or Clinician
-    displayPdfUrl = technical_pdf_url || pdf_report_url;
+    displayPdfUrl = technical_pdf_url;
+    downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Technical Report (PDF)';
   }
-  const downloadFilename = userRole === 'patient' 
-    ? `AI_EEG_Patient_Report_${filename || predictionId}.pdf` 
-    : `Technical_EEG_Report_${filename || predictionId}.pdf`;
+
+  // Optional: Fallback or warning if the specific role-based URL is missing
+  if (!displayPdfUrl) {
+      console.warn(`ReportViewer: ${userRole === 'patient' ? 'Patient' : 'Technical'} PDF URL missing for prediction ${predictionId}.`);
+      // You might want to provide a generic technical PDF as a last resort if the patient one is missing,
+      // or simply not render the download button if the specific one isn't available.
+      // Example: if (userRole === 'patient' && !patient_pdf_url && technical_pdf_url) {
+      // displayPdfUrl = technical_pdf_url;
+      // reportTypeString = 'Technical Report (PDF) - Patient Version Unavailable';
+      // }
+  }
+  // --- End of Updated PDF URL Logic ---
 
 
   const formattedProbs = () => {
@@ -118,10 +134,12 @@ export default function ReportViewer({ predictionId }) {
       <div className={`${styles.container} ${styles.patientReportContainer}`}>
         <div className={styles.reportHeader}>
             <h2 className={pageStyles.pageTitle} style={{textAlign: 'left', borderBottom: 'none', marginBottom: '0.5rem', color: 'var(--text-heading)'}}>Your AI EEG Pattern Report</h2>
-            {displayPdfUrl && (
+            {displayPdfUrl ? (
                 <a href={displayPdfUrl} download={downloadFilename} className={`${styles.downloadButton} ${styles.patientDownloadButton}`} target="_blank" rel="noopener noreferrer">
-                    <FiDownload /> Download Full Report (PDF)
+                    <FiDownload /> Download {reportTypeString}
                 </a>
+            ) : (
+                 <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
             )}
         </div>
         <hr className={styles.sectionSeparator}/>
@@ -160,7 +178,7 @@ export default function ReportViewer({ predictionId }) {
             </div>
         </section>
         <hr className={styles.sectionSeparator}/>
-        
+
         {showPatientConsistency && (
             <section className={styles.patientSection}>
                 <h3 className={styles.patientSectionTitle}><FiCheckCircle style={{marginRight: '8px'}}/>AI's Internal Consistency Check</h3>
@@ -170,14 +188,14 @@ export default function ReportViewer({ predictionId }) {
                 <div className={styles.metricsGridSimple} style={{gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))'}}>
                     <MetricItem variant="patient" icon={FiPercent} label="Overall Consistency" value={formatMetric(consistency_metrics.accuracy, 'percent',0)} description="How often segment checks matched the main finding."/>
                     <MetricItem variant="patient" icon={FiHash} label="Segments Checked" value={String(consistency_metrics.num_trials)} description="Number of small EEG pieces the AI checked."/>
-                    
+
                     {prediction === "Alzheimer's" ? (
                         <>
                             <MetricItem variant="patient" icon={FiTarget} label="Finding Alzheimer's-like Patterns" value={formatMetric(consistency_metrics.recall_sensitivity, 'percent',0)} description="How often AI found these patterns if present in segments."/>
                             <MetricItem variant="patient" icon={FiThumbsUp} label="Confirming Alzheimer's-like Patterns" value={formatMetric(consistency_metrics.precision, 'percent',0)} description="When AI ID'd a segment as Alzheimer's-like, how often it matched the main finding."/>
                             <MetricItem variant="patient" icon={FiZap} label="Balanced Score (Alzheimer's)" value={formatMetric(consistency_metrics.f1_score, 'float',2)} description="Combined score (0-1) for finding & confirming Alz-like patterns." />
                         </>
-                    ) : ( 
+                    ) : (
                         <MetricItem variant="patient" icon={FiShield} label="Finding Normal Patterns" value={formatMetric(consistency_metrics.specificity, 'percent',0)} description="How often AI found Normal patterns if present in segments."/>
                     )}
                 </div>
@@ -216,7 +234,7 @@ export default function ReportViewer({ predictionId }) {
             <div>
                 <h4 style={{color:'#b45309', fontSize:'1.1rem', fontWeight:'700', marginBottom:'0.4rem'}}>Important: Next Steps & Disclaimer</h4>
                 <p style={{color: '#654321', lineHeight: '1.55', fontSize:'0.88rem'}}>
-                    This AI report is for informational purposes and is <strong>NOT a medical diagnosis</strong>. 
+                    This AI report is for informational purposes and is <strong>NOT a medical diagnosis</strong>.
                     Diagnosis requires a comprehensive evaluation by a qualified healthcare professional.
                     Please <strong>share this report with your doctor</strong> to discuss the findings in context of your health.
                 </p>
@@ -231,14 +249,16 @@ export default function ReportViewer({ predictionId }) {
   const consistencyMessage = consistency_metrics?.message;
   const showConsistencyMetrics = consistency_metrics && !consistencyError && !consistencyMessage && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
 
-  return ( 
+  return (
     <div className={styles.container}>
       <div className={styles.reportHeader} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
         <h2 className={styles.title} style={{borderBottom:'none', margin:0}}>Comprehensive Analysis Report</h2>
-        {displayPdfUrl && (
-          <a href={displayPdfUrl} download={downloadFilename} className={styles.downloadButton} target="_blank" rel="noopener noreferrer">
-           <FiDownload style={{marginRight:'5px'}}/> Download Technical PDF
-          </a>
+         {displayPdfUrl ? (
+            <a href={displayPdfUrl} download={downloadFilename} className={styles.downloadButton} target="_blank" rel="noopener noreferrer">
+               <FiDownload style={{marginRight:'5px'}}/> Download {reportTypeString}
+            </a>
+        ) : (
+             <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
         )}
       </div>
       <hr className={styles.sectionSeparator}/>
@@ -253,7 +273,7 @@ export default function ReportViewer({ predictionId }) {
         </div>
       </section>
       <hr className={styles.sectionSeparator}/>
-      
+
       <section className={styles.section}>
          <h3 className={styles.sectionTitle}><FiTarget /> Internal Consistency Metrics</h3>
          <p className={styles.metricsDisclaimer}>
@@ -307,7 +327,7 @@ export default function ReportViewer({ predictionId }) {
         </>) : <p className={styles.errorTextSmall}>(Similarity analysis error: {similarity_results?.error || 'data not available'})</p>}
       </section>
       <hr className={styles.sectionSeparator}/>
-      
+
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}><FiBarChart2 /> Descriptive Statistics</h3>
         {stats_data && !stats_data.error && stats_data.avg_band_power ? (
@@ -320,25 +340,25 @@ export default function ReportViewer({ predictionId }) {
                     <p className={styles.smallText} style={{wordBreak:'break-all', color:'var(--text-secondary)', lineHeight:'1.6'}}>{stats_data.std_dev_per_channel.map(v => formatMetric(v, 'float', 2)).join(', ')}</p>
                 </>
             )}
-          </div> 
+          </div>
         ) : <p className={styles.errorTextSmall}>(Statistics error: {stats_data?.error || 'data not available'})</p>}
       </section>
       <hr className={styles.sectionSeparator}/>
 
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}><FiActivity/> Standard Visualizations</h3>
-        {timeseries_plot_url && 
+        {timeseries_plot_url &&
             <div className={styles.plotContainer}> <h4 style={{color:'var(--text-heading)'}}>Stacked Time Series</h4> <img src={timeseries_plot_url} alt="Stacked EEG Time Series Plot" className={styles.plotImage}/> </div>
         }
         {!timeseries_plot_url && <p className={styles.loadingTextSmall}>(Time series plot not available)</p>}
-        
-        {psd_plot_url && 
+
+        {psd_plot_url &&
             <div className={styles.plotContainer} style={{marginTop:'1.5rem'}}> <h4 style={{color:'var(--text-heading)'}}>Average Power Spectral Density</h4> <img src={psd_plot_url} alt="Average PSD Plot" className={styles.plotImage}/> </div>
         }
         {!psd_plot_url && <p className={styles.loadingTextSmall}>(PSD plot not available)</p>}
       </section>
       <hr className={styles.sectionSeparator}/>
-      
+
       {/* Shortened disclaimer for technical report view as well */}
       <div className={styles.disclaimer} style={{marginTop:'2rem', textAlign:'center', padding:'1rem', backgroundColor:'rgba(var(--text-secondary-rgb),0.05)', borderRadius:'var(--border-radius)'}}>
         <FiAlertTriangle style={{ marginRight: '8px', color:'var(--text-secondary)', verticalAlign:'middle' }} />
