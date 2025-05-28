@@ -18,6 +18,7 @@ backend/.env
 backend/venv/
 backend/env/
 backend/*.pyc
+*.pyc
 backend/uploads/  # Add this if you don't want to track uploaded files
 
 # Other
