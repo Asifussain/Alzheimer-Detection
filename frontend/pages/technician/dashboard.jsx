@@ -77,9 +77,25 @@ function TechnicianDashboard() {
           {/* Dashboard Title & Welcome */}
           {/* Use dashboard-specific title/welcome classes */}
           <h1 className={dashStyles.dashboardTitle}>Technician Dashboard</h1>
-          <p className={dashStyles.welcomeMessage}>
+
+           <div style={{ marginBottom: '2.5rem' }}> {/* Add a div for better spacing control */}
+            <p style={{ 
+              fontSize: '1.5rem', /* Larger font size for "Welcome Dr. ..." */
+              fontWeight: '500', 
+              color: 'var(--text-heading)', /* Use heading color or a prominent color */
+              lineHeight: '1.4',
+              marginBottom: '0.3rem' /* Space between welcome and tagline */
+            }}>
+              Welcome, {profile?.full_name || user?.email}!
+            </p>
+            <p className={dashStyles.welcomeMessage} style={{ marginTop: '0', fontSize: '1.05rem' /* Keep original tagline size or adjust */ }}>
+              Manage your analyses below.
+            </p>
+          </div>
+
+          {/* <p className={dashStyles.welcomeMessage}>
             Welcome, {profile?.full_name || user?.email}! Manage your analyses below.
-          </p>
+          </p> */}
 
           {/* Upload Card */}
           {/* Use dashboard card style */}

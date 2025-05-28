@@ -6,7 +6,7 @@ export default function AboutPage() {
     <>
       <Navbar />
       <div className={styles.pageContainer}>
-        <h1 className={styles.pageTitle}>About NeuroSynapse</h1>
+        <h1 className={styles.pageTitle}>About AI4NEURO</h1>
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Our Mission</h2>
