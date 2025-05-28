@@ -321,6 +321,11 @@ class PatientPDFReport(BasePDFReport):
         super().__init__(*args, **kwargs)
         self.report_title = "Your AI EEG Pattern Report"
 
+class ClinicianPDFReport(BasePDFReport):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.report_title = "AI-Assisted EEG Pattern Analysis Report"
+
 # --- Helper Functions ---
 def _cleanup_storage_on_error(bucket_name, path):
     try:
@@ -591,6 +596,230 @@ def _build_patient_pdf_report_content(pdf: PatientPDFReport, prediction_data, si
         icon_char="[!]", bg_color=pdf.warning_bg_color, title_color=(106, 63, 20), text_color_override=(85,60,10), font_size_text=9.5, line_h=5.5
     )
 
+# Assume sanitize_for_helvetica is defined elsewhere, e.g.:
+# def sanitize_for_helvetica(text_string):
+#     # Placeholder: Implement or import your actual sanitization logic
+#     # This is important if text_string can contain characters not supported by Helvetica
+#     # For example, replace unsupported characters or use a fallback.
+#     # A very basic version might just encode and decode to filter some things:
+#     try:
+#         return text_string.encode('latin-1', 'replace').decode('latin-1')
+#     except:
+#         return "Error sanitizing string"
+
+
+def _build_clinician_pdf_report_content(pdf: 'TechnicalPDFReport', prediction_data, stats_data, similarity_data, consistency_metrics, ts_img_data, psd_img_data, similarity_plot_data):
+    """Builds the Clinician PDF report content."""
+    page_width = pdf.w - pdf.l_margin - pdf.r_margin
+
+    try:
+        pdf.add_page()
+
+        # I. Patient & Analysis Summary
+        pdf.section_title("Patient & Analysis Overview")
+        pdf.key_value_pair("Patient Identifier/Filename", prediction_data.get('filename', 'N/A'))
+
+        created_at = prediction_data.get('created_at')
+        date_str = 'N/A'
+        if created_at:
+            try:
+                dt_obj = pd.to_datetime(created_at)
+                date_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC') if dt_obj.tzinfo else dt_obj.strftime('%Y-%m-%d %H:%M:%S (?)')
+            except Exception:
+                date_str = str(created_at) # Fallback to raw string
+        pdf.key_value_pair("Date of Analysis", date_str)
+
+        prediction_label = prediction_data.get('prediction', 'N/A')
+        # You might want to map technical prediction labels to more clinician-friendly ones here
+        # For example: if prediction_label == "AD": primary_finding = "Pattern Suggestive of Alzheimer's-related Changes"
+        primary_finding = prediction_label # Using raw prediction for now
+        pdf.key_value_pair("Primary EEG Finding", primary_finding)
+
+        probabilities = prediction_data.get('probabilities')
+        prob_str = 'N/A'
+        if isinstance(probabilities, list) and len(probabilities) == 2:
+            try:
+                # Assuming probabilities[0] is Normal, probabilities[1] is Alzheimer's
+                # Adjust labels as per your model's output convention
+                prob_str = f"Normal: {probabilities[0]*100:.1f}%, Alzheimer's-related Changes: {probabilities[1]*100:.1f}%"
+            except Exception:
+                prob_str = str(probabilities) # Fallback
+        elif probabilities is not None:
+            prob_str = str(probabilities)
+        pdf.key_value_pair("Assessment Confidence", prob_str)
+        pdf.ln(5)
+
+        # Optional: Key Observations Summary (Manual or semi-automated text)
+        # pdf.key_value_pair("Key Observations Summary", "Your summary text here...")
+        # pdf.ln(5)
+
+        # II. EEG Pattern Analysis Results
+        pdf.section_title("EEG Pattern Analysis & Consistency")
+
+        consistency_statement = "(Consistency check not available for this recording.)"
+        if consistency_metrics and not consistency_metrics.get('error'):
+            num_trials = consistency_metrics.get('num_trials', 0)
+            if num_trials > 1:
+                accuracy = consistency_metrics.get('accuracy', 0) # Example metric
+                # Define your thresholds for "High", "Moderate", "Low"
+                if accuracy >= 0.85: # Example threshold for High
+                    consistency_statement = "High (The EEG finding is consistently observed throughout the recording.)"
+                elif accuracy >= 0.70: # Example threshold for Moderate
+                    consistency_statement = "Moderate (Some variability in EEG patterns was noted, but the primary finding is generally supported.)"
+                else: # Low
+                    consistency_statement = "Low (Significant variability in EEG patterns was observed; interpret primary finding with caution.)"
+            elif consistency_metrics.get('message'): # num_trials <=1 but has a message
+                 consistency_statement = f"({consistency_metrics.get('message')})"
+            # If num_trials <= 1 and no message, it remains the default
+        elif consistency_metrics and consistency_metrics.get('error'):
+            # You might want a more generic message for the clinician
+            consistency_statement = "(Could not determine consistency due to an analysis issue.)"
+            # print(f"Consistency Check Error: {consistency_metrics.get('error')}") # Log technical error
+        elif consistency_metrics and consistency_metrics.get('message'): # No error, but a message (e.g., not enough data)
+            consistency_statement = f"({consistency_metrics.get('message')})"
+
+        pdf.key_value_pair("Finding Consistency", consistency_statement)
+        pdf.ln(10)
+
+
+        if pdf.get_y() > pdf.h - 80 : pdf.add_page()
+
+        # III. Key EEG Waveform Characteristics
+        pdf.section_title("Key EEG Waveform Characteristics")
+        if similarity_data and not similarity_data.get('error'):
+            interpretation = similarity_data.get('interpretation', 'No specific waveform characteristics noted or interpretation available.')
+            pdf.write_multiline(interpretation, indent=5)
+            pdf.ln(2)
+
+            if similarity_plot_data and isinstance(similarity_plot_data, str) and similarity_plot_data.startswith('data:image/png;base64,'):
+                plot_title = "Illustrative EEG Segment Comparison"
+                pdf.set_font("Helvetica",'B',11); pdf.cell(0, 8, plot_title, ln=1); pdf.ln(1)
+                try:
+                    img_bytes = base64.b64decode(similarity_plot_data.split(',')[1])
+                    img_file = io.BytesIO(img_bytes)
+                    img_width_mm = page_width * 0.85 # Slightly smaller if desired
+                    x_pos = pdf.l_margin + (page_width - img_width_mm) / 2
+                    pdf.image(img_file, x=x_pos, w=img_width_mm)
+                    img_file.close()
+                    pdf.ln(5)
+                except Exception as e:
+                    pdf.set_font("Helvetica",'I',10); pdf.set_text_color(150,0,0) # Darker red
+                    pdf.cell(0,10,f"(Error displaying segment comparison plot.)", ln=1); pdf.set_text_color(0)
+                    print(f"PDF Clinician Sim Plot Embed Err: {e}")
+            else:
+                pdf.set_font("Helvetica",'I',10); pdf.cell(0,10,"(No illustrative segment comparison plot available.)", ln=1)
+        else:
+            err_msg = "(Waveform characteristics analysis not performed or encountered an error.)"
+            if similarity_data and similarity_data.get('error'):
+                # Log technical error: print(f"Similarity Analysis Error: {similarity_data.get('error')}")
+                pass # Use generic message above for clinician
+            pdf.set_font("Helvetica",'I',10)
+            pdf.write_multiline(err_msg, indent=5)
+        pdf.ln(10)
+
+
+        if pdf.get_y() > pdf.h - 100 : pdf.add_page()
+
+        # IV. Brainwave Frequency Profile
+        pdf.section_title("Brainwave Frequency Profile")
+        if stats_data and not stats_data.get('error'):
+            pdf.set_font("Helvetica",'B',11); pdf.cell(0,6,"Relative Brainwave Activity (%):", ln=1); pdf.ln(1)
+            pdf.set_font("Helvetica",size=10)
+            avg_power = stats_data.get('avg_band_power',{})
+            band_found = False
+            if avg_power:
+                for band, powers in avg_power.items():
+                    rel_power = powers.get('relative', None)
+                    band_found |= (rel_power is not None)
+                    rel_power_str = f"{rel_power * 100:.1f}%" if isinstance(rel_power, (int, float)) else 'N/A'
+                    pdf.cell(10); pdf.cell(0,5,f"- {band.capitalize()}: {rel_power_str}", ln=1)
+            if not band_found:
+                pdf.set_font("Helvetica",'I',10); pdf.cell(10); pdf.cell(0,5,"(Detailed brainwave activity data not available.)", ln=1)
+            # Optional: Frequency Profile Summary (Qualitative)
+            # pdf.ln(2); pdf.set_font("Helvetica",'I',10)
+            # pdf.cell(10); pdf.multi_cell(0,5,"Summary: [e.g., Alpha activity is within expected range.]")
+        else:
+            err_msg = "(Frequency profile analysis not performed or encountered an error.)"
+            if stats_data and stats_data.get('error'):
+                # Log technical error: print(f"Statistics Error: {stats_data.get('error')}")
+                pass # Use generic message for clinician
+            pdf.set_font("Helvetica",'I',10)
+            pdf.write_multiline(err_msg, indent=5)
+        pdf.ln(10)
+
+
+        if pdf.get_y() > pdf.h - 120 : pdf.add_page() # Allow more space for visualizations
+
+        # V. EEG Visualizations
+        pdf.section_title("EEG Visualizations")
+
+        pdf.set_font("Helvetica",'B',12); pdf.cell(0,8,"Selected EEG Traces", ln=1); pdf.ln(2)
+        if ts_img_data and isinstance(ts_img_data, str) and ts_img_data.startswith('data:image/png;base64,'):
+            try:
+                img_bytes=base64.b64decode(ts_img_data.split(',')[1])
+                img_file=io.BytesIO(img_bytes)
+                pdf.image(img_file, x=pdf.l_margin, w=page_width)
+                img_file.close()
+                pdf.ln(5)
+            except Exception as e:
+                pdf.set_font("Helvetica",'I',10); pdf.set_text_color(150,0,0)
+                pdf.cell(0,10,f"(Error displaying EEG traces.)", ln=1); pdf.set_text_color(0)
+                print(f"PDF Clinician TS Embed Err: {e}")
+        else:
+            pdf.set_font("Helvetica",'I',10); pdf.cell(0,10,"(EEG trace visualization not available.)", ln=1)
+        pdf.ln(10)
+
+
+        if pdf.get_y() > pdf.h - 120 : pdf.add_page()
+
+        pdf.set_font("Helvetica",'B',12); pdf.cell(0,8,"Overall Frequency Spectrum (PSD)", ln=1); pdf.ln(2)
+        if psd_img_data and isinstance(psd_img_data, str) and psd_img_data.startswith('data:image/png;base64,'):
+            try:
+                img_bytes=base64.b64decode(psd_img_data.split(',')[1])
+                img_file=io.BytesIO(img_bytes)
+                img_width_mm=page_width*0.9
+                x_pos=pdf.l_margin+(page_width-img_width_mm)/2
+                pdf.image(img_file, x=x_pos, w=img_width_mm)
+                img_file.close()
+                pdf.ln(5)
+            except Exception as e:
+                pdf.set_font("Helvetica",'I',10); pdf.set_text_color(150,0,0)
+                pdf.cell(0,10,f"(Error displaying frequency spectrum plot.)", ln=1); pdf.set_text_color(0)
+                print(f"PDF Clinician PSD Embed Err: {e}")
+        else:
+            pdf.set_font("Helvetica",'I',10); pdf.cell(0,10,"(Frequency spectrum visualization not available.)", ln=1)
+        pdf.ln(10)
+
+
+        if pdf.get_y() > pdf.h - 50 : pdf.add_page() # Space for disclaimer
+
+        # VI. Important Notes & Disclaimer
+        pdf.section_title("Important Notes")
+        disclaimer_text = (
+            "This report provides an automated analysis of EEG data and is intended for use by qualified "
+            "clinicians as a supportive tool in conjunction with other clinical information. It is not a "
+            "standalone diagnostic assessment. All findings require clinical correlation."
+        )
+        pdf.set_font("Helvetica",'',9)
+        pdf.write_multiline(disclaimer_text, indent=0) # No indent for main disclaimer
+        pdf.ln(5)
+        # Add any other specific disclaimers here if needed
+
+
+    except Exception as pdf_build_e:
+        print(f"Critical Error building Clinician PDF content: {pdf_build_e}")
+        traceback.print_exc()
+        try:
+            # Attempt to add an error message to the PDF itself
+            if pdf.page_no() == 0: pdf.add_page() # Ensure there's a page to write on
+            elif pdf.get_y() > pdf.h - 30 : pdf.add_page() # Ensure space for error message
+            pdf.set_font("Helvetica",'B',12); pdf.set_text_color(255,0,0)
+            # Use sanitize_for_helvetica if you have it defined and imported
+            error_message_for_pdf = f"Critical Error Building PDF Content:\n{sanitize_for_helvetica(str(pdf_build_e))}"
+            pdf.multi_cell(0,10, error_message_for_pdf, align='C')
+            pdf.set_text_color(0)
+        except Exception as pdf_err_fallback:
+            print(f"Fallback error writing critical error to Clinician PDF failed: {pdf_err_fallback}")
 
 # --- Predict Endpoint ---
 @app.route('/api/predict', methods=['POST'])
@@ -608,7 +837,7 @@ def predict():
     raw_eeg_storage_path = f'raw_eeg/{user_id}/{save_filename}'; prediction_id = None
     report_generation_errors = []; similarity_analysis_results = None; consistency_metrics_results = None
     ts_img_data, psd_img_data, similarity_plot_base64_data = None, None, None
-    ts_url, psd_url, similarity_plot_url, technical_pdf_url, patient_pdf_url = None, None, None, None, None
+    ts_url, psd_url, similarity_plot_url, technical_pdf_url, patient_pdf_url, clinician_pdf_url = None, None, None, None, None, None
     asset_prefix = ""
 
     try:
@@ -681,12 +910,24 @@ def predict():
             if not isinstance(patient_pdf_url, str) or not patient_pdf_url.startswith('http'): patient_pdf_url=None; report_generation_errors.append("PatientPDFURL")
         except Exception as e: print(f"ERR PatientPDFUpload: {e}"); report_generation_errors.append("PatientPDFUpload")
 
+        # Generate Clinician PDF
+        print("Generating Clinician PDF report..."); clinician_pdf = PatientPDFReport(); clinician_pdf.alias_nb_pages()
+        _build_clinician_pdf_report_content(clinician_pdf, prediction_data_for_report, stats_json, similarity_analysis_results, consistency_metrics_results, ts_img_data, psd_img_data, similarity_plot_base64_data)
+        clinician_pdf_bytes = bytes(clinician_pdf.output()); clinician_pdf_filename = f"{asset_prefix}/clinician_report.pdf"
+        try:
+            supabase.storage.from_(REPORT_ASSET_BUCKET).upload(path=clinician_pdf_filename, file=clinician_pdf_bytes, file_options={"content-type": "application/pdf", "upsert": "true"})
+            clinician_pdf_url = supabase.storage.from_(REPORT_ASSET_BUCKET).get_public_url(clinician_pdf_filename)
+            if not isinstance(clinician_pdf_url, str) or not clinician_pdf_url.startswith('http'): clinician_pdf_url=None; report_generation_errors.append("ClinicianPDFURL")
+        except Exception as e: print(f"ERR ClinicianPDFUpload: {e}"); report_generation_errors.append("ClinicianPDFUpload")
+
+            
         report_generation_status = "Completed" if not report_generation_errors else f"Completed with errors ({', '.join(report_generation_errors)})"
         db_similarity_data = {k: v for k, v in similarity_analysis_results.items() if k != 'plot_base64'} if isinstance(similarity_analysis_results, dict) and not similarity_analysis_results.get('error') else similarity_analysis_results
 
         update_data = {
             "stats_data": stats_json, "timeseries_plot_url": ts_url, "psd_plot_url": psd_url,
             "technical_pdf_url": technical_pdf_url, "patient_pdf_url": patient_pdf_url,
+            "clinician_pdf_url": clinician_pdf_url,
             "report_generated_at": datetime.now(timezone.utc).isoformat(), "status": report_generation_status,
             "similarity_results": db_similarity_data, "similarity_plot_url": similarity_plot_url,
         }
@@ -704,7 +945,8 @@ def predict():
             assets_to_clean = [
                 f"{asset_prefix}/similarity_plot_ch{channel_index_for_plot + 1}.png",
                 f"{asset_prefix}/timeseries.png", f"{asset_prefix}/psd.png",
-                f"{asset_prefix}/technical_report.pdf", f"{asset_prefix}/patient_report.pdf"
+                f"{asset_prefix}/technical_report.pdf", f"{asset_prefix}/patient_report.pdf",
+                f"{asset_prefix}/clinician_report.pdf"
             ]
             for asset_path in assets_to_clean: _cleanup_storage_on_error(REPORT_ASSET_BUCKET, asset_path)
         _cleanup_storage_on_error(RAW_EEG_BUCKET, raw_eeg_storage_path)
