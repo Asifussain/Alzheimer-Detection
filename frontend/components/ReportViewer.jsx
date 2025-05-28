@@ -11,135 +11,135 @@ import { FiDownload, FiActivity, FiCheckCircle, FiAlertTriangle, FiBarChart2, Fi
 
 // Original formatMetric from your code
 const formatMetric = (value, type = 'float', precision = 1) => {
-    if (value === null || value === undefined || isNaN(value)) return 'N/A';
-    if (type === 'percent') return `${(Number(value) * 100).toFixed(precision)}%`; // Ensured value is Number
-    if (type === 'float') return Number(value).toFixed(precision); // Ensured value is Number
-    return String(value);
+    if (value === null || value === undefined || isNaN(value)) return 'N/A';
+    if (type === 'percent') return `${(Number(value) * 100).toFixed(precision)}%`; // Ensured value is Number
+    if (type === 'float') return Number(value).toFixed(precision); // Ensured value is Number
+    return String(value);
 };
 
 // Original MetricItem from your code
 const MetricItem = ({ icon, label, value, unit = '', description = '', variant = 'technical', highlightValue = false }) => (
-    <div className={styles.metricItem} style={{
-        backgroundColor: variant === 'patient' ? 'rgba(74, 144, 226, 0.07)' : 'rgba(50, 50, 70, 0.5)',
-        borderLeft: variant === 'patient' ? '4px solid var(--primary-blue)' : '4px solid var(--accent-teal)',
-        padding: variant === 'patient' ? '0.8rem 1rem' : '1rem 1.2rem',
-        marginBottom: variant === 'patient' ? '0.75rem': '1rem',
-    }}>
-        <div className={styles.metricIconLabel}>
-            {icon && React.createElement(icon, { className: styles.metricIcon, style: { color: variant === 'patient' ? 'var(--primary-blue)' : 'var(--accent-teal)' } })}
-            <span className={styles.metricLabel} style={{color: variant === 'patient' ? 'var(--text-heading)' : '#e0e0e0', fontWeight: variant === 'patient' ? '500' : 'normal', fontSize: variant === 'patient' ? '0.9rem' : '0.9rem'}}>{label}</span>
-        </div>
-        <span className={styles.metricValue} style={{
-            color: highlightValue ? (String(value).includes("Alzheimer") ? 'var(--error-color)' : 'var(--success-color)') : (variant === 'patient' ? 'var(--primary-blue)' : '#fff'),
-            fontSize: variant === 'patient' ? '1.3rem' : '1.6rem',
-            fontWeight: variant === 'patient' ? '600' : '600'
-            }}>{value}{unit}</span>
-        {description && <span className={styles.metricDescription} style={{color: variant === 'patient' ? 'var(--text-secondary)' : '#a0a0b0', fontSize: variant === 'patient' ? '0.75rem' : '0.8rem'}}>{description}</span>}
-    </div>
+    <div className={styles.metricItem} style={{
+        backgroundColor: variant === 'patient' ? 'rgba(74, 144, 226, 0.07)' : 'rgba(50, 50, 70, 0.5)',
+        borderLeft: variant === 'patient' ? '4px solid var(--primary-blue)' : '4px solid var(--accent-teal)',
+        padding: variant === 'patient' ? '0.8rem 1rem' : '1rem 1.2rem',
+        marginBottom: variant === 'patient' ? '0.75rem': '1rem',
+    }}>
+        <div className={styles.metricIconLabel}>
+            {icon && React.createElement(icon, { className: styles.metricIcon, style: { color: variant === 'patient' ? 'var(--primary-blue)' : 'var(--accent-teal)' } })}
+            <span className={styles.metricLabel} style={{color: variant === 'patient' ? 'var(--text-heading)' : '#e0e0e0', fontWeight: variant === 'patient' ? '500' : 'normal', fontSize: variant === 'patient' ? '0.9rem' : '0.9rem'}}>{label}</span>
+        </div>
+        <span className={styles.metricValue} style={{
+            color: highlightValue ? (String(value).includes("Alzheimer") ? 'var(--error-color)' : 'var(--success-color)') : (variant === 'patient' ? 'var(--primary-blue)' : '#fff'),
+            fontSize: variant === 'patient' ? '1.3rem' : '1.6rem',
+            fontWeight: variant === 'patient' ? '600' : '600'
+            }}>{value}{unit}</span>
+        {description && <span className={styles.metricDescription} style={{color: variant === 'patient' ? 'var(--text-secondary)' : '#a0a0b0', fontSize: variant === 'patient' ? '0.75rem' : '0.8rem'}}>{description}</span>}
+    </div>
 );
 
 
 export default function ReportViewer({ predictionId }) {
-  const { profile, isLoading: authLoading } = useAuth();
-  const [reportData, setReportData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const isMounted = useRef(false);
-  const userRole = profile?.role;
+  const { profile, isLoading: authLoading } = useAuth();
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const isMounted = useRef(false);
+  const userRole = profile?.role;
 
-  useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
+  useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
 
-  useEffect(() => {
-    if (authLoading) return;
-    isMounted.current && (setReportData(null), setLoading(true), setError(null));
-    if (!predictionId) { isMounted.current && (setLoading(false), setError("No prediction ID provided.")); return; }
-    if (!userRole && !authLoading) { isMounted.current && (setLoading(false), setError("User role not determined.")); return; }
+  useEffect(() => {
+    if (authLoading) return;
+    isMounted.current && (setReportData(null), setLoading(true), setError(null));
+    if (!predictionId) { isMounted.current && (setLoading(false), setError("No prediction ID provided.")); return; }
+    if (!userRole && !authLoading) { isMounted.current && (setLoading(false), setError("User role not determined.")); return; }
 
-    let currentFetchId = predictionId;
-    const fetchReportRecord = async () => {
-        try {
-            const { data, error: dbError } = await supabase.from('predictions').select('*').eq('id', predictionId).maybeSingle();
-            if (!isMounted.current || currentFetchId !== predictionId) return;
-            if (dbError) throw new Error(`DB fetch failed: ${dbError.message}`);
-            if (!data) { setError(`Report record not found.`); setLoading(false); return; }
-            setReportData(data); setError(null);
-        } catch (err) {
-            console.error("Error fetching report record:", err);
-            if (isMounted.current && currentFetchId === predictionId) setError(err.message);
-        } finally {
-            if (isMounted.current && currentFetchId === predictionId) setLoading(false);
-        }
-    };
-    if (userRole) fetchReportRecord();
-  }, [predictionId, userRole, authLoading]);
+    let currentFetchId = predictionId;
+    const fetchReportRecord = async () => {
+        try {
+            const { data, error: dbError } = await supabase.from('predictions').select('*').eq('id', predictionId).maybeSingle();
+            if (!isMounted.current || currentFetchId !== predictionId) return;
+            if (dbError) throw new Error(`DB fetch failed: ${dbError.message}`);
+            if (!data) { setError(`Report record not found.`); setLoading(false); return; }
+            setReportData(data); setError(null);
+        } catch (err) {
+            console.error("Error fetching report record:", err);
+            if (isMounted.current && currentFetchId === predictionId) setError(err.message);
+        } finally {
+            if (isMounted.current && currentFetchId === predictionId) setLoading(false);
+        }
+    };
+    if (userRole) fetchReportRecord();
+  }, [predictionId, userRole, authLoading]);
 
-  if (loading || authLoading) return <div className={styles.loadingContainer}><LoadingSpinner /> <p>Loading Report Details...</p></div>;
-  if (error) return <div className={styles.errorContainer}>Error: {error}</div>;
-  if (!reportData) return <div className={styles.container}><p>No report data found for this ID.</p></div>;
+  if (loading || authLoading) return <div className={styles.loadingContainer}><LoadingSpinner /> <p>Loading Report Details...</p></div>;
+  if (error) return <div className={styles.errorContainer}>Error: {error}</div>;
+  if (!reportData) return <div className={styles.container}><p>No report data found for this ID.</p></div>;
 
-  const {
-      filename, created_at, prediction, probabilities,
-      stats_data, timeseries_plot_url, psd_plot_url,
-      technical_pdf_url, patient_pdf_url, clinician_pdf_url,
-      similarity_results, similarity_plot_url, consistency_metrics
-  } = reportData;
+  const {
+      filename, created_at, prediction, probabilities,
+      stats_data, timeseries_plot_url, psd_plot_url,
+      technical_pdf_url, patient_pdf_url, clinician_pdf_url,
+      similarity_results, similarity_plot_url, consistency_metrics
+  } = reportData;
 
-  // PDF URL and Filename Logic from your provided code
-  let displayPdfUrl;
-  let downloadFilename;
-  let reportTypeString;
+  // PDF URL and Filename Logic from your provided code
+  let displayPdfUrl;
+  let downloadFilename;
+  let reportTypeString;
 
-  if (userRole === 'patient') {
-    displayPdfUrl = patient_pdf_url;
-    downloadFilename = `AI_EEG_Patient_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Patient Report (PDF)';
-  } else if (userRole === 'technician') {
-    displayPdfUrl = technical_pdf_url;
-    downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Technical Report (PDF)';
-  } else if (userRole === 'clinician') { // Added for clinician
-    displayPdfUrl = clinician_pdf_url;
-    downloadFilename = `Clinician_EEG_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Clinician Report (PDF)';
-  } else { // Fallback for other roles
+  if (userRole === 'patient') {
+    displayPdfUrl = patient_pdf_url;
+    downloadFilename = `AI_EEG_Patient_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Patient Report (PDF)';
+  } else if (userRole === 'technician') {
+    displayPdfUrl = technical_pdf_url;
+    downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Technical Report (PDF)';
+  } else if (userRole === 'clinician') { // Added for clinician
+    displayPdfUrl = clinician_pdf_url;
+    downloadFilename = `Clinician_EEG_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Clinician Report (PDF)';
+  } else { // Fallback for other roles
     displayPdfUrl = technical_pdf_url; // Default to technical or some other sensible default
     downloadFilename = `EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Report (PDF)';
     console.warn(`ReportViewer: Unknown user role ${userRole}, defaulting PDF.`);
   }
 
-  if (!displayPdfUrl) {
-    console.warn(`ReportViewer: PDF URL missing for prediction ${predictionId}, role ${userRole}.`);
-  }
+  if (!displayPdfUrl) {
+    console.warn(`ReportViewer: PDF URL missing for prediction ${predictionId}, role ${userRole}.`);
+  }
 
-  // Original formattedProbs from your code
-  const formattedProbs = () => {
-    if (!probabilities || typeof probabilities !== 'object') return 'N/A';
-    if (Array.isArray(probabilities) && probabilities.length === 2) {
-      return `Normal: ${formatMetric(probabilities[0], 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities[1], 'percent')}`;
-    }
-    if (probabilities.Normal !== undefined && probabilities["Alzheimer's"] !== undefined) {
-        return `Normal: ${formatMetric(probabilities.Normal, 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities["Alzheimer's"], 'percent')}`;
-    }
-    return 'N/A'; // Keep it simple
-  };
-  const createdDate = created_at ? new Date(created_at).toLocaleString() : 'N/A';
+  // Original formattedProbs from your code
+  const formattedProbs = () => {
+    if (!probabilities || typeof probabilities !== 'object') return 'N/A';
+    if (Array.isArray(probabilities) && probabilities.length === 2) {
+      return `Normal: ${formatMetric(probabilities[0], 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities[1], 'percent')}`;
+    }
+    if (probabilities.Normal !== undefined && probabilities["Alzheimer's"] !== undefined) {
+        return `Normal: ${formatMetric(probabilities.Normal, 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities["Alzheimer's"], 'percent')}`;
+    }
+    return 'N/A'; // Keep it simple
+  };
+  const createdDate = created_at ? new Date(created_at).toLocaleString() : 'N/A';
   const createdDateShort = created_at ? new Date(created_at).toLocaleDateString() : 'N/A';
 
 
-  // --- PATIENT REPORT WEB VIEW (as per your provided code) ---
-  if (userRole === 'patient') {
+  // --- PATIENT REPORT WEB VIEW (as per your provided code) ---
+  if (userRole === 'patient') {
     // ... This extensive JSX block for patient is from your provided code.
     // I will keep it as is.
     // For brevity in this response, I'm collapsing it.
     // Ensure this entire block from your original code is here.
     const mainPredictionText = prediction === "Alzheimer's" ? "Patterns Suggestive of Alzheimer's Characteristics" : "Normal Brainwave Patterns Observed";
-    let confidenceValue = "N/A";
-    if (probabilities && Array.isArray(probabilities) && probabilities.length === 2) {
-        const confVal = prediction === "Alzheimer's" ? probabilities[1] : probabilities[0];
-        confidenceValue = formatMetric(confVal, 'percent');
-    }
-    const showPatientConsistency = consistency_metrics && !consistency_metrics.error && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
+    let confidenceValue = "N/A";
+    if (probabilities && Array.isArray(probabilities) && probabilities.length === 2) {
+        const confVal = prediction === "Alzheimer's" ? probabilities[1] : probabilities[0];
+        confidenceValue = formatMetric(confVal, 'percent');
+    }
+    const showPatientConsistency = consistency_metrics && !consistency_metrics.error && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
     return (
         <div className={`${styles.container} ${styles.patientReportContainer}`}>
             <div className={styles.reportHeader}>
@@ -246,7 +246,7 @@ export default function ReportViewer({ predictionId }) {
             </section>
         </div>
     );
-  }
+  }
   // --- CLINICIAN REPORT WEB VIEW ---
   else if (userRole === 'clinician') {
     const clinicianPredictionText = prediction === "Alzheimer's" ? "Pattern Suggestive of Alzheimer's-related Changes" : "Normal EEG Pattern";
@@ -374,11 +374,11 @@ export default function ReportViewer({ predictionId }) {
   // This will now be explicitly for 'technician'
   else if (userRole === 'technician') {
     const consistencyError = consistency_metrics?.error;
-    const consistencyMessage = consistency_metrics?.message;
-    const showConsistencyMetrics = consistency_metrics && !consistencyError && !consistencyMessage && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
+    const consistencyMessage = consistency_metrics?.message;
+    const showConsistencyMetrics = consistency_metrics && !consistencyError && !consistencyMessage && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
 
-    return (
-      <div className={styles.container}>
+    return (
+    <div className={styles.container}>
             {/* ... This extensive JSX block for technical report is from your provided code ... */}
             {/* I will keep it as is. For brevity in this response, I'm collapsing it. */}
             {/* Ensure this entire block from your original code is here. */}
@@ -488,9 +488,9 @@ export default function ReportViewer({ predictionId }) {
                 <FiAlertTriangle style={{ marginRight: '8px', color:'var(--text-secondary)', verticalAlign:'middle' }} />
                 <span style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>This AI-driven report is for informational and technical review purposes. It is not a substitute for professional medical diagnosis.</span>
             </div>
-      </div>
-    );
-  } else {
+    </div>
+    );
+  } else {
     // Fallback for any other role not explicitly handled
     return <div className={styles.container}><p>Report view not available for your current role ({userRole || 'unknown'}).</p></div>;
   }
