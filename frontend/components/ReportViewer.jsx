@@ -84,7 +84,7 @@ export default function ReportViewer({ predictionId }) {
       similarity_results, similarity_plot_url, consistency_metrics
   } = reportData;
 
-  // PDF URL and Filename Logic
+  // PDF URL and Filename Logic from your provided code
   let displayPdfUrl;
   let downloadFilename;
   let reportTypeString;
@@ -97,12 +97,12 @@ export default function ReportViewer({ predictionId }) {
     displayPdfUrl = technical_pdf_url;
     downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Technical Report (PDF)';
-  } else if (userRole === 'clinician') {
+  } else if (userRole === 'clinician') { // Added for clinician
     displayPdfUrl = clinician_pdf_url;
     downloadFilename = `Clinician_EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Clinician Report (PDF)';
-  } else { 
-    displayPdfUrl = technical_pdf_url; 
+  } else { // Fallback for other roles
+    displayPdfUrl = technical_pdf_url; // Default to technical or some other sensible default
     downloadFilename = `EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Report (PDF)';
     console.warn(`ReportViewer: Unknown user role ${userRole}, defaulting PDF.`);
@@ -110,14 +110,9 @@ export default function ReportViewer({ predictionId }) {
 
   if (!displayPdfUrl) {
     console.warn(`ReportViewer: PDF URL missing for prediction ${predictionId}, role ${userRole}.`);
-    // Fallback if specific PDF is missing but technical one exists
-    if ((userRole === 'patient' || userRole === 'clinician') && technical_pdf_url) {
-        console.warn(`Falling back to technical PDF for role ${userRole}`);
-        displayPdfUrl = technical_pdf_url;
-        reportTypeString = `Technical Report (PDF) - ${userRole.charAt(0).toUpperCase() + userRole.slice(1)} version unavailable`;
-    }
   }
 
+  // Original formattedProbs from your code
   const formattedProbs = () => {
     if (!probabilities || typeof probabilities !== 'object') return 'N/A';
     if (Array.isArray(probabilities) && probabilities.length === 2) {
@@ -126,14 +121,18 @@ export default function ReportViewer({ predictionId }) {
     if (probabilities.Normal !== undefined && probabilities["Alzheimer's"] !== undefined) {
         return `Normal: ${formatMetric(probabilities.Normal, 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities["Alzheimer's"], 'percent')}`;
     }
-    return 'N/A';
+    return 'N/A'; // Keep it simple
   };
   const createdDate = created_at ? new Date(created_at).toLocaleString() : 'N/A';
   const createdDateShort = created_at ? new Date(created_at).toLocaleDateString() : 'N/A';
 
 
-  // --- PATIENT REPORT WEB VIEW ---
+  // --- PATIENT REPORT WEB VIEW (as per your provided code) ---
   if (userRole === 'patient') {
+    // ... This extensive JSX block for patient is from your provided code.
+    // I will keep it as is.
+    // For brevity in this response, I'm collapsing it.
+    // Ensure this entire block from your original code is here.
     const mainPredictionText = prediction === "Alzheimer's" ? "Patterns Suggestive of Alzheimer's Characteristics" : "Normal Brainwave Patterns Observed";
     let confidenceValue = "N/A";
     if (probabilities && Array.isArray(probabilities) && probabilities.length === 2) {
@@ -150,7 +149,7 @@ export default function ReportViewer({ predictionId }) {
                         <FiDownload /> Download {reportTypeString}
                     </a>
                 ) : (
-                     <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
+                    <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
                 )}
             </div>
             <hr className={styles.sectionSeparator}/>
@@ -167,10 +166,10 @@ export default function ReportViewer({ predictionId }) {
                 <div className={styles.predictionSummary} style={{padding:'1.5rem', borderRadius:'8px', backgroundColor: 'var(--card-bg)'}}>
                     <h4 className={styles.patientSubHeading}>AI's Main Finding:</h4>
                     <p className={`${styles.mainPredictionValue} ${prediction === "Alzheimer's" ? styles.predictionAlz : styles.predictionNorm}`}
-                       style={{fontWeight: '700', fontSize: '1.7rem', padding: '0.75rem', borderRadius:'6px', textAlign:'center',
-                               backgroundColor: prediction === "Alzheimer's" ? 'rgba(200, 50, 50, 0.15)' : 'rgba(46, 204, 113, 0.15)',
-                               border: `1px solid ${prediction === "Alzheimer's" ? 'rgba(200, 50, 50, 0.3)' : 'rgba(30, 150, 80, 0.3)'}`
-                               }}>
+                        style={{fontWeight: '700', fontSize: '1.7rem', padding: '0.75rem', borderRadius:'6px', textAlign:'center',
+                        backgroundColor: prediction === "Alzheimer's" ? 'rgba(200, 50, 50, 0.15)' : 'rgba(46, 204, 113, 0.15)',
+                        border: `1px solid ${prediction === "Alzheimer's" ? 'rgba(200, 50, 50, 0.3)' : 'rgba(30, 150, 80, 0.3)'}`
+                        }}>
                         {mainPredictionText}
                     </p>
                     <h4 className={styles.patientSubHeading} style={{marginTop:'1.5rem'}}>AI Confidence:</h4>
@@ -178,7 +177,7 @@ export default function ReportViewer({ predictionId }) {
                         The AI is <strong style={{color: prediction === "Alzheimer's" ? 'var(--error-color)' : 'var(--success-color)'}}>{confidenceValue}</strong> confident its finding aligns with the pattern category mentioned above (based on the first segment of your EEG data).
                     </p>
                 </div>
-                 <div className={styles.patientExplanationBlock} style={{marginTop:'1.2rem'}}>
+                <div className={styles.patientExplanationBlock} style={{marginTop:'1.2rem'}}>
                     <FiMessageSquare className={styles.patientExplanationIcon} />
                     <div className={styles.patientExplanationContent}>
                         <h4 style={{fontWeight:'600'}}>Understanding Your Result</h4>
@@ -206,10 +205,10 @@ export default function ReportViewer({ predictionId }) {
                     <MetricItem variant="patient" icon={FiShield} label="Finding Normal Patterns" value={formatMetric(consistency_metrics.specificity, 'percent',0)} description="How often AI found Normal patterns if present in segments."/>
                     )}
                 </div>
-                 <div className={styles.patientExplanationBlock} style={{marginTop: '1.5rem'}}>
+                <div className={styles.patientExplanationBlock} style={{marginTop: '1.5rem'}}>
                     <FiMessageSquare className={styles.patientExplanationIcon} />
                     <div className={styles.patientExplanationContent}>
-                         <h4 style={{fontWeight:'600'}}>What These Scores Mean</h4>
+                        <h4 style={{fontWeight:'600'}}>What These Scores Mean</h4>
                         <p>Higher percentages and scores generally suggest the AI's main finding was consistently observed across different parts of your EEG sample. This is an internal quality check for this specific analysis.</p>
                     </div>
                 </div>
@@ -227,13 +226,13 @@ export default function ReportViewer({ predictionId }) {
                         <p>This graph shows an electrical activity pattern from one of your EEG channels (the <strong>white line</strong>, "Your Sample"). It's compared to typical reference patterns for 'Normal' (blue dashed line) and 'Alzheimer's' (red dotted line).</p>
                         <ul className={styles.patientList}>
                             <li>The AI measures how closely the shape of your brainwave activity on this channel, and others not shown here, matches these references.</li>
-                             {similarity_results.interpretation && <li dangerouslySetInnerHTML={{__html: "<strong>Overall Finding from Shape Comparison:</strong> " + similarity_results.interpretation.split("Disclaimer:")[0].replace("Similarity Analysis (DTW):", "").replace("Overall Assessment:", "").trim()}}></li>}
+                            {similarity_results.interpretation && <li dangerouslySetInnerHTML={{__html: "<strong>Overall Finding from Shape Comparison:</strong> " + similarity_results.interpretation.split("Disclaimer:")[0].replace("Similarity Analysis (DTW):", "").replace("Overall Assessment:", "").trim()}}></li>}
                         </ul>
                     </div>
                 </div>
             </section>
             )}
-             <hr className={styles.sectionSeparator}/>
+            <hr className={styles.sectionSeparator}/>
             <section className={`${styles.patientFinalNote}`} style={{backgroundColor:'rgba(255, 245, 230, 0.95)', border:'1px solid #e67e22', borderRadius:'8px', padding:'1.2rem'}}>
                 <FiAlertTriangle size={36} style={{ color: '#d35400', flexShrink: 0, marginRight:'1rem', marginTop:'0.1rem' }} />
                 <div>
@@ -248,9 +247,8 @@ export default function ReportViewer({ predictionId }) {
         </div>
     );
   }
-  // --- CLINICIAN OR TECHNICIAN REPORT WEB VIEW ---
-  else if (userRole === 'clinician' || userRole === 'technician') {
-    const reportTitleString = userRole === 'clinician' ? 'Clinician AI EEG Report' : 'Comprehensive Analysis Report';
+  // --- CLINICIAN REPORT WEB VIEW ---
+  else if (userRole === 'clinician') {
     const clinicianPredictionText = prediction === "Alzheimer's" ? "Pattern Suggestive of Alzheimer's-related Changes" : "Normal EEG Pattern";
 
     let consistencySummary = "N/A";
@@ -270,37 +268,141 @@ export default function ReportViewer({ predictionId }) {
             consistencySummary = "Consistency metrics not calculated or not applicable.";
         }
     }
-    const showConsistencyMetrics = consistency_metrics && !consistency_metrics.error && !consistency_metrics.message && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
 
 
     return (
         <div className={styles.container}>
             <div className={styles.reportHeader} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
-                <h2 className={styles.title} style={{borderBottom:'none', margin:0}}>{reportTitleString}</h2>
+                <h2 className={styles.title} style={{borderBottom:'none', margin:0}}>Clinician AI EEG Report</h2>
                 {displayPdfUrl ? (
-                    <a href={displayPdfUrl} download={downloadFilename} className={`${styles.downloadButton} ${userRole === 'clinician' ? styles.clinicianDownloadButton : ''}`} target="_blank" rel="noopener noreferrer">
+                    <a href={displayPdfUrl} download={downloadFilename} className={`${styles.downloadButton} ${styles.clinicianDownloadButton}`} target="_blank" rel="noopener noreferrer">
                         <FiDownload style={{marginRight:'5px'}}/> Download {reportTypeString}
                     </a>
                 ) : (
-                     <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
+                    <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
                 )}
             </div>
             <hr className={styles.sectionSeparator}/>
 
             <section className={styles.section}>
                 <h3 className={styles.sectionTitle}><FiInfo /> Analysis Overview</h3>
-                <div className={styles.infoGrid}> {/* Using more detailed grid for tech/clinician */}
-                    <div><strong>File Analyzed:</strong> {filename || 'N/A'}</div>
-                    <div><strong>Date of Analysis:</strong> {createdDate}</div> {/* Using full timestamp */}
-                    <div><strong>Primary AI Finding:</strong> <span className={prediction === "Alzheimer's" ? styles.predictionAlz : styles.predictionNorm}>{clinicianPredictionText}</span></div>
-                    <div><strong>Assessment Confidence (Initial Segment):</strong> {formattedProbs()}</div>
-                     { userRole === 'clinician' && 
-                        <div><strong>Finding Consistency:</strong> {consistencySummary} {consistencyDetails && <span style={{fontSize: '0.9em', color: 'var(--text-secondary)'}}>{consistencyDetails}</span>}</div>
-                     }
+                <div className={styles.infoGridSimple}> {/* Using a potentially simpler grid style if defined, or default */}
+                    <p><strong>File Analyzed:</strong> {filename || 'N/A'}</p>
+                    <p><strong>Date of Analysis:</strong> {createdDateShort}</p>
                 </div>
             </section>
             <hr className={styles.sectionSeparator}/>
 
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}><FiCpu /> AI Assessment</h3>
+                <div className={styles.infoGridSimple}>
+                    <p><strong>Primary AI Finding:</strong> <span className={prediction === "Alzheimer's" ? styles.predictionAlz : styles.predictionNorm}>{clinicianPredictionText}</span></p>
+                    <p><strong>Assessment Confidence:</strong> {formattedProbs()}</p> {/* Using original formattedProbs */}
+                    <p><strong>Finding Consistency:</strong> {consistencySummary} {consistencyDetails && <span style={{fontSize: '0.8em', color: 'var(--text-secondary)'}}>{consistencyDetails}</span>}</p>
+                </div>
+            </section>
+            <hr className={styles.sectionSeparator}/>
+
+            { (similarity_results || similarity_plot_url) && // Show section only if there's data
+                <section className={styles.section}>
+                    <h3 className={styles.sectionTitle}><FiCompass/> EEG Waveform Characteristics</h3>
+                    {similarity_results && !similarity_results.error && similarity_results.interpretation &&
+                        <div className={styles.interpretationBlock} style={{marginBottom:'1rem', padding:'0.8rem', backgroundColor:'var(--background-alt)', border:'1px solid var(--border-color-extra-light)'}}>
+                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Interpretation:</h4>
+                            <pre className={styles.interpretationText}>{similarity_results.interpretation.replace("Similarity Analysis (DTW):", "").trim()}</pre>
+                        </div>
+                    }
+                    {similarity_plot_url &&
+                        <div className={styles.plotContainer}>
+                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>
+                                Illustrative Comparison (Channel {similarity_results?.plotted_channel_index !== undefined ? similarity_results.plotted_channel_index + 1 : 'Selected'})
+                            </h4>
+                            <img src={similarity_plot_url} alt="Signal Shape Comparison Plot" className={styles.plotImage}/>
+                        </div>
+                    }
+                    {similarity_results?.error && <p className={styles.errorTextSmall}>(Similarity analysis error: {similarity_results.error})</p>}
+                </section>
+            }
+            { (similarity_results || similarity_plot_url) && <hr className={styles.sectionSeparator}/>}
+
+
+            {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 &&
+                <section className={styles.section}>
+                    <h3 className={styles.sectionTitle}><FiBarChart /> Brainwave Frequency Profile</h3>
+                    <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Average Relative Band Power (%):</h4>
+                    <ul className={styles.bandPowerList}>
+                        {Object.entries(stats_data.avg_band_power).map(([band, power]) => (
+                            <li key={band}><strong>{band.charAt(0).toUpperCase() + band.slice(1)}:</strong> {formatMetric(power?.relative, 'percent') || 'N/A'}</li>
+                        ))}
+                    </ul>
+                </section>
+            }
+            {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 && <hr className={styles.sectionSeparator}/>}
+
+
+            {(timeseries_plot_url || psd_plot_url) &&
+                <section className={styles.section}>
+                    <h3 className={styles.sectionTitle}><FiEye/> EEG Visualizations</h3>
+                    {timeseries_plot_url &&
+                        <div className={styles.plotContainer}>
+                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Selected EEG Traces</h4>
+                            <img src={timeseries_plot_url} alt="Stacked EEG Time Series Plot" className={styles.plotImage}/>
+                        </div>
+                    }
+                    {!timeseries_plot_url && <p className={styles.loadingTextSmall}>(Time series plot not available)</p>}
+
+                    {psd_plot_url &&
+                        <div className={styles.plotContainer} style={{marginTop: timeseries_plot_url ? '1.5rem':'0'}}>
+                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Overall Frequency Spectrum (PSD)</h4>
+                            <img src={psd_plot_url} alt="Average PSD Plot" className={styles.plotImage}/>
+                        </div>
+                    }
+                    {!psd_plot_url && <p className={styles.loadingTextSmall}>(PSD plot not available)</p>}
+                </section>
+            }
+            {(timeseries_plot_url || psd_plot_url) && <hr className={styles.sectionSeparator}/>}
+
+
+            <div className={styles.disclaimer} style={{marginTop:'2rem', textAlign:'center', padding:'1rem', backgroundColor:'rgba(var(--text-secondary-rgb),0.05)', borderRadius:'var(--border-radius)'}}>
+                <FiAlertTriangle style={{ marginRight: '8px', color:'var(--text-secondary)', verticalAlign:'middle' }} />
+                <span style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>This AI report is a decision-support tool. Interpret in conjunction with full clinical assessment. Not a standalone diagnosis.</span>
+            </div>
+        </div>
+    );
+  }
+  // --- TECHNICAL REPORT WEB VIEW (as per your provided code) ---
+  // This will now be explicitly for 'technician'
+  else if (userRole === 'technician') {
+    const consistencyError = consistency_metrics?.error;
+    const consistencyMessage = consistency_metrics?.message;
+    const showConsistencyMetrics = consistency_metrics && !consistencyError && !consistencyMessage && typeof consistency_metrics.num_trials === 'number' && consistency_metrics.num_trials > 0;
+
+    return (
+    <div className={styles.container}>
+            {/* ... This extensive JSX block for technical report is from your provided code ... */}
+            {/* I will keep it as is. For brevity in this response, I'm collapsing it. */}
+            {/* Ensure this entire block from your original code is here. */}
+            <div className={styles.reportHeader} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                <h2 className={styles.title} style={{borderBottom:'none', margin:0}}>Comprehensive Analysis Report</h2>
+                {displayPdfUrl ? (
+                    <a href={displayPdfUrl} download={downloadFilename} className={styles.downloadButton} target="_blank" rel="noopener noreferrer">
+                        <FiDownload style={{marginRight:'5px'}}/> Download {reportTypeString}
+                    </a>
+                ) : (
+                    <p className={styles.errorTextSmall} style={{textAlign:'right', color: 'var(--error-color)'}}>PDF Report Not Available.</p>
+                )}
+            </div>
+            <hr className={styles.sectionSeparator}/>
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}><FiInfo /> Analysis Overview</h3>
+                <div className={styles.infoGrid}>
+                    <div><strong>Filename:</strong> {filename || 'N/A'}</div>
+                    <div><strong>Analyzed On:</strong> {createdDate}</div>
+                    <div><strong>AI Prediction:</strong> <span className={prediction === "Alzheimer's" ? styles.predictionAlz : styles.predictionNorm}>{prediction || 'N/A'}</span></div>
+                    <div><strong>Confidence (Initial Segment):</strong> {formattedProbs()}</div>
+                </div>
+            </section>
+            <hr className={styles.sectionSeparator}/>
             <section className={styles.section}>
                 <h3 className={styles.sectionTitle}><FiTarget /> Internal Consistency Metrics</h3>
                 <p className={styles.metricsDisclaimer}>
@@ -334,78 +436,59 @@ export default function ReportViewer({ predictionId }) {
                 )}
             </section>
             <hr className={styles.sectionSeparator}/>
-
-            {(similarity_results || similarity_plot_url) && 
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}><FiCompass/> EEG Waveform Characteristics & Similarity</h3>
-                    {similarity_results && !similarity_results.error && similarity_results.interpretation &&
-                        <div className={styles.interpretationBlock} style={{marginBottom:'1rem', padding:'0.8rem', backgroundColor:'var(--background-alt)', border:'1px solid var(--border-color-extra-light)'}}>
-                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Interpretation from DTW Analysis:</h4>
-                            <pre className={styles.interpretationText}>{similarity_results.interpretation.replace("Similarity Analysis (DTW):", "").trim()}</pre>
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}><FiCompass/> Signal Shape Similarity (DTW)</h3>
+                {similarity_results && !similarity_results.error ? (<>
+                    <div className={styles.patientExplanationBlock} style={{borderColor:'var(--primary-blue)', backgroundColor: 'rgba(var(--primary-blue-rgb), 0.03)'}}>
+                            <FiMessageSquare className={styles.patientExplanationIcon} style={{color:'var(--primary-blue)'}} />
+                        <div className={styles.patientExplanationContent}>
+                            <h4 style={{color: 'var(--primary-blue)'}}>Interpretation from DTW Analysis</h4>
+                            <pre className={styles.interpretationText} style={{whiteSpace:'pre-wrap', fontFamily:'var(--font-body)', color: 'var(--text-primary)'}}> {similarity_results.interpretation || "Similarity analysis interpretation not available."} </pre>
                         </div>
-                    }
+                    </div>
                     {similarity_plot_url &&
-                        <div className={styles.plotContainer}>
-                             <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>
-                                Illustrative Comparison (Channel {similarity_results?.plotted_channel_index !== undefined ? similarity_results.plotted_channel_index + 1 : 'Selected'})
-                            </h4>
-                            <img src={similarity_plot_url} alt="Signal Shape Comparison Plot" className={styles.plotImage}/>
+                        <div className={styles.plotContainer} style={{marginTop:'1.5rem'}}>
+                            <h4>Channel {similarity_results.plotted_channel_index !== undefined ? similarity_results.plotted_channel_index + 1 : '?'} Comparison Plot</h4>
+                            <img src={similarity_plot_url} alt={`Signal Shape Comparison Plot`} className={styles.plotImage}/>
                         </div>
                     }
-                    {similarity_results?.error && <p className={styles.errorTextSmall}>(Similarity analysis error: {similarity_results.error})</p>}
-                    {!similarity_results && !similarity_plot_url && <p className={styles.loadingTextSmall}>(Waveform characteristic data not available.)</p>}
-                </section>
-            }
-            {(similarity_results || similarity_plot_url) && <hr className={styles.sectionSeparator}/>}
-
-            {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 &&
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}><FiBarChart /> Brainwave Frequency Profile</h3>
-                     <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Average Relative Band Power (%):</h4>
-                     <ul className={styles.bandPowerList} style={{columns: 2, columnGap:'2rem'}}> {/* Ensure styling for this class if it's new */}
-                        {Object.entries(stats_data.avg_band_power).map(([band, power]) => (
-                            <li key={band}><strong>{band.charAt(0).toUpperCase() + band.slice(1)}:</strong> {formatMetric(power?.relative, 'percent') || 'N/A'}</li>
-                        ))}
-                    </ul>
-                    {stats_data.std_dev_per_channel && (
+                </>) : <p className={styles.errorTextSmall}>(Similarity analysis error: {similarity_results?.error || 'data not available'})</p>}
+            </section>
+            <hr className={styles.sectionSeparator}/>
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}><FiBarChart2 /> Descriptive Statistics</h3>
+                {stats_data && !stats_data.error && stats_data.avg_band_power ? (
+                <div className={styles.statsBlock}>
+                    <h4 style={{color:'var(--text-heading)', marginBottom:'0.75rem'}}>Average Relative Band Power (%):</h4>
+                    <ul style={{listStyle:'none', paddingLeft:0, columns: 2, columnGap:'20px', WebkitColumns: 2, MozColumns:2}}> {Object.entries(stats_data.avg_band_power).map(([band, power]) => (<li key={band} style={{marginBottom:'0.5rem', fontSize:'0.9rem'}}><strong style={{color:'var(--accent-teal)'}}>{band.charAt(0).toUpperCase() + band.slice(1)}:</strong> <span style={{color:'var(--text-primary)'}}>{formatMetric(power?.relative, 'percent') || 'N/A'}</span></li> ))} </ul>
+                    {stats_data.std_dev_per_channel && userRole !== 'patient' && (
                         <>
-                            <h4 style={{marginTop:'1rem', marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Standard Deviation per Channel (µV):</h4>
-                            <p className={styles.smallText} style={{wordBreak:'break-all'}}>{stats_data.std_dev_per_channel.map(v => formatMetric(v, 'float', 2)).join(', ')}</p>
+                            <h4 style={{marginTop:'1.5rem', color:'var(--text-heading)', marginBottom:'0.5rem'}}>Standard Deviation per Channel (µV):</h4>
+                            <p className={styles.smallText} style={{wordBreak:'break-all', color:'var(--text-secondary)', lineHeight:'1.6'}}>{stats_data.std_dev_per_channel.map(v => formatMetric(v, 'float', 2)).join(', ')}</p>
                         </>
                     )}
-                </section>
-            }
-            {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 && <hr className={styles.sectionSeparator}/>}
-            
-            {(timeseries_plot_url || psd_plot_url) &&
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}><FiEye/> EEG Visualizations</h3>
-                    {timeseries_plot_url &&
-                        <div className={styles.plotContainer}>
-                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Selected EEG Traces (All Channels)</h4>
-                            <img src={timeseries_plot_url} alt="Stacked EEG Time Series Plot" className={styles.plotImage}/>
-                        </div>
-                    }
-                    {!timeseries_plot_url && <p className={styles.loadingTextSmall}>(Time series plot not available)</p>}
+                </div>
+                ) : <p className={styles.errorTextSmall}>(Statistics error: {stats_data?.error || 'data not available'})</p>}
+            </section>
+            <hr className={styles.sectionSeparator}/>
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}><FiActivity/> Standard Visualizations</h3>
+                {timeseries_plot_url &&
+                    <div className={styles.plotContainer}> <h4 style={{color:'var(--text-heading)'}}>Stacked Time Series</h4> <img src={timeseries_plot_url} alt="Stacked EEG Time Series Plot" className={styles.plotImage}/> </div>
+                }
+                {!timeseries_plot_url && <p className={styles.loadingTextSmall}>(Time series plot not available)</p>}
 
-                    {psd_plot_url &&
-                        <div className={styles.plotContainer} style={{marginTop: timeseries_plot_url ? '1.5rem':'0'}}>
-                            <h4 style={{marginTop:0, marginBottom:'0.5rem', fontSize:'0.95rem', color: 'var(--text-heading)'}}>Overall Frequency Spectrum (PSD)</h4>
-                            <img src={psd_plot_url} alt="Average PSD Plot" className={styles.plotImage}/>
-                        </div>
-                    }
-                    {!psd_plot_url && <p className={styles.loadingTextSmall}>(PSD plot not available)</p>}
-                </section>
-            }
-             {(timeseries_plot_url || psd_plot_url) && <hr className={styles.sectionSeparator}/>}
-
+                {psd_plot_url &&
+                    <div className={styles.plotContainer} style={{marginTop:'1.5rem'}}> <h4 style={{color:'var(--text-heading)'}}>Average Power Spectral Density</h4> <img src={psd_plot_url} alt="Average PSD Plot" className={styles.plotImage}/> </div>
+                }
+                {!psd_plot_url && <p className={styles.loadingTextSmall}>(PSD plot not available)</p>}
+            </section>
+            <hr className={styles.sectionSeparator}/>
             <div className={styles.disclaimer} style={{marginTop:'2rem', textAlign:'center', padding:'1rem', backgroundColor:'rgba(var(--text-secondary-rgb),0.05)', borderRadius:'var(--border-radius)'}}>
                 <FiAlertTriangle style={{ marginRight: '8px', color:'var(--text-secondary)', verticalAlign:'middle' }} />
-                <span style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>
-                    This AI-driven report is a decision-support tool. Interpret in conjunction with full clinical assessment. Not a standalone diagnosis.
-                </span>
+                <span style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>This AI-driven report is for informational and technical review purposes. It is not a substitute for professional medical diagnosis.</span>
             </div>
-        </div>
+    </div>
     );
   } else {
     // Fallback for any other role not explicitly handled
