@@ -2,6 +2,7 @@ import base64
 import io
 import pandas as pd # Added for date formatting if not already present
 import traceback
+from fpdf import XPos, YPos # CHANGE: Added this import
 from .base_report import BasePDFReport # Relative import
 from ..utils import sanitize_for_helvetica # Relative import
 
@@ -24,16 +25,16 @@ def format_metric_for_pdf(value, type='float', precision=1):
         return 'N/A'
 
 
-def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data, stats_data, 
-                                       similarity_data, consistency_metrics, 
+def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data, stats_data,
+                                       similarity_data, consistency_metrics,
                                        ts_img_data, psd_img_data, similarity_plot_data):
     page_width = pdf.w - pdf.l_margin - pdf.r_margin
-    
+
     try:
         pdf.add_page()
         pdf.section_title("Analysis Details")
         pdf.key_value_pair("Filename", prediction_data.get('filename', 'N/A'))
-        
+
         created_at = prediction_data.get('created_at')
         date_str = 'N/A'
         if created_at:
@@ -48,7 +49,7 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
         pdf.section_title("ML Prediction & Internal Consistency")
         prediction_label = prediction_data.get('prediction', 'N/A')
         pdf.key_value_pair("Overall Prediction", prediction_label)
-        
+
         probabilities = prediction_data.get('probabilities')
         prob_str = 'N/A'
         if isinstance(probabilities, list) and len(probabilities) == 2:
@@ -64,12 +65,13 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
         if consistency_metrics and not consistency_metrics.get('error') and consistency_metrics.get('num_trials', 0) > 0:
             pdf.set_font('Helvetica', 'B', 11); pdf.cell(0, 6, "Internal Consistency Metrics:", ln=1); pdf.ln(2)
             pdf.set_font('Helvetica', 'I', 9); pdf.set_text_color(100, 100, 100)
-            pdf.multi_cell(0, 5, "(Compares segment predictions against the overall prediction for this file. Reflects model stability on this sample, not diagnostic accuracy against external ground truth.)", ln=1, align='L')
+            # CHANGE: Replaced ln=1 with new_x and new_y arguments
+            pdf.multi_cell(0, 5, "(Compares segment predictions against the overall prediction for this file. Reflects model stability on this sample, not diagnostic accuracy against external ground truth.)", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
             pdf.set_text_color(*pdf.text_color_normal); pdf.ln(2)
 
             metrics = consistency_metrics
             col_width = page_width / 2 - 2 # For two columns of metric cards
-            
+
             def add_metric_row(metric1_args, metric2_args=None):
                 current_y = pdf.get_y()
                 pdf.metric_card(*metric1_args) # Uses BasePDFReport's metric_card
@@ -90,7 +92,7 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
                 ("F1-Score (Alzheimer's)", format_metric_for_pdf(metrics.get('f1_score'), 'float', 3), "", "Harmonic mean (Precision & Recall)"),
                 ("Segments Analyzed", str(metrics.get('num_trials', 'N/A')), "", "Number of EEG segments processed")
             )
-            
+
             pdf.set_font('Helvetica', '', 9); pdf.set_text_color(100, 100, 100)
             cm_ref = metrics.get('majority_label_used_as_reference', '?')
             cm_ref_label = "Alzheimer's" if cm_ref == 1 else "Normal" if cm_ref == 0 else "?"
@@ -99,7 +101,8 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
                 f"TP:{metrics.get('true_positives','?')} | TN:{metrics.get('true_negatives','?')} | "
                 f"FP:{metrics.get('false_positives','?')} | FN:{metrics.get('false_negatives','?')}"
             )
-            pdf.multi_cell(0, 5, conf_matrix_str, align='C', ln=1); pdf.set_text_color(*pdf.text_color_normal)
+            # CHANGE: Replaced ln=1 with new_x and new_y arguments
+            pdf.multi_cell(0, 5, conf_matrix_str, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT); pdf.set_text_color(*pdf.text_color_normal)
         elif consistency_metrics and consistency_metrics.get('message'):
             pdf.set_font('Helvetica', 'I', 10); pdf.write_multiline(f"(Consistency: {consistency_metrics['message']})", indent=5)
         else:
@@ -127,7 +130,7 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
 
         pdf.section_title("Descriptive Statistics")
         if stats_data and not stats_data.get('error'):
-            pdf.set_font("Helvetica",'B',11); pdf.cell(0,6,"Average Relative Band Power (%):", ln=1); pdf.ln(1); 
+            pdf.set_font("Helvetica",'B',11); pdf.cell(0,6,"Average Relative Band Power (%):", ln=1); pdf.ln(1);
             pdf.set_font("Helvetica",'',10); avg_power = stats_data.get('avg_band_power',{}); band_found=False
             if avg_power:
                 for band, powers in avg_power.items():
@@ -150,7 +153,7 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
 
         if pdf.get_y() > pdf.h - 100 : pdf.add_page()
         pdf.add_image_section("Stacked Time Series", ts_img_data)
-        
+
         if pdf.get_y() > pdf.h - 100 : pdf.add_page()
         pdf.add_image_section("Average Power Spectral Density (PSD)", psd_img_data)
 
