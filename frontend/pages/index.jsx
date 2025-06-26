@@ -1,11 +1,10 @@
-// frontend/pages/index.jsx
-import { useEffect, useRef } from 'react'; // Removed useState as it's not used for fileName here
+import { useEffect, useRef } from 'react'; 
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth, PENDING_ROLE_SELECTION } from '../components/AuthProvider'; // Import PENDING_ROLE_SELECTION
+import { useAuth, PENDING_ROLE_SELECTION } from '../components/AuthProvider'; 
 import { useRouter } from 'next/router';
 import styles from '../styles/IndexPage.module.css';
-import pageStyles from '../styles/PageLayout.module.css'; // For overall page container
+import pageStyles from '../styles/PageLayout.module.css'; 
 import { FiUploadCloud, FiCpu, FiShield, FiBarChart2, FiZap, FiLock } from 'react-icons/fi';
 import Link from 'next/link';
 import supabase from '../lib/supabaseClient';
@@ -13,19 +12,15 @@ import supabase from '../lib/supabaseClient';
 export default function Home() {
   const { user, profile, loading: authLoading, session } = useAuth();
   const router = useRouter();
-  const fileInputRef = useRef(null); // Still keep for disabled form aesthetic
+  const fileInputRef = useRef(null); 
 
   useEffect(() => {
     if (!authLoading && user && profile) {
-      // If role needs selection, AuthProvider or withAuth will redirect to /select-role.
-      // If role is confirmed and valid, redirect to the specific dashboard.
       if (profile.role && profile.role !== PENDING_ROLE_SELECTION && profile.role_confirmed) {
         const dashboardPath = `/${profile.role}/dashboard`;
         console.log(`IndexPage: Role confirmed ('${profile.role}'), redirecting to ${dashboardPath}`);
         router.replace(dashboardPath);
       }
-      // If role is PENDING_ROLE_SELECTION or !role_confirmed, no redirect from here;
-      // AuthProvider or withAuth (if trying to access a protected route) will handle it.
     }
   }, [user, profile, authLoading, router]);
 
@@ -33,7 +28,7 @@ export default function Home() {
      try {
          const { error } = await supabase.auth.signInWithOAuth({
            provider: 'google',
-           options: { redirectTo: `${window.location.origin}/` } // Ensure redirect after login
+           options: { redirectTo: `${window.location.origin}/` } 
          });
          if (error) {
              console.error("Google Sign-In Error:", error.message);
@@ -45,7 +40,6 @@ export default function Home() {
      }
   };
 
-  // Show loading page if auth is loading OR if user is logged in but profile/role check is pending (and will redirect)
   if (authLoading || (user && (!profile || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed))) {
     return (
       <>
@@ -60,7 +54,6 @@ export default function Home() {
     );
   }
 
-  // Render Logged-Out Index Page (if not loading and no user/session)
   if (!user && !session) {
     return (
       <>
@@ -127,8 +120,6 @@ export default function Home() {
     );
   }
 
-  // Fallback, should ideally be covered by the conditions above
-  // or user is already redirected to their dashboard.
   return (
     <>
       <Navbar />

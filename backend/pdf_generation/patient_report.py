@@ -2,7 +2,7 @@ import pandas as pd # Added for date formatting
 import traceback # Added to handle exception printing
 from fpdf import XPos, YPos # Import for multi_cell positioning
 from .base_report import BasePDFReport # Relative import
-from ..utils import sanitize_for_helvetica # Relative import
+from utils import sanitize_for_helvetica # Relative import
 from .technical_report import format_metric_for_pdf # Reusing formatter
 
 class PatientPDFReport(BasePDFReport):

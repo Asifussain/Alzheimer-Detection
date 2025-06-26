@@ -1,5 +1,5 @@
 from fpdf import FPDF, XPos, YPos
-from ..utils import sanitize_for_helvetica # Relative import
+from utils import sanitize_for_helvetica # Relative import
 
 class BasePDFReport(FPDF):
     def __init__(self, *args, **kwargs):

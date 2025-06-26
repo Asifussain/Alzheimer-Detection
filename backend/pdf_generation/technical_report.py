@@ -4,7 +4,7 @@ import pandas as pd # Added for date formatting if not already present
 import traceback
 from fpdf import XPos, YPos # CHANGE: Added this import
 from .base_report import BasePDFReport # Relative import
-from ..utils import sanitize_for_helvetica # Relative import
+from utils import sanitize_for_helvetica # Relative import
 
 class TechnicalPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):

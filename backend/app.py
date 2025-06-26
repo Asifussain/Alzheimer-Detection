@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
-from .config import FRONTEND_URL, BACKEND_DIR # Ensure BACKEND_DIR is used if SIDDHI path is relative
-from .routes import register_blueprints
+from config import FRONTEND_URL, BACKEND_DIR # Ensure BACKEND_DIR is used if SIDDHI path is relative
+from routes import api_bp
 import os # For path checks
 
 # --- Check for critical external files/folders needed by the backend ---
@@ -28,7 +28,7 @@ CORS(app, resources={r"/api/*": {"origins": FRONTEND_URL}})
 # No, this should be fine as modules import it.
 
 # Register Blueprints
-register_blueprints(app)
+app.register_blueprint(api_bp, url_prefix='/api')
 
 if __name__ == '__main__':
     print("--- Starting Flask Server (Refactored) ---")

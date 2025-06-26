@@ -1,8 +1,8 @@
 import io
 import numpy as np
 import traceback
-from .supabase_client_setup import get_supabase_client
-from .config import RAW_EEG_BUCKET
+from supabase_client_setup import get_supabase_client
+from config import RAW_EEG_BUCKET
 
 def get_prediction_and_eeg(prediction_id: str):
     """

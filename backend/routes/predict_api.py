@@ -4,49 +4,27 @@ import json
 import traceback
 from datetime import datetime, timezone
 import base64 # For handling image data
-
 from flask import request, jsonify, Blueprint
-from ..supabase_client_setup import get_supabase_client
-from ..config import (
+from supabase_client_setup import get_supabase_client
+from config import (
     UPLOAD_FOLDER, OUTPUT_JSON_PATH, RAW_EEG_BUCKET, REPORT_ASSET_BUCKET,
     DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH, BACKEND_DIR
 )
-from ..utils import NpEncoder
-from ..database import get_prediction_and_eeg, cleanup_storage_on_error
-from ..ml_runner import run_model
-
-# Import visualization and similarity analysis (assuming they are in the backend root)
-# Adjust paths if they are located elsewhere.
-import sys
-# Add backend directory to sys.path to allow direct import of visualization and similarity_analyzer
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-try:
-    from visualization import (
-        generate_stacked_timeseries_image,
-        generate_average_psd_image,
-        generate_descriptive_stats
-    )
-    from similarity_analyzer import run_similarity_analysis
-except ImportError as e:
-    print(f"Error importing visualization/similarity modules in predict_api.py: {e}")
-    # Define dummy functions if import fails to prevent app crash during init
-    def generate_stacked_timeseries_image(*args, **kwargs): return None
-    def generate_average_psd_image(*args, **kwargs): return None
-    def generate_descriptive_stats(*args, **kwargs): return {"error": "Visualization module not loaded"}
-    def run_similarity_analysis(*args, **kwargs):
-        return {"error": "Similarity analyzer module not loaded", 'interpretation': 'N/A', 'plot_base64': None}
-
-
-# Import PDF generation modules
-from ..pdf_generation import (
-    TechnicalPDFReport, build_technical_pdf_report_content,
-    PatientPDFReport, build_patient_pdf_report_content,
-    ClinicianPDFReport, build_clinician_pdf_report_content
+from utils import NpEncoder
+from database import get_prediction_and_eeg, cleanup_storage_on_error
+from ml_runner import run_model
+from visualization import (
+    generate_stacked_timeseries_image,
+    generate_average_psd_image,
+    generate_descriptive_stats
 )
-
-# Use the Blueprint from routes/__init__.py
-from . import api_bp
-
+from similarity_analyzer import run_similarity_analysis
+from pdf_generation import (
+   TechnicalPDFReport, build_technical_pdf_report_content,
+   PatientPDFReport, build_patient_pdf_report_content,
+   ClinicianPDFReport, build_clinician_pdf_report_content
+)
+from routes import api_bp
 
 @api_bp.route('/predict', methods=['POST'])
 def predict_route():

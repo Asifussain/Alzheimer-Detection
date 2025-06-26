@@ -1,7 +1,7 @@
 import os
 import subprocess
 import traceback
-from .config import SIDDHI_FOLDER, BACKEND_DIR, OUTPUT_JSON_PATH
+from config import SIDDHI_FOLDER, BACKEND_DIR, OUTPUT_JSON_PATH
 
 def run_model(filepath_to_process: str):
     """

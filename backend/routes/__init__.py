@@ -1,11 +1,9 @@
 from flask import Blueprint
 
-# Create a Blueprint for API routes
-# This can be expanded later if you have more route files
-api_bp = Blueprint('api_bp', __name__, url_prefix='/api')
+# Define the blueprint that other files in this 'routes' package will use
+api_bp = Blueprint('api_bp', __name__)
 
-# Import routes from this package to register them with the blueprint
-from . import predict_api # noqa E402 F401 : ignore unused import and import not at top warnings
-
-def register_blueprints(app):
-    app.register_blueprint(api_bp)
+# Import your route files here.
+# This line is crucial because it runs the code in predict_api.py,
+# which in turn registers its routes with the 'api_bp' blueprint.
+from . import predict_api

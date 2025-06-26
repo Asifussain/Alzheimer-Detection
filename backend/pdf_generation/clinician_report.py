@@ -3,7 +3,7 @@ import io
 import pandas as pd # For date formatting
 import traceback
 from .base_report import BasePDFReport
-from ..utils import sanitize_for_helvetica # Relative import
+from utils import sanitize_for_helvetica # Relative import
 from .technical_report import format_metric_for_pdf # Reusing formatter
 
 class ClinicianPDFReport(BasePDFReport):
