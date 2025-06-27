@@ -1,38 +1,39 @@
+# backend/app.py
 from flask import Flask
 from flask_cors import CORS
-from config import FRONTEND_URL, BACKEND_DIR # Ensure BACKEND_DIR is used if SIDDHI path is relative
-from routes import api_bp
-import os # For path checks
-
-# --- Check for critical external files/folders needed by the backend ---
-# This is mostly for robust startup diagnostics
-alz_ref_path_check = os.path.join(BACKEND_DIR, 'feature_07.npy')
-norm_ref_path_check = os.path.join(BACKEND_DIR, 'feature_35.npy')
-siddhi_dir_check = os.path.join(BACKEND_DIR, 'SIDDHI')
-
-if not os.path.exists(alz_ref_path_check):
-    print(f"STARTUP WARNING: Alzheimer's reference file missing: {alz_ref_path_check}")
-if not os.path.exists(norm_ref_path_check):
-    print(f"STARTUP WARNING: Normal reference file missing: {norm_ref_path_check}")
-if not os.path.isdir(siddhi_dir_check):
-    print(f"STARTUP CRITICAL ERROR: SIDDHI directory missing: {siddhi_dir_check}. ML model will not function.")
-# --- End Startup Checks ---
+from routes import api_bp # Your routes blueprint
+import os # Import os to access environment variables
 
 app = Flask(__name__)
 
-# Apply CORS settings from config
-CORS(app, resources={r"/api/*": {"origins": FRONTEND_URL}})
+# --- Correct CORS Configuration ---
+# 1. Get the frontend URL from the environment variable set in Render.
+# 2. Provide a default fallback value for when you run it locally.
+live_frontend_url = os.environ.get('FRONTEND_URL')
+local_fallback_url = "http://localhost:3000"
 
-# Initialize Supabase client (this happens when supabase_client_setup is imported by other modules)
-# from . import supabase_client_setup # Ensures client is initialized early if needed by other setup
-# No, this should be fine as modules import it.
+# Use the live URL if it exists, otherwise use the local fallback.
+# This makes your app work correctly in BOTH deployment and local testing.
+origins = [live_frontend_url] if live_frontend_url else [local_fallback_url]
+
+# Add the Supabase callback URL to the origins list for Google Auth redirects
+# This can sometimes help with post-login issues, though it's not strictly for API calls
+# supabase_callback = f"https://{os.environ.get('SUPABASE_PROJECT_REF')}.supabase.co"
+# if "SUPABASE_PROJECT_REF" in os.environ:
+#    origins.append(supabase_callback)
+
+print(f"--- CORS is configured to allow origins: {origins} ---")
+CORS(app, resources={r"/api/*": {"origins": origins}})
+
 
 # Register Blueprints
 app.register_blueprint(api_bp, url_prefix='/api')
 
+@app.route('/')
+def index():
+    return "Welcome to the Alzheimer Detection API! The server is running."
+
 if __name__ == '__main__':
-    print("--- Starting Flask Server (Refactored) ---")
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    print(f"--- Debug Mode: {debug_mode} ---")
-    # Host 0.0.0.0 makes it accessible externally if needed (e.g., in Docker)
-    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
+    print("--- Starting Flask Server ---")
+    # Host 0.0.0.0 makes it accessible externally (required by Render)
+    app.run(host='0.0.0.0', port=5000)
