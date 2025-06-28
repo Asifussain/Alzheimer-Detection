@@ -1,86 +1,159 @@
+// frontend/pages/result.jsx
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import Navbar from '../components/Navbar';
 import Link from 'next/link';
-import React, { useState } from 'react'; // Import useState
-import { useAuth } from '../components/AuthProvider'; // Import useAuth
-import ReportViewer from '../components/ReportViewer'; // Import ReportViewer
-import styles from '../styles/ResultPage.module.css';
+import supabase from '../lib/supabaseClient';
+import { useAuth } from '../components/AuthProvider';
+import PageLayout from '../components/PageLayout'; // Using your existing layout for consistency
+import styles from '../styles/ReportPage.module.css'; // Using the new dedicated style
 
-export default function ResultPage() {
-  const router = useRouter();
-  // Ensure prediction uses the correct string comparison
-  const { prediction: predictionQuery, filename, prediction_id } = router.query;
-  // Standardize prediction string for comparison and display
-  const prediction = predictionQuery === "Alzheimer's" ? "Alzheimer's" : predictionQuery === "Normal" ? "Normal" : null;
+const MetricCard = ({ label, value }) => (
+    <div className={styles.metricCard}>
+        <div className={styles.metricLabel}>{label}</div>
+        <div className={styles.metricValue}>{value}</div>
+    </div>
+);
 
-  const { profile } = useAuth(); // Get user profile for role
-  const [showReport, setShowReport] = useState(false); // State to toggle report view
+const ResultPage = () => {
+    const router = useRouter();
+    const { prediction_id } = router.query;
+    const { profile } = useAuth();
 
-  // Use the standardized prediction string for class assignment
-  const statusClass = prediction === "Alzheimer's" ? styles.alzheimer : styles.normal;
+    const [predictionData, setPredictionData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
 
-  const handleViewReportClick = () => {
-      setShowReport(true);
-  };
+    useEffect(() => {
+        if (!prediction_id) { setIsLoading(false); setError("No analysis ID found."); return; }
+        let pollingInterval;
+        const fetchPrediction = async () => {
+            const { data, error: dbError } = await supabase.from('predictions').select('*').eq('id', prediction_id).single();
+            if (dbError && dbError.code !== 'PGRST116') {
+                setError(`Failed to fetch data: ${dbError.message}`); setIsLoading(false); clearInterval(pollingInterval); return;
+            }
+            if (data) {
+                setPredictionData(data);
+                if (data.status?.startsWith('Completed') || data.status?.startsWith('Failed')) {
+                    setIsLoading(false); clearInterval(pollingInterval);
+                }
+            }
+        };
+        fetchPrediction();
+        pollingInterval = setInterval(fetchPrediction, 5000);
+        return () => clearInterval(pollingInterval);
+    }, [prediction_id]);
 
-  return (
-    <>
-      <Navbar />
-      <div className={styles.resultPageContainer}>
-        <h1 className={styles.pageTitle}>Analysis Complete</h1>
+    const getRoleBasedReport = () => {
+        if (!profile || !predictionData) return null;
+        switch (profile.role) {
+            case 'technician': return { url: predictionData.technical_pdf_url, label: 'Download Technical Report (PDF)' };
+            case 'clinician': return { url: predictionData.clinician_pdf_url, label: 'Download Clinician Report (PDF)' };
+            case 'patient': return { url: predictionData.patient_pdf_url, label: 'Download Patient Report (PDF)' };
+            default: return null;
+        }
+    };
 
-        {/* Check if prediction and filename are valid */}
-        {prediction && filename ? (
-          <>
-            <div className={styles.resultCard}>
-              <p className={styles.filename}>File Analyzed: {filename}</p>
-              <div className={`${styles.predictionStatus} ${statusClass}`}>
-                {/* Display the standardized prediction string */}
-                <span>{prediction}</span>
-              </div>
-              <p className={styles.disclaimer}>
-                (This analysis is based on the provided EEG data using the ADFormer model. Consult a healthcare professional for a definitive diagnosis.)
-              </p>
+    const renderReportButton = () => {
+        const report = getRoleBasedReport();
+        if (!report || !report.url) return null;
+        return (
+            <a href={report.url} target="_blank" rel="noopener noreferrer" className={styles.downloadButton}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 10L12 15L17 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {report.label}
+            </a>
+        );
+    };
+
+    if (isLoading) {
+        return (
+            <PageLayout>
+                <div className={styles.statusContainer}>
+                    <div className={styles.loadingSpinner}></div>
+                    <p className={styles.statusText}>Analysis in progress...</p>
+                    <p className={styles.statusSubtext}>{predictionData ? `Status: ${predictionData.status}` : 'Initiating analysis...'}</p>
+                </div>
+            </PageLayout>
+        );
+    }
+
+    if (error || !predictionData || predictionData.status?.startsWith('Failed')) {
+        return (
+            <PageLayout>
+                <div className={styles.statusContainer}>
+                    <h2 className={styles.errorTitle}>Analysis Failed</h2>
+                    <p>{error || predictionData?.status}</p>
+                    <Link href="/"><a className={styles.homeLink}>Back to Dashboard</a></Link>
+                </div>
+            </PageLayout>
+        );
+    }
+    
+    const { consistency_metrics: consistency, stats_data: stats } = predictionData;
+
+    return (
+        <PageLayout>
+            <div className={styles.contentWrapper}>
+                <header className={styles.header}>
+                    <h1 className={styles.title}>Comprehensive Analysis Report</h1>
+                    {renderReportButton()}
+                </header>
+
+                <main>
+                    <section className={styles.sectionCard}>
+                        <h2 className={styles.sectionTitle}>Analysis Overview</h2>
+                        <div className={styles.grid}>
+                            <div className={styles.overviewItem}><span className={styles.overviewLabel}>Filename:</span> <span className={styles.overviewValue}>{predictionData.filename}</span></div>
+                            <div className={styles.overviewItem}><span className={styles.overviewLabel}>Analyzed On:</span> <span className={styles.overviewValue}>{new Date(predictionData.created_at).toLocaleString()}</span></div>
+                            <div className={styles.overviewItem}><span className={styles.overviewLabel}>AI Prediction:</span> <span className={styles.overviewValue}>{predictionData.prediction}</span></div>
+                        </div>
+                    </section>
+                    
+                    {consistency && (
+                        <section className={styles.sectionCard}>
+                            <h2 className={styles.sectionTitle}>Internal Consistency Metrics</h2>
+                            <p className={styles.metricDescription}>These metrics evaluate the consistency of the AI's predictions across multiple segments of the input EEG data, using the AI's overall prediction for this file as the reference point.</p>
+                            <div className={styles.metricsGrid}>
+                                <MetricCard label="Accuracy" value={`${(consistency.accuracy * 100).toFixed(1)}%`} />
+                                <MetricCard label="Precision (AD)" value={Number(consistency.precision).toFixed(3)} />
+                                <MetricCard label="Recall (AD)" value={Number(consistency.recall_sensitivity).toFixed(3)} />
+                                <MetricCard label="Specificity (CN)" value={Number(consistency.specificity).toFixed(3)} />
+                                <MetricCard label="F1-Score" value={Number(consistency.f1_score).toFixed(3)} />
+                            </div>
+                        </section>
+                    )}
+
+                    {stats && stats.relative_band_powers && stats.standard_deviations && (
+                        <section className={styles.sectionCard}>
+                            <h2 className={styles.sectionTitle}>Descriptive Statistics</h2>
+                            <div className={styles.statsGrid}>
+                                <div>
+                                    <h3>Relative Band Power (%)</h3>
+                                    <ul className={styles.statsList}>
+                                        <li><span className={styles.statsLabel}>Delta</span> <span className={styles.statsValue}>{(stats.relative_band_powers.delta * 100).toFixed(1)}%</span></li>
+                                        <li><span className={styles.statsLabel}>Theta</span> <span className={styles.statsValue}>{(stats.relative_band_powers.theta * 100).toFixed(1)}%</span></li>
+                                        <li><span className={styles.statsLabel}>Alpha</span> <span className={styles.statsValue}>{(stats.relative_band_powers.alpha * 100).toFixed(1)}%</span></li>
+                                        <li><span className={styles.statsLabel}>Beta</span> <span className={styles.statsValue}>{(stats.relative_band_powers.beta * 100).toFixed(1)}%</span></li>
+                                        <li><span className={styles.statsLabel}>Gamma</span> <span className={styles.statsValue}>{(stats.relative_band_powers.gamma * 100).toFixed(1)}%</span></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h3>Standard Deviation per Channel (µV)</h3>
+                                    <p className={styles.stdDevValue}>{stats.standard_deviations.map(sd => sd.toFixed(2)).join(', ')}</p>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <section className={styles.sectionCard}>
+                        <h2 className={styles.sectionTitle}>Visualizations</h2>
+                        {predictionData.similarity_plot_url && <div className={styles.plotContainer}><img src={predictionData.similarity_plot_url} alt="Similarity Analysis"/></div>}
+                        {predictionData.timeseries_plot_url && <div className={styles.plotContainer}><img src={predictionData.timeseries_plot_url} alt="Time Series"/></div>}
+                        {predictionData.psd_plot_url && <div className={styles.plotContainer}><img src={predictionData.psd_plot_url} alt="Power Spectrum"/></div>}
+                    </section>
+                </main>
             </div>
+        </PageLayout>
+    );
+};
 
-            {/* --- Actions --- */}
-            <div className={styles.actionsContainer}>
-                {/* Analyse Another File Button */}
-               <Link href="/" className={styles.actionButton}>
-                 Analyse Another File
-               </Link>
-
-              {/* View Report Button (only if prediction_id exists and report not shown) */}
-               {prediction_id && !showReport && (
-                    <button onClick={handleViewReportClick} className={styles.actionButton}>
-                        View Detailed Report
-                    </button>
-                )}
-
-               {/* View History Button REMOVED */}
-
-            </div>
-
-            {/* --- Conditionally Render Report Viewer --- */}
-            {showReport && prediction_id && (
-                 <div style={{marginTop: '2rem'}}> {/* Add some space */}
-                     <ReportViewer
-                        predictionId={prediction_id}
-                        userRole={profile?.role}
-                     />
-                 </div>
-             )}
-
-          </>
-        ) : (
-          <div className={styles.loadingErrorContainer}>
-             <p>Loading result or result data not found...</p>
-              <Link href="/" className={styles.secondaryButton} style={{marginTop: '1rem'}}>
-                 Go Home
-              </Link>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
+export default ResultPage;

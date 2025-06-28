@@ -3,40 +3,52 @@ import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from routes import api_bp # Your routes blueprint
 
+# Import the blueprint from your routes
+from routes import api_bp
+# Import the celery_app from our new utility file
+from celery_utils import celery_app
+
+# Load .env file for local development
 load_dotenv()
 
-app = Flask(__name__)
-# 1. Get the frontend URL from environment variables.
-#    Default to a common local frontend port if the variable isn't set.
-frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+# --- Main Application Factory ---
+def create_app():
+    """Creates and configures the Flask application."""
+    app = Flask(__name__)
 
-# 2. Create the list of allowed origins.
-origins = [frontend_url]
+    # --- CORS Configuration ---
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+    origins = [frontend_url]
+    if "localhost" not in frontend_url:
+        origins.append("http://localhost:3000")
+    print(f"--- CORS is configured to allow origins: {origins} ---")
+    CORS(app, resources={r"/api/*": {"origins": origins}})
 
-# 3. For convenience, if your deployed URL is not localhost,
-#    add the localhost URL to the list anyway to make local testing easier.
-if "localhost" not in frontend_url:
-    origins.append("http://localhost:3000")
+    # --- Register Routes ---
+    app.register_blueprint(api_bp, url_prefix='/api')
 
-# 4. **CRUCIAL DEBUGGING STEP**: Print the origins list to the logs.
-#    This will show up in your Render logs.
-print(f"--- CORS is configured to allow origins: {origins} ---")
+    # --- Configure Celery ---
+    # Update Celery config with the Flask app context
+    celery_app.conf.update(app.config)
+    class ContextTask(celery_app.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+    celery_app.Task = ContextTask
+    print("--- Celery App configured with Flask context ---")
 
-# 5. Initialize the CORS extension.
-CORS(app, resources={r"/api/*": {"origins": origins}})
+    # A simple root route to check if the server is up
+    @app.route('/')
+    def index():
+        return jsonify({"message": "Backend is alive and running!"})
 
-# --- End CORS Configuration ---
+    return app
 
-# Register your API routes under the /api prefix
-app.register_blueprint(api_bp, url_prefix='/api')
+# Create the app instance
+app = create_app()
 
-# A simple route for the root URL to confirm the server is up
-@app.route('/')
-def index():
-    return jsonify({"message": "Backend is alive and running!"})
-
+# This part is for running the app directly with `python app.py`
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port)

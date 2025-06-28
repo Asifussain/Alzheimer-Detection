@@ -14,8 +14,8 @@ sktime==0.16.1
 torch==2.1.0
 tqdm==4.64.1
 natsort==8.4.0
-celery==5.3.1
-redis==5.0.1
-dtaidistance
-fpdf2
-patool
+patool==1.15.0
+fpdf2==2.7.9
+dtaidistance==2.3.13
+celery==5.4.0
+redis==5.0.7
