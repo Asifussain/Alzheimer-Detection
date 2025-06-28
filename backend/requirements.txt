@@ -16,6 +16,6 @@ sktime==0.16.1
 torch==2.1.0  
 tqdm==4.64.1
 natsort==8.4.0
-
+dtaidistance
 celery==5.3.1
 redis==5.0.1
