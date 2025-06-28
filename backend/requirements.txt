@@ -3,8 +3,6 @@ Flask-CORS==4.0.0
 supabase==1.0.3
 python-dotenv==1.0.0
 gunicorn==21.2.0
-
-# --- SIDDHI / Machine Learning Dependencies ---
 numpy==1.23.5
 pandas==1.5.3
 scipy==1.10.1
@@ -13,9 +11,11 @@ einops==0.4.0
 matplotlib==3.7.0
 reformer-pytorch==1.4.4
 sktime==0.16.1
-torch==2.1.0  
+torch==2.1.0
 tqdm==4.64.1
 natsort==8.4.0
-dtaidistance
 celery==5.3.1
 redis==5.0.1
+dtaidistance
+fpdf
+patool
