@@ -23,7 +23,7 @@ origins = [live_frontend_url] if live_frontend_url else [local_fallback_url]
 #    origins.append(supabase_callback)
 
 print(f"--- CORS is configured to allow origins: {origins} ---")
-CORS(app, resources={r"/*": {"origins": origins}})
+CORS(app, resources={r"/api/*": {"origins": origins}})
 
 
 # Register Blueprints
