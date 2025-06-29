@@ -10,17 +10,20 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Supabase environment variables SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
 
+# MODIFICATION: Add this line for the Render Redis URL
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
 # Application Constants
 UPLOAD_FOLDER = 'uploads'
-SIDDHI_FOLDER = 'SIDDHI' # Relative to the backend directory if SIDDHI is inside backend
+SIDDHI_FOLDER = 'SIDDHI'
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_JSON_PATH = os.path.join(BACKEND_DIR, SIDDHI_FOLDER, 'output.json')
 
-# Reference EEG data paths (ensure these are correctly located relative to backend root)
+# Reference EEG data paths
 ALZ_REF_PATH = os.path.join(BACKEND_DIR, 'feature_07.npy')
 NORM_REF_PATH = os.path.join(BACKEND_DIR, 'feature_35.npy')
 
-DEFAULT_FS = 128 # Default sampling frequency
+DEFAULT_FS = 128
 
 # Supabase Storage Buckets
 RAW_EEG_BUCKET = 'eeg-data'
