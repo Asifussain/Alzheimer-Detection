@@ -5,7 +5,7 @@ services:
     region: oregon # Important: Use the same region as your web service
     plan: free
     maxmemoryPolicy: volatile-ttl
-    ipAllowList:[]
+    ipAllowList: []
 
   # 2. The Python Web Service (your Flask API)
   - type: web
