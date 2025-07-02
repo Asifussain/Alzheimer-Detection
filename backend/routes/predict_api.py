@@ -7,11 +7,12 @@ from datetime import datetime, timezone
 import base64
 import numpy as np
 from flask import request, jsonify
+from werkzeug.utils import secure_filename
 
 from celery_utils import celery_app
 from supabase_client_setup import get_supabase_client
 from config import (
-    UPLOAD_FOLDER, BACKEND_DIR, RAW_EEG_BUCKET, REPORT_ASSET_BUCKET,
+    UPLOAD_FOLDER, RAW_EEG_BUCKET, REPORT_ASSET_BUCKET,
     DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH
 )
 from utils import NpEncoder
@@ -99,7 +100,6 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
                 pdf_doc = PdfClass()
                 pdf_doc.alias_nb_pages()
                 
-                # *** FIX: Pass the ORIGINAL BASE64 strings to the PDF builders ***
                 builder_args = [pdf_doc, prediction_data_for_report, stats_json, similarity_results, consistency_metrics, ts_img_base64, psd_img_base64, similarity_plot_base64]
                 if pdf_type == "patient":
                     builder_args = [pdf_doc, prediction_data_for_report, similarity_results, consistency_metrics, similarity_plot_base64]
@@ -132,32 +132,70 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
 
 @api_bp.route('/predict', methods=['POST'])
 def predict_route():
-    # ... This function is unchanged. It works correctly.
     supabase = get_supabase_client()
-    file = request.files.get('file'); user_id = request.form.get('user_id'); channel_index_str = request.form.get('channel_index', '0')
-    try: channel_index_for_plot = int(channel_index_str)
-    except: channel_index_for_plot = 0
-    if not file or not user_id or not file.filename: return jsonify({'error': 'Invalid request'}), 400
-    prediction_id = str(uuid.uuid4())
-    filename_base, ext = os.path.splitext(file.filename)
-    save_filename = f"{filename_base}_{prediction_id}{ext}"
-    absolute_temp_filepath = os.path.join(BACKEND_DIR, UPLOAD_FOLDER, save_filename)
-    raw_eeg_storage_path = f'raw_eeg/{user_id}/{save_filename}'
+    file = request.files.get('file')
+    user_id = request.form.get('user_id')
+    channel_index_str = request.form.get('channel_index', '0')
+    
     try:
-        os.makedirs(os.path.dirname(absolute_temp_filepath), exist_ok=True)
-        file.save(absolute_temp_filepath)
-        with open(absolute_temp_filepath, 'rb') as f:
-            supabase.storage.from_(RAW_EEG_BUCKET).upload(path=raw_eeg_storage_path, file=f)
+        channel_index_for_plot = int(channel_index_str)
+    except (ValueError, TypeError):
+        channel_index_for_plot = 0
+
+    if not file or not user_id or not file.filename:
+        return jsonify({'error': 'Invalid request: file, user_id are required.'}), 400
+
+    prediction_id = str(uuid.uuid4())
+    
+    # Use secure_filename to prevent directory traversal attacks
+    filename = secure_filename(file.filename)
+    filename_base, ext = os.path.splitext(filename)
+    save_filename = f"{filename_base}_{prediction_id}{ext}"
+    
+    # --- FIX: Create a path relative to the app's working directory ---
+    # This is more robust than relying on BACKEND_DIR inside a container.
+    temp_filepath = os.path.join(UPLOAD_FOLDER, save_filename)
+    
+    raw_eeg_storage_path = f'raw_eeg/{user_id}/{save_filename}'
+
+    try:
+        # Ensure the upload directory exists
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        
+        # Save the file to the temporary path
+        file.save(temp_filepath)
+
+        # Upload the original file to Supabase for permanent storage
+        with open(temp_filepath, 'rb') as f:
+            supabase.storage.from_(RAW_EEG_BUCKET).upload(
+                path=raw_eeg_storage_path,
+                file=f
+            )
+
+        # Create the initial record in the database
         initial_db_record = {
-            "id": prediction_id, "user_id": user_id, "filename": file.filename, "status": "Pending",
-            "prediction": "Processing...", "eeg_data_url": raw_eeg_storage_path
+            "id": prediction_id,
+            "user_id": user_id,
+            "filename": file.filename,
+            "status": "Pending",
+            "prediction": "Processing...",
+            "eeg_data_url": raw_eeg_storage_path
         }
         insert_res = supabase.table('predictions').insert(initial_db_record).execute()
-        if hasattr(insert_res, 'error') and insert_res.error: raise Exception(f"DB insert failed: {insert_res.error.message}")
-        run_full_analysis_task.delay(prediction_id, absolute_temp_filepath, channel_index_for_plot)
+        if hasattr(insert_res, 'error') and insert_res.error:
+            raise Exception(f"DB insert failed: {insert_res.error.message}")
+
+        # --- PASS THE CORRECT PATH TO CELERY ---
+        # We pass the relative path 'uploads/filename.edf'. The Celery worker,
+        # running in the same /app directory, will resolve this correctly.
+        run_full_analysis_task.delay(prediction_id, temp_filepath, channel_index_for_plot)
+        
         return jsonify({"prediction_id": prediction_id}), 202
+
     except Exception as e:
         traceback.print_exc()
-        if os.path.exists(absolute_temp_filepath): os.remove(absolute_temp_filepath)
+        # Cleanup local file and storage on error
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
         cleanup_storage_on_error(RAW_EEG_BUCKET, raw_eeg_storage_path)
         return jsonify({'error': f'Server error: {str(e)}'}), 500
