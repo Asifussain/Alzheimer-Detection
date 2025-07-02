@@ -1,107 +1,148 @@
+# backend/ml_runner.py
 import os
-import subprocess
+import argparse
+import torch
+import json
 import traceback
-from config import SIDDHI_FOLDER, BACKEND_DIR, OUTPUT_JSON_PATH
+import numpy as np
+
+# Import from the SIDDHI folder and your config
+from SIDDHI.exp.exp_classification import Exp_Classification
+from SIDDHI.utils.tools import dotdict
+from config import OUTPUT_JSON_PATH
+
+# --- Global variable to hold the initialized model and experiment ---
+# This will keep the model in memory after it's loaded once.
+EXP_INSTANCE = None
+
+def _initialize_model_and_exp():
+    """
+    This function is called only once per worker process to load the model
+    and experiment setup into memory.
+    """
+    global EXP_INSTANCE
+    # If the model is already loaded, do nothing.
+    if EXP_INSTANCE is not None:
+        return
+
+    print("ML Runner: Initializing model for the first time...")
+
+    # 1. Create an 'args' object with all the required parameters
+    # These are the same parameters previously passed via command line
+    args = dotdict()
+    args.task_name = 'classification'
+    args.is_training = 0
+    args.model_id = 'ADSZ-Indep'
+    args.model = 'ADformer'
+    args.data = 'ADSZIndep'
+    args.e_layers = 6
+    args.batch_size = 1
+    args.d_model = 128
+    args.d_ff = 256
+    args.enc_in = 19
+    args.num_class = 2
+    args.seq_len = 128
+    args.use_gpu = False
+    args.features = 'M'
+    args.label_len = 48
+    args.pred_len = 96
+    args.n_heads = 8
+    args.d_layers = 1
+    args.factor = 1
+    args.embed = 'timeF'
+    args.des = 'Exp'
+    args.patch_len_list = [4]
+    args.up_dim_list = [19]
+    args.root_path = './'
+    args.data_path = ''
+    args.checkpoints = './checkpoints'
+    args.device = torch.device('cpu')
+
+    # The SIDDHI code uses relative paths, so we need to temporarily
+    # change the directory to the SIDDHI folder for initialization.
+    original_cwd = os.getcwd()
+    siddhi_path = os.path.join(os.path.dirname(__file__), 'SIDDHI')
+    os.chdir(siddhi_path)
+
+    try:
+        # 2. Create the Experiment instance, which builds the model structure
+        exp = Exp_Classification(args)
+
+        # 3. Load the pre-trained model weights into the model structure
+        setting = '{}_{}_{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
+            args.model_id, args.model, args.data, args.seq_len, args.label_len, args.pred_len,
+            args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.factor,
+            args.embed, args.des, 0, 0
+        )
+        path = os.path.join(args.checkpoints, setting)
+        best_model_path = os.path.join(path, 'checkpoint.pth')
+
+        if not os.path.exists(best_model_path):
+            raise FileNotFoundError(f"Checkpoint file not found at {best_model_path}")
+
+        # Load the model weights onto the CPU
+        exp.model.load_state_dict(torch.load(best_model_path, map_location=torch.device('cpu')))
+        exp.model.eval() # Set the model to evaluation mode
+        print("ML Runner: Model weights loaded successfully and set to evaluation mode.")
+
+        # Store the fully initialized experiment object in our global variable
+        EXP_INSTANCE = exp
+
+    finally:
+        # Always change back to the original directory
+        os.chdir(original_cwd)
+
 
 def run_model(filepath_to_process: str):
     """
-    Executes the SIDDHI ML model script as a subprocess.
+    Executes a prediction using the pre-loaded ML model. This function replaces
+    the old subprocess-based approach.
     """
-    print(f"ML Runner: Executing ML model for: {filepath_to_process}")
+    global EXP_INSTANCE
     
-    siddhi_absolute_path = os.path.join(BACKEND_DIR, SIDDHI_FOLDER)
-    absolute_filepath_for_ml = os.path.abspath(filepath_to_process) # Ensure input path is absolute for the script
-    
-    # The output.json path is now defined in config relative to BACKEND_DIR
-    # For the script running inside SIDDHI_FOLDER, it will output to its CWD
-    expected_output_json_in_siddhi = os.path.join(siddhi_absolute_path, 'output.json')
+    # 1. Ensure the model is loaded into memory. If not, initialize it.
+    if EXP_INSTANCE is None:
+        _initialize_model_and_exp()
 
+    print(f"ML Runner: Running prediction for: {filepath_to_process}")
 
-    if not os.path.isdir(siddhi_absolute_path):
-        raise FileNotFoundError(f"ML Runner Error: SIDDHI directory not found at: {siddhi_absolute_path}")
-    if not os.path.isfile(absolute_filepath_for_ml):
-        raise FileNotFoundError(f"ML Runner Error: Input EEG file not found at: {absolute_filepath_for_ml}")
+    # The prediction logic needs the absolute path to the file
+    absolute_filepath_for_ml = os.path.abspath(filepath_to_process)
 
-    # Clean up previous output if it exists
-    if os.path.exists(expected_output_json_in_siddhi):
-        try:
-            os.remove(expected_output_json_in_siddhi)
-            print(f"ML Runner: Removed existing ML output file: {expected_output_json_in_siddhi}")
-        except Exception as rem_e:
-            print(f"ML Runner Warning: Could not remove existing {expected_output_json_in_siddhi}: {rem_e}")
+    # 2. Set the input file on the existing args object of our loaded experiment
+    EXP_INSTANCE.args.input_file = absolute_filepath_for_ml
 
+    # The SIDDHI code uses relative paths, so we must change the directory again
     original_cwd = os.getcwd()
-    print(f"ML Runner: Temporarily changing CWD from '{original_cwd}' to '{siddhi_absolute_path}'")
-    os.chdir(siddhi_absolute_path)
+    siddhi_path = os.path.join(os.path.dirname(__file__), 'SIDDHI')
+    os.chdir(siddhi_path)
 
     try:
-        # These arguments should match those expected by your SIDDHI/run.py and how they were used in the original app.py
-        cmd = [
-            'python', 'run.py', 
-            '--task_name', 'classification', 
-            '--is_training', '0', 
-            '--model_id', 'ADSZ-Indep', 
-            '--model', 'ADformer', 
-            '--data', 'ADSZIndep', 
-            '--e_layers', '6', 
-            '--batch_size', '1', # Often 1 for single prediction
-            '--d_model', '128', 
-            '--d_ff', '256', 
-            '--enc_in', '19', 
-            '--num_class', '2', 
-            '--seq_len', '128', 
-            '--input_file', absolute_filepath_for_ml, # Pass absolute path
-            '--use_gpu', 'False', # As per original call
-            '--features', 'M', 
-            '--label_len', '48',
-            '--pred_len', '96', 
-            '--n_heads', '8', 
-            '--d_layers', '1', 
-            '--factor', '1', 
-            '--embed', 'timeF',
-            '--des', "'Exp'", # Ensure Exp is not quoted in final command if SIDDHI expects it so
-            # Add other ADformer specific args if they were hardcoded or derived in original app.py:
-            "--patch_len_list", "4",
-            "--up_dim_list", "19",
-            # "--augmentations", "none", # if needed by run.py for model loading
-            # "--no_inter_attn", # if applicable
-            # "--no_temporal_block", # if applicable
-            # "--no_channel_block", # if applicable
-        ]
-        
-        # Handle boolean flags like --distil (action='store_false', default=True)
-        # If the original app.py logic implies args.distil would be True, then don't pass --distil.
-        # If it would be False, pass '--distil'. The current setup implies it's True by default.
+        # 3. Run the prediction. `load=False` is critical because it tells the
+        # function to use the already-loaded model weights.
+        EXP_INSTANCE.predict(setting='dummy_setting', load=False)
 
-        print(f"ML Runner: Running ML command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=360) # Increased timeout
-        
-        print(f"ML Runner: ML Model STDOUT:\n{result.stdout}")
-        if result.stderr:
-            print(f"ML Runner: ML Model STDERR:\n{result.stderr}")
-        
-        if not os.path.exists('output.json'): # Check in current (SIDDHI) directory
-            raise FileNotFoundError(f"ML Runner Error: 'output.json' not created in {siddhi_absolute_path} after script execution.")
-        
-        print("ML Runner: ML model script executed successfully.")
-        # The output.json is expected to be in siddhi_absolute_path now
-        return expected_output_json_in_siddhi # Return path to the output file
+        # 4. The `predict` method creates 'output.json' in the current directory (SIDDHI)
+        output_file_in_siddhi = os.path.join(siddhi_path, 'output.json')
 
-    except subprocess.CalledProcessError as proc_error:
-        print(f"ML Runner Error: ML script execution failed (Return Code {proc_error.returncode})\n--- ML STDERR ---\n{proc_error.stderr}\n--- End ML STDERR ---")
-        traceback.print_exc()
-        raise
-    except subprocess.TimeoutExpired:
-        print("ML Runner Error: ML script execution timed out.")
-        raise TimeoutError("ML model execution timed out.")
-    except FileNotFoundError as fnf_error:
-        print(f"ML Runner File System Error: {fnf_error}")
-        traceback.print_exc()
-        raise
+        if not os.path.exists(output_file_in_siddhi):
+            raise FileNotFoundError("ML Runner Error: 'output.json' was not created after prediction.")
+
+        # 5. Read the result and write it to the final destination defined in config
+        with open(output_file_in_siddhi, 'r') as f_in:
+            data = json.load(f_in)
+        with open(OUTPUT_JSON_PATH, 'w') as f_out:
+            json.dump(data, f_out)
+        
+        os.remove(output_file_in_siddhi) # Clean up the intermediate file
+
+        print("ML Runner: Prediction successful.")
+        return OUTPUT_JSON_PATH # Return the path to the final output file
+
     except Exception as e:
-        print(f"ML Runner Error: An unexpected error occurred: {e}")
+        print(f"ML Runner Error: An error occurred during prediction: {e}")
         traceback.print_exc()
         raise
     finally:
-        print(f"ML Runner: Changing CWD back to original: {original_cwd}")
         os.chdir(original_cwd)
+
