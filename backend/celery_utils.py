@@ -1,14 +1,20 @@
-# backend/celery_utils.py
 import os
 from celery import Celery
-from config import REDIS_URL # MODIFICATION: Import REDIS_URL from your config
+from config import REDIS_URL
 
-# MODIFICATION: Use REDIS_URL for backend and broker
+# Check if the Redis URL is for a secure connection (rediss://)
+is_secure_redis = REDIS_URL.startswith("rediss://")
+
+# Define SSL options only if it's a secure connection
+ssl_options = {'ssl_cert_reqs': 'none'} if is_secure_redis else {}
+
 celery_app = Celery(
     __name__,
-    backend=REDIS_URL,
     broker=REDIS_URL,
-    imports=('routes.predict_api',)
+    backend=REDIS_URL,
+    broker_use_ssl=ssl_options,
+    redis_backend_use_ssl=ssl_options,
+    imports=('backend.routes.predict_api',)
 )
 
 print("--- Celery instance created and tasks imported ---")
