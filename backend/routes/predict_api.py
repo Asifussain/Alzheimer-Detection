@@ -31,24 +31,33 @@ from pdf_generation import (
 )
 from routes import api_bp
 
-# This helper function is now simpler and more robust
 def decode_base64_image_for_upload(base64_string):
     if not isinstance(base64_string, str): return None
     try: return base64.b64decode(base64_string.split(',', 1)[1])
     except (IndexError, TypeError, base64.binascii.Error): return None
 
+# --- FIX: The task now accepts encoded file content instead of a path ---
 @celery_app.task(name='predict_api.run_full_analysis_task')
-def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_for_plot):
+def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_for_plot, original_filename):
     supabase = get_supabase_client()
     asset_prefix = f"report_assets/{prediction_id}"
     report_generation_errors = []
     ml_output_file_path = None
     assets_to_clean = []
-
+    
+    # --- FIX: Create a temporary file inside the WORKER container ---
+    temp_filename_in_worker = f"{prediction_id}_{original_filename}"
+    temp_filepath_in_worker = os.path.join(UPLOAD_FOLDER, temp_filename_in_worker)
+    
     try:
-        # Step 1: Run ML model and update DB with initial results
-        print(f"TASK [{prediction_id}]: Running ML model...")
-        ml_output_file_path = run_model(absolute_temp_filepath)
+        # Decode the base64 content and write it to the temp file
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        with open(temp_filepath_in_worker, 'wb') as f:
+            f.write(base64.b64decode(encoded_file_content))
+
+        # --- From here on, the task uses its OWN local file path ---
+        print(f"TASK [{prediction_id}]: Running ML model on {temp_filepath_in_worker}...")
+        ml_output_file_path = run_model(temp_filepath_in_worker)
         if not os.path.exists(ml_output_file_path): raise FileNotFoundError(f"ML output at {ml_output_file_path} not found.")
         with open(ml_output_file_path, 'r') as f: ml_output_data = json.load(f)
 
@@ -61,7 +70,6 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
         }
         supabase.table('predictions').update(json.loads(json.dumps(ml_update_payload, cls=NpEncoder))).eq('id', prediction_id).execute()
         
-        # Step 2: Generate All Visualizations and Stats (The Core Logic)
         print(f"TASK [{prediction_id}]: Generating stats and visual assets...")
         prediction_data_for_report, eeg_data, error_msg = get_prediction_and_eeg(prediction_id)
         if error_msg or eeg_data is None: raise Exception(f"Could not load EEG data: {error_msg}")
@@ -69,10 +77,9 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
         stats_json = generate_descriptive_stats(eeg_data, DEFAULT_FS)
         ts_img_base64 = generate_stacked_timeseries_image(eeg_data, DEFAULT_FS)
         psd_img_base64 = generate_average_psd_image(eeg_data, DEFAULT_FS)
-        similarity_results = run_similarity_analysis(absolute_temp_filepath, ALZ_REF_PATH, NORM_REF_PATH, channel_index_for_plot)
+        similarity_results = run_similarity_analysis(temp_filepath_in_worker, ALZ_REF_PATH, NORM_REF_PATH, channel_index_for_plot)
         similarity_plot_base64 = similarity_results.get('plot_base64') if isinstance(similarity_results, dict) else None
 
-        # Step 3: Upload Image Assets to Supabase Storage
         uploaded_asset_urls = {}
         for img_data, filename_s3, url_key in [
             (similarity_plot_base64, f"{asset_prefix}/similarity_plot.png", "similarity_plot_url"),
@@ -87,7 +94,6 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
                     uploaded_asset_urls[url_key] = supabase.storage.from_(REPORT_ASSET_BUCKET).get_public_url(filename_s3)
                 except Exception as e: report_generation_errors.append(f"{url_key} Upload Fail")
         
-        # Step 4: Generate & Upload PDF Reports
         pdf_types = [
             ("technical", TechnicalPDFReport, build_technical_pdf_report_content),
             ("patient", PatientPDFReport, build_patient_pdf_report_content),
@@ -112,7 +118,6 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
                 print(f"TASK ERROR [{prediction_id}]: PDF generation for {pdf_type} failed: {e_pdf}"); traceback.print_exc()
                 report_generation_errors.append(f"{pdf_type} PDF Fail")
 
-        # Step 5: Final DB Update with All Data
         final_status = "Completed" if not report_generation_errors else f"Completed with errors: {', '.join(report_generation_errors)}"
         final_update_payload = {"status": final_status, "stats_data": stats_json, "report_generated_at": datetime.now(timezone.utc).isoformat()}
         final_update_payload.update(uploaded_asset_urls)
@@ -127,8 +132,11 @@ def run_full_analysis_task(prediction_id, absolute_temp_filepath, channel_index_
         supabase.table('predictions').update({"status": f"Failed: {str(e)[:100]}"}).eq('id', prediction_id).execute()
         for asset_path in assets_to_clean: cleanup_storage_on_error(REPORT_ASSET_BUCKET, asset_path)
     finally:
-        if os.path.exists(absolute_temp_filepath): os.remove(absolute_temp_filepath)
-        if ml_output_file_path and os.path.exists(ml_output_file_path): os.remove(ml_output_file_path)
+        # --- FIX: Clean up the files created in THIS worker ---
+        if os.path.exists(temp_filepath_in_worker):
+            os.remove(temp_filepath_in_worker)
+        if ml_output_file_path and os.path.exists(ml_output_file_path):
+            os.remove(ml_output_file_path)
 
 @api_bp.route('/predict', methods=['POST'])
 def predict_route():
@@ -143,58 +151,47 @@ def predict_route():
         channel_index_for_plot = 0
 
     if not file or not user_id or not file.filename:
-        return jsonify({'error': 'Invalid request: file, user_id are required.'}), 400
+        return jsonify({'error': 'Invalid request: file and user_id are required.'}), 400
 
     prediction_id = str(uuid.uuid4())
-    
-    # Use secure_filename to prevent directory traversal attacks
     filename = secure_filename(file.filename)
-    filename_base, ext = os.path.splitext(filename)
-    save_filename = f"{filename_base}_{prediction_id}{ext}"
     
-    # --- FIX: Create a path relative to the app's working directory ---
-    # This is more robust than relying on BACKEND_DIR inside a container.
-    temp_filepath = os.path.join(UPLOAD_FOLDER, save_filename)
-    
-    raw_eeg_storage_path = f'raw_eeg/{user_id}/{save_filename}'
+    # We still save the file temporarily in the web service container to upload to Supabase
+    temp_filepath = os.path.join(UPLOAD_FOLDER, f"{prediction_id}_{filename}")
+    raw_eeg_storage_path = f'raw_eeg/{user_id}/{prediction_id}_{filename}'
 
     try:
-        # Ensure the upload directory exists
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        
-        # Save the file to the temporary path
         file.save(temp_filepath)
 
-        # Upload the original file to Supabase for permanent storage
+        # --- FIX: Read the file content and encode it ---
         with open(temp_filepath, 'rb') as f:
-            supabase.storage.from_(RAW_EEG_BUCKET).upload(
-                path=raw_eeg_storage_path,
-                file=f
-            )
+            file_content = f.read()
+            # Upload the raw bytes to Supabase
+            supabase.storage.from_(RAW_EEG_BUCKET).upload(path=raw_eeg_storage_path, file=file_content, file_options={"upsert": "true"})
+        
+        # Encode the content to pass to Celery
+        encoded_file_content = base64.b64encode(file_content).decode('utf-8')
+        
+        # We can now remove the temporary file from the web service container
+        os.remove(temp_filepath)
 
-        # Create the initial record in the database
         initial_db_record = {
-            "id": prediction_id,
-            "user_id": user_id,
-            "filename": file.filename,
-            "status": "Pending",
-            "prediction": "Processing...",
+            "id": prediction_id, "user_id": user_id, "filename": filename,
+            "status": "Pending", "prediction": "Processing...",
             "eeg_data_url": raw_eeg_storage_path
         }
         insert_res = supabase.table('predictions').insert(initial_db_record).execute()
         if hasattr(insert_res, 'error') and insert_res.error:
             raise Exception(f"DB insert failed: {insert_res.error.message}")
 
-        # --- PASS THE CORRECT PATH TO CELERY ---
-        # We pass the relative path 'uploads/filename.edf'. The Celery worker,
-        # running in the same /app directory, will resolve this correctly.
-        run_full_analysis_task.delay(prediction_id, temp_filepath, channel_index_for_plot)
+        # --- FIX: Pass the ENCODED CONTENT to the Celery task ---
+        run_full_analysis_task.delay(prediction_id, encoded_file_content, channel_index_for_plot, filename)
         
         return jsonify({"prediction_id": prediction_id}), 202
 
     except Exception as e:
         traceback.print_exc()
-        # Cleanup local file and storage on error
         if os.path.exists(temp_filepath):
             os.remove(temp_filepath)
         cleanup_storage_on_error(RAW_EEG_BUCKET, raw_eeg_storage_path)
