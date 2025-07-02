@@ -14,7 +14,8 @@ celery_app = Celery(
     backend=REDIS_URL,
     broker_use_ssl=ssl_options,
     redis_backend_use_ssl=ssl_options,
-    imports=('backend.routes.predict_api',)
+    # --- THIS LINE IS THE FIX ---
+    imports=('routes.predict_api',)
 )
 
 print("--- Celery instance created and tasks imported ---")
