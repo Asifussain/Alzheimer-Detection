@@ -1,24 +1,23 @@
-# Use an official Python runtime as a parent image
+# Step 1: Use a specific Python 3.9 image as our base
 FROM python:3.9-slim
 
-# Set the working directory in the container
+# Step 2: Set the working directory inside the container
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Step 3: Copy the requirements file into the container
 COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Step 4: Install the CPU-only version of PyTorch first
+RUN pip install torch==2.1.0 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Copy the rest of the backend application code into the container
+# Step 5: Install the rest of the dependencies
+RUN pip install -r requirements.txt
+
+# Step 6: Copy the rest of your backend code into the container
 COPY . .
 
-# Make port 5000 available to the world outside this container
-EXPOSE 5000
+# Step 7: Expose the port the app will run on
+EXPOSE 8000
 
-# Define environment variables
-ENV FLASK_APP=app.py
-ENV FLASK_RUN_HOST=0.0.0.0
-
-# Run the application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# Step 8: Define the command to run the application
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]
