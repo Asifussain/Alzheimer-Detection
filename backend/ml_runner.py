@@ -1,11 +1,17 @@
 import os
+import sys  # <-- Import sys
 import subprocess
 import traceback
 from config import SIDDHI_FOLDER, OUTPUT_JSON_PATH
 
-# --- FIX: Define paths relative to this file's location ---
-# This is more robust for running inside a Docker container.
+# --- FIX: Add the SIDDHI directory to the Python path ---
+# This ensures that all sub-modules within SIDDHI can find each other,
+# solving the "No module named 'utils.masking'" error.
 ML_RUNNER_DIR = os.path.dirname(os.path.abspath(__file__))
+SIDDHI_PATH = os.path.join(ML_RUNNER_DIR, 'SIDDHI')
+if SIDDHI_PATH not in sys.path:
+    sys.path.insert(0, SIDDHI_PATH)
+
 
 def run_model(filepath_to_process: str):
     """
@@ -13,8 +19,7 @@ def run_model(filepath_to_process: str):
     """
     print(f"ML Runner: Executing ML model for: {filepath_to_process}")
     
-    # --- FIX: Use the new robust path definition ---
-    siddhi_absolute_path = os.path.join(ML_RUNNER_DIR, SIDDHI_FOLDER)
+    siddhi_absolute_path = SIDDHI_PATH # Use the path defined above
     absolute_filepath_for_ml = os.path.abspath(filepath_to_process)
     
     expected_output_json_in_siddhi = os.path.join(siddhi_absolute_path, 'output.json')

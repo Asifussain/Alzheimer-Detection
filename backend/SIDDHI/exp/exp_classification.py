@@ -1,6 +1,6 @@
 # backend/SIDDHI/exp/exp_classification.py
 from copy import deepcopy
-from exp.exp_basic import Exp_Basic
+from .exp_basic import Exp_Basic
 import torch
 import torch.nn as nn
 from torch import optim
