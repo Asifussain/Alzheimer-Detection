@@ -1,7 +1,11 @@
 import os
 import subprocess
 import traceback
-from config import SIDDHI_FOLDER, BACKEND_DIR, OUTPUT_JSON_PATH
+from config import SIDDHI_FOLDER, OUTPUT_JSON_PATH
+
+# --- FIX: Define paths relative to this file's location ---
+# This is more robust for running inside a Docker container.
+ML_RUNNER_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def run_model(filepath_to_process: str):
     """
@@ -9,13 +13,11 @@ def run_model(filepath_to_process: str):
     """
     print(f"ML Runner: Executing ML model for: {filepath_to_process}")
     
-    siddhi_absolute_path = os.path.join(BACKEND_DIR, SIDDHI_FOLDER)
-    absolute_filepath_for_ml = os.path.abspath(filepath_to_process) # Ensure input path is absolute for the script
+    # --- FIX: Use the new robust path definition ---
+    siddhi_absolute_path = os.path.join(ML_RUNNER_DIR, SIDDHI_FOLDER)
+    absolute_filepath_for_ml = os.path.abspath(filepath_to_process)
     
-    # The output.json path is now defined in config relative to BACKEND_DIR
-    # For the script running inside SIDDHI_FOLDER, it will output to its CWD
     expected_output_json_in_siddhi = os.path.join(siddhi_absolute_path, 'output.json')
-
 
     if not os.path.isdir(siddhi_absolute_path):
         raise FileNotFoundError(f"ML Runner Error: SIDDHI directory not found at: {siddhi_absolute_path}")
@@ -35,7 +37,6 @@ def run_model(filepath_to_process: str):
     os.chdir(siddhi_absolute_path)
 
     try:
-        # These arguments should match those expected by your SIDDHI/run.py and how they were used in the original app.py
         cmd = [
             'python', 'run.py', 
             '--task_name', 'classification', 
@@ -44,14 +45,14 @@ def run_model(filepath_to_process: str):
             '--model', 'ADformer', 
             '--data', 'ADSZIndep', 
             '--e_layers', '6', 
-            '--batch_size', '1', # Often 1 for single prediction
+            '--batch_size', '1',
             '--d_model', '128', 
             '--d_ff', '256', 
             '--enc_in', '19', 
             '--num_class', '2', 
             '--seq_len', '128', 
-            '--input_file', absolute_filepath_for_ml, # Pass absolute path
-            '--use_gpu', 'False', # As per original call
+            '--input_file', absolute_filepath_for_ml,
+            '--use_gpu', 'False',
             '--features', 'M', 
             '--label_len', '48',
             '--pred_len', '96', 
@@ -59,33 +60,23 @@ def run_model(filepath_to_process: str):
             '--d_layers', '1', 
             '--factor', '1', 
             '--embed', 'timeF',
-            '--des', "'Exp'", # Ensure Exp is not quoted in final command if SIDDHI expects it so
-            # Add other ADformer specific args if they were hardcoded or derived in original app.py:
+            '--des', "'Exp'",
             "--patch_len_list", "4",
             "--up_dim_list", "19",
-            # "--augmentations", "none", # if needed by run.py for model loading
-            # "--no_inter_attn", # if applicable
-            # "--no_temporal_block", # if applicable
-            # "--no_channel_block", # if applicable
         ]
         
-        # Handle boolean flags like --distil (action='store_false', default=True)
-        # If the original app.py logic implies args.distil would be True, then don't pass --distil.
-        # If it would be False, pass '--distil'. The current setup implies it's True by default.
-
         print(f"ML Runner: Running ML command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=360) # Increased timeout
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=360)
         
         print(f"ML Runner: ML Model STDOUT:\n{result.stdout}")
         if result.stderr:
             print(f"ML Runner: ML Model STDERR:\n{result.stderr}")
         
-        if not os.path.exists('output.json'): # Check in current (SIDDHI) directory
+        if not os.path.exists('output.json'):
             raise FileNotFoundError(f"ML Runner Error: 'output.json' not created in {siddhi_absolute_path} after script execution.")
         
         print("ML Runner: ML model script executed successfully.")
-        # The output.json is expected to be in siddhi_absolute_path now
-        return expected_output_json_in_siddhi # Return path to the output file
+        return expected_output_json_in_siddhi
 
     except subprocess.CalledProcessError as proc_error:
         print(f"ML Runner Error: ML script execution failed (Return Code {proc_error.returncode})\n--- ML STDERR ---\n{proc_error.stderr}\n--- End ML STDERR ---")
