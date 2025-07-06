@@ -1,57 +1,140 @@
-.uploadSection {
-    margin-top: 2rem;
-    width: 100%;
-  }
-  
-  .fileInputContainer {
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .hiddenInput {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
-  }
-  
-  .customFileUpload {
-    padding: 0.8rem 1rem;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: all 0.3s;
-  }
-  
-  .customFileUpload:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-  }
-  
-  .fileName {
-    font-size: 0.9rem;
-    color: #ccc;
-  }
-  
-  .analyseBtn {
-    padding: 0.8rem 1.5rem;
-    font-size: 1rem;
-    background-color: #2b6cbb;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  
-  .analyseBtn:hover {
-    background-color: #0e4a97;
-  }
-  
+/* frontend/styles/UploadSection.module.css */
+
+.uploadContainer {
+  width: 100%;
+  padding: 1.5rem; /* Adjusted padding for better fit inside a card */
+  background: transparent; /* Makes it blend with the parent card */
+}
+
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  border: 2px dashed #4a5568; /* Darker border for dark theme */
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.05); /* Subtle background */
+  color: #a0aec0; /* Lighter text color */
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  text-align: center;
+}
+
+.dropZone:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: #63b3ed;
+}
+
+.dropZone.dragging {
+  background-color: rgba(99, 179, 237, 0.2);
+  border-color: #63b3ed;
+}
+
+.dropZoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dropZoneContent svg {
+  width: 32px;
+  height: 32px;
+  color: #a0aec0;
+  transition: color 0.2s ease-in-out;
+}
+
+.dropZone:hover .dropZoneContent svg {
+    color: #63b3ed;
+}
+
+.dropZone p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.dropZone p span {
+  font-weight: 600;
+  color: #63b3ed;
+}
+
+.fileName {
+  font-weight: 500;
+  color: #e2e8f0;
+  background-color: #2d3748;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  font-size: 0.9rem;
+}
+
+.fileInput {
+  display: none;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #cbd5e0;
+  font-size: 0.875rem;
+}
+
+.selectInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  background-color: #1a202c;
+  font-size: 1rem;
+  color: #e2e8f0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.selectInput:focus {
+  outline: none;
+  border-color: #63b3ed;
+  box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.3);
+}
+
+.submitButton {
+  padding: 0.875rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #3182ce;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #2b6cb0;
+}
+
+.submitButton:disabled {
+  background-color: #4a5568;
+  cursor: not-allowed;
+}
+
+.errorMessage {
+  margin-top: 1rem;
+  color: #fc8181;
+  text-align: center;
+  font-weight: 500;
+}
