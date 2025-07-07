@@ -20,7 +20,6 @@ class Model(nn.Module):
         self.seq_len = configs.seq_len
         self.output_attention = configs.output_attention
         self.enc_in = configs.enc_in
-        # Embedding
         if configs.no_temporal_block and configs.no_channel_block:
             raise ValueError("At least one of the two blocks should be True")
         if configs.no_temporal_block:
@@ -49,7 +48,6 @@ class Model(nn.Module):
             configs.dropout,
             augmentations,
         )
-        # Encoder
         self.encoder = Encoder(
             [
                 EncoderLayer(
@@ -71,7 +69,6 @@ class Model(nn.Module):
             ],
             norm_layer=torch.nn.LayerNorm(configs.d_model),
         )
-        # Decoder
         if self.task_name == "classification":
             self.act = F.gelu
             self.dropout = nn.Dropout(configs.dropout)
@@ -91,7 +88,6 @@ class Model(nn.Module):
         raise NotImplementedError
 
     def classification(self, x_enc, x_mark_enc):
-        # Embedding
         enc_out_t, enc_out_c = self.enc_embedding(x_enc)
         enc_out_t, enc_out_c, attns_t, attns_c = self.encoder(enc_out_t, enc_out_c, attn_mask=None)
         if enc_out_t is None:
@@ -101,14 +97,13 @@ class Model(nn.Module):
         else:
             enc_out = torch.cat((enc_out_t, enc_out_c), dim=1)
 
-        # Output
         output = self.act(
             enc_out
-        )  # the output transformer encoder/decoder embeddings don't include non-linearity
+        )
         output = self.dropout(output)
         output = output.reshape(
             output.shape[0], -1
-        )  # (batch_size, seq_length * d_model)
+        )
         output = self.projection(output)  # (batch_size, num_classes)
         return output
 
