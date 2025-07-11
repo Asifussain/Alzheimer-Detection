@@ -1,8 +1,7 @@
-/* frontend/styles/ContactForm.module.css */
 .contactFormSection {
     background-color: var(--card-bg);
-    padding: 2rem 2.5rem; /* More padding */
-    border-radius: 12px; /* More rounded */
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
@@ -19,7 +18,7 @@
 }
 
 .formLabel {
-    margin-bottom: 0.6rem; /* More space */
+    margin-bottom: 0.6rem;
     font-weight: 500;
     color: var(--text-primary);
     font-size: 0.9rem;
@@ -27,24 +26,22 @@
 
 .formInput,
 .formTextarea {
-    /* Inherits base styles from globals.css */
-    font-size: 1rem; /* Ensure consistent font size */
+    font-size: 1rem;
 }
 
 .formTextarea {
     resize: vertical;
-    min-height: 130px; /* Slightly taller */
+    min-height: 130px;
 }
 
 .submitButton {
-    /* Inherits base button styles */
-    padding: 0.8rem 1.6rem; /* Adjust padding */
+    padding: 0.8rem 1.6rem;
     font-size: 1rem;
     font-weight: 600;
     background-color: var(--button-bg);
     color: var(--text-heading);
     align-self: flex-start;
-    margin-top: 0.5rem; /* Add margin */
+    margin-top: 0.5rem;
 }
 
 .submitButton:hover:not(:disabled) {
@@ -59,14 +56,14 @@
 
 .successMessage {
     color: var(--success-color);
-    text-align: left; /* Align left */
+    text-align: left;
     margin-top: 0.5rem;
     font-weight: 500;
 }
 
 .errorMessage {
     color: var(--error-color);
-    text-align: left; /* Align left */
+    text-align: left;
     margin-top: 0.5rem;
     font-weight: 500;
 }

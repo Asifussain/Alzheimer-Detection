@@ -1,7 +1,5 @@
-/* frontend/styles/ReportPage.module.css */
-
 .pageContainer {
-    background-color: #0f172a; /* Main dark background */
+    background-color: #0f172a;
     color: #cbd5e1;
     min-height: 100vh;
     font-family: 'Inter', sans-serif;
@@ -13,7 +11,6 @@
     padding: 2rem;
 }
 
-/* Header */
 .header {
     display: flex;
     justify-content: space-between;
@@ -46,7 +43,6 @@
     background-color: #1d4ed8;
 }
 
-/* --- Status / Loading --- */
 .statusContainer {
     text-align: center;
     padding: 6rem;
@@ -55,7 +51,6 @@
 }
 
 .loadingSpinner {
-    /* Add a subtle spinner if you want one */
     width: 48px;
     height: 48px;
     border: 5px solid #3b82f6;
@@ -71,7 +66,6 @@
 .statusText { font-size: 1.5rem; color: #e2e8f0; }
 .statusSubtext { font-size: 1rem; color: #94a3b8; margin-top: 0.5rem; }
 
-/* --- Section Cards --- */
 .sectionCard {
     background-color: #1e293b;
     border: 1px solid #334155;
@@ -99,12 +93,10 @@
     gap: 1.5rem;
 }
 
-/* Overview Section */
 .overviewItem { font-size: 1rem; }
 .overviewLabel { color: #94a3b8; margin-right: 0.5rem; }
 .overviewValue { color: #f1f5f9; font-weight: 500; }
 
-/* Metrics Section */
 .metricsGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -120,7 +112,6 @@
 .metricValue { font-size: 1.75rem; font-weight: 700; color: #60a5fa; }
 .metricDescription { font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; }
 
-/* Stats Section */
 .statsGrid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
 .statsList { list-style: none; padding: 0; margin: 0; }
 .statsList li { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #334155; }
@@ -129,6 +120,5 @@
 .statsValue { font-weight: 600; color: #f1f5f9; }
 .stdDevValue { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; }
 
-/* Visualizations Section */
 .plotContainer { margin-bottom: 2rem; }
 .plotContainer img { width: 100%; height: auto; border-radius: 8px; }

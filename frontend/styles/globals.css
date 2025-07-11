@@ -1,6 +1,4 @@
-/* Import new fonts: Exo 2 for headings/brand, Manrope for body */
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&family=Manrope:wght@300;400;500;700&display=swap');
-/* Keep Nasalization if needed for logo/brand specifically */
 @import url('https://fonts.cdnfonts.com/css/nasalization');
 
 * {
@@ -12,23 +10,22 @@
 :root {
   --primary-blue: #4A90E2;
   --accent-teal: #50E3C2;
-  --background-start: #0a0f1a; /* Dark Blue */
-  --background-end: #111827;   /* Dark Gray-Blue */
-  --text-primary: #E5E7EB; /* Lighter Gray */
-  --text-secondary: #9CA3AF; /* Medium Gray */
+  --background-start: #0a0f1a;
+  --background-end: #111827;
+  --text-primary: #E5E7EB;
+  --text-secondary: #9CA3AF;
   --text-heading: #FFFFFF;
-  --border-color: #374151; /* Gray */
-  --card-bg: rgba(17, 24, 39, 0.7); /* Darker card bg */
+  --border-color: #374151;
+  --card-bg: rgba(17, 24, 39, 0.7);
   --button-bg: var(--primary-blue);
   --button-hover-bg: #357ABD;
-  --button-secondary-border: #4B5563; /* Gray border */
-  --button-secondary-hover-bg: rgba(55, 65, 81, 0.5); /* Gray hover */
+  --button-secondary-border: #4B5563;
+  --button-secondary-hover-bg: rgba(55, 65, 81, 0.5);
   --success-color: #34D399;
   --error-color: #F87171;
-  /* --- Font Update --- */
   --font-body: 'Manrope', sans-serif;
-  --font-heading: 'Exo 2', sans-serif; /* Use Exo 2 for headings */
-  --font-brand: 'Nasalization Rg', sans-serif; /* Keep for brand */
+  --font-heading: 'Exo 2', sans-serif;
+  --font-brand: 'Nasalization Rg', sans-serif;
 }
 
 body {
@@ -43,10 +40,10 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading); /* Headings use Exo 2 */
+  font-family: var(--font-heading);
   color: var(--text-heading);
-  font-weight: 600; /* Exo 2 looks good bolder */
-  letter-spacing: 0.3px; /* Slight spacing */
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 a {
@@ -60,13 +57,13 @@ a:hover {
 }
 
 button {
-  font-family: var(--font-body); /* Buttons use body font */
+  font-family: var(--font-body);
   cursor: pointer;
   border: none;
   border-radius: 6px;
-  padding: 0.7rem 1.4rem; /* Adjusted padding */
+  padding: 0.7rem 1.4rem;
   font-size: 0.95rem;
-  font-weight: 600; /* Manrope needs bolder weight for buttons */
+  font-weight: 600;
   transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
@@ -83,7 +80,7 @@ input[type="email"],
 input[type="date"],
 input[type="file"],
 textarea {
-  font-family: var(--font-body); /* Inputs use body font */
+  font-family: var(--font-body);
   padding: 0.7rem 1rem;
   background-color: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
@@ -100,7 +97,6 @@ textarea:focus {
     box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
 }
 
-/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

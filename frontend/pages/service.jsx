@@ -1,5 +1,5 @@
 import Navbar from '../components/Navbar';
-import styles from '../styles/PageLayout.module.css'; // Create this CSS module for common page styling
+import styles from '../styles/PageLayout.module.css'; 
 
 export default function ServicePage() {
   return (
@@ -45,7 +45,6 @@ export default function ServicePage() {
           </p>
         </section>
       </div>
-      {/* Optional: Add a Footer component here */}
     </>
   );
 }

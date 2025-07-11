@@ -1,11 +1,10 @@
-// frontend/pages/result.jsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import supabase from '../lib/supabaseClient';
 import { useAuth } from '../components/AuthProvider';
-import PageLayout from '../components/PageLayout'; // Using your existing layout for consistency
-import styles from '../styles/ReportPage.module.css'; // Using the new dedicated style
+import PageLayout from '../components/PageLayout'; 
+import styles from '../styles/ReportPage.module.css'; 
 
 const MetricCard = ({ label, value }) => (
     <div className={styles.metricCard}>

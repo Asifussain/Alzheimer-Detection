@@ -2,7 +2,7 @@
     max-width: 900px;
     margin: 2rem auto;
     padding: 1rem 2rem;
-    color: #eee; /* Lighter text for readability */
+    color: #eee;
 }
 
 .pageTitle {
@@ -10,7 +10,7 @@
     margin-bottom: 2rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     padding-bottom: 1rem;
-    font-weight: 500; /* Adjust weight */
+    font-weight: 500;
     color: #fff;
 }
 
@@ -21,14 +21,14 @@
 .sectionTitle {
     font-size: 1.8rem;
     margin-bottom: 1rem;
-    color: #00ffff; /* Use an accent color */
-    font-weight: 400; /* Adjust weight */
+    color: #00ffff;
+    font-weight: 400;
 }
 
 .paragraph {
     font-size: 1rem;
     line-height: 1.7;
-    color: #ccc; /* Slightly dimmer paragraph text */
+    color: #ccc;
     margin-bottom: 1rem;
 }
 
@@ -41,7 +41,7 @@
     margin-bottom: 0.75rem;
 }
 .orderedList li::marker, .unorderedList li::marker {
-    color: #00ffff; /* Accent color for markers */
+    color: #00ffff;
 }
 
 .link {
@@ -55,11 +55,11 @@
 }
 
 .disclaimerSection {
-    background-color: rgba(255, 107, 107, 0.05); /* Subtle warning background */
+    background-color: rgba(255, 107, 107, 0.05);
     border: 1px solid rgba(255, 107, 107, 0.2);
     padding: 1.5rem;
     border-radius: 8px;
 }
 .disclaimerSection .sectionTitle {
-    color: #ff6b6b; /* Warning color for title */
+    color: #ff6b6b;
 }

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import Navbar from '../components/Navbar';
-import styles from '../styles/PageLayout.module.css'; // Reuse the CSS module
-import formStyles from '../styles/ContactForm.module.css'; // Create this CSS module for form styling
+import styles from '../styles/PageLayout.module.css';
+import formStyles from '../styles/ContactForm.module.css';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(null); // null | 'success' | 'error'
+  const [submitStatus, setSubmitStatus] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -18,19 +18,14 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setSubmitStatus(null);
 
-    // **Backend Integration Needed Here**
-    // This part requires a backend endpoint (e.g., using Supabase Functions, SendGrid, etc.)
-    // to actually process and send the email or store the message.
-    // For now, we'll simulate a successful submission.
     console.log("Form data submitted (simulation):", formData);
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Replace with actual API call result
-    const success = true; 
+    const success = true;
 
     if (success) {
       setSubmitStatus('success');
-      setFormData({ name: '', email: '', subject: '', message: '' }); // Clear form
+      setFormData({ name: '', email: '', subject: '', message: '' });
     } else {
       setSubmitStatus('error');
     }
@@ -48,7 +43,6 @@ export default function ContactPage() {
           <p className={styles.paragraph}>
             Have questions, feedback, or partnership inquiries? Reach out to us!
           </p>
-          {/* Add placeholder contact details */}
           <p className={styles.paragraph}>
             <strong>Email:</strong> info@ai4neuro.com
           </p>
@@ -115,7 +109,6 @@ export default function ContactPage() {
           </form>
         </section>
       </div>
-      {/* Optional: Add a Footer component here */}
     </>
   );
 }

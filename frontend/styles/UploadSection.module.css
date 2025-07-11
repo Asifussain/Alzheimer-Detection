@@ -1,9 +1,7 @@
-/* frontend/styles/UploadSection.module.css */
-
 .uploadContainer {
   width: 100%;
-  padding: 1.5rem; /* Adjusted padding for better fit inside a card */
-  background: transparent; /* Makes it blend with the parent card */
+  padding: 1.5rem;
+  background: transparent;
 }
 
 .uploadForm {
@@ -18,10 +16,10 @@
   justify-content: center;
   align-items: center;
   padding: 2rem;
-  border: 2px dashed #4a5568; /* Darker border for dark theme */
+  border: 2px dashed #4a5568;
   border-radius: 12px;
-  background-color: rgba(255, 255, 255, 0.05); /* Subtle background */
-  color: #a0aec0; /* Lighter text color */
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #a0aec0;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
   text-align: center;

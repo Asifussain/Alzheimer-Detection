@@ -1,4 +1,3 @@
-/* frontend/styles/Navbar.module.css */
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&family=Manrope:wght@300;400;500;700&display=swap');
 @import url('https://fonts.cdnfonts.com/css/nasalization');
 
@@ -12,10 +11,10 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.2rem 5%;
-    background-color: rgba(17, 24, 39, 0.85); /* Slightly less transparent */
+    background-color: rgba(17, 24, 39, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    font-family: var(--font-body); /* Manrope */
+    font-family: var(--font-body);
     font-size: 0.95rem;
     position: sticky;
     top: 0;
@@ -29,7 +28,6 @@
     font-weight: 700;
     font-size: 1.6rem;
     color: var(--text-heading);
-    /* Subtle Glow Animation */
     animation: subtleGlow 4s ease-in-out infinite;
   }
   .navbarBrand a {
@@ -46,23 +44,22 @@
   .navbarLinks a {
     color: var(--text-primary);
     text-decoration: none;
-    font-weight: 500; /* Manrope medium */
+    font-weight: 500;
     transition: color 0.3s;
     position: relative;
     padding-bottom: 5px;
-    font-family: 'Nasalization Rg', sans-serif; /* Nasalization for links */
+    font-family: 'Nasalization Rg', sans-serif;
   }
 
-  /* Refined Underline effect */
   .navbarLinks a::after {
     content: '';
     position: absolute;
     width: 0;
     height: 2px;
-    bottom: -2px; /* Position slightly below text */
-    left: 0; /* Start from left */
+    bottom: -2px;
+    left: 0;
     background: var(--accent-teal);
-    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother transition */
+    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: left;
   }
 
@@ -71,7 +68,7 @@
     text-decoration: none;
   }
    .navbarLinks a:hover::after {
-     width: 100%; /* Full underline on hover */
+     width: 100%;
    }
 
   .rightSection {
@@ -79,14 +76,13 @@
     align-items: center;
   }
 
-  /* Login button */
   .loginBtn {
     border: 1px solid var(--accent-teal);
-    padding: 0.6rem 1.3rem; /* Adjusted padding */
+    padding: 0.6rem 1.3rem;
     border-radius: 6px;
     background: transparent;
     color: var(--accent-teal);
-    font-weight: 600; /* Bolder button text */
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
   }
@@ -97,7 +93,6 @@
     box-shadow: 0 3px 10px rgba(80, 227, 194, 0.3);
   }
 
-  /* --- Profile & Dropdown Styles (Keep the fix from previous response) --- */
   .profileContainer {
     position: relative;
     cursor: pointer;
@@ -164,7 +159,7 @@
     color: var(--text-heading);
     border-radius: 6px;
     cursor: pointer;
-    font-weight: 600; /* Bolder */
+    font-weight: 600;
     transition: background-color 0.3s, transform 0.1s;
   }
 

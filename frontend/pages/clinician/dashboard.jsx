@@ -1,4 +1,3 @@
-// frontend/pages/clinician/dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/Navbar';
 import { useAuth } from '../../components/AuthProvider';
@@ -6,9 +5,8 @@ import withAuth from '../../components/withAuth';
 import FileUploadSection from '../../components/FileUploadSection';
 import ReportViewer from '../../components/ReportViewer';
 import LoadingSpinner from '../../components/LoadingSpinner';
-// --- Import the NEW Dashboard Layout styles ---
 import dashStyles from '../../styles/DashboardLayout.module.css';
-import historyStyles from '../../styles/PreviousUploads.module.css'; // For table styling
+import historyStyles from '../../styles/PreviousUploads.module.css';
 import Link from 'next/link';
 import supabase from '../../lib/supabaseClient';
 
@@ -39,7 +37,7 @@ function ClinicianDashboard() {
         const { data, error } = await supabase
           .from('predictions')
           .select('id, filename, prediction, created_at')
-          .eq('user_id', user.id) // Assuming clinicians see their own uploads, or you might change this query
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(3);
         if (error) throw error;
@@ -68,45 +66,31 @@ function ClinicianDashboard() {
   return (
     <>
       <Navbar />
-      {/* --- Use the Dashboard Layout --- */}
       <section className={dashStyles.dashboard}>
-
-        {/* Left Content Column */}
-        {/* Use the specific dashboard content class */}
         <div className={dashStyles.dashboardContent}>
-          {/* Dashboard Title & Welcome */}
-          {/* Use dashboard-specific title/welcome classes */}
-          {/* Corrected Line Below: */}
           <h1 className={dashStyles.dashboardTitle}>Clinician Dashboard</h1>
-          <div style={{ marginBottom: '2.5rem' }}> {/* Add a div for better spacing control */}
-            <p style={{ 
-              fontSize: '1.5rem', /* Larger font size for "Welcome Dr. ..." */
-              fontWeight: '500', 
-              color: 'var(--text-heading)', /* Use heading color or a prominent color */
+          <div style={{ marginBottom: '2.5rem' }}>
+            <p style={{
+              fontSize: '1.5rem',
+              fontWeight: '500',
+              color: 'var(--text-heading)',
               lineHeight: '1.4',
-              marginBottom: '0.3rem' /* Space between welcome and tagline */
+              marginBottom: '0.3rem'
             }}>
               Welcome, Dr. {profile?.full_name || user?.email}!
             </p>
-            <p className={dashStyles.welcomeMessage} style={{ marginTop: '0', fontSize: '1.05rem' /* Keep original tagline size or adjust */ }}>
+            <p className={dashStyles.welcomeMessage} style={{ marginTop: '0', fontSize: '1.05rem' }}>
               Access patient analyses, upload new EEG data, and review AI-driven insights.
             </p>
           </div>
-
-          {/* Upload Card */}
-          {/* Use dashboard card style */}
           <div className={dashStyles.dashboardCard} style={{ '--card-delay': '0.5s' }}>
             <h3 className={dashStyles.cardTitle}>Analyse New EEG Data</h3>
-            {/* Add wrapper div with class for specific targeting if needed */}
             <div className={dashStyles.uploadSectionWrapper}>
                 <FileUploadSection />
             </div>
           </div>
-
-          {/* History Card */}
           <div className={dashStyles.dashboardCard} style={{ '--card-delay': '0.7s' }}>
             <h3 className={dashStyles.cardTitle}>Recent Analysis History</h3>
-            {/* Conditional Rendering for History */}
             {historyLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100px' }}>
                 <LoadingSpinner color="var(--accent-teal)" size="35"/>
@@ -146,22 +130,15 @@ function ClinicianDashboard() {
                 <Link href="/previous" className={historyStyles.reportLinkButton} style={{padding: '0.5rem 1rem'}}>View Full History</Link>
              </p>
           </div>
-
-        </div> {/* End Left Content Column */}
-
-        {/* Right Image Column */}
-        {/* Use the specific dashboard image container class */}
+        </div>
         <div className={dashStyles.dashboardImageContainer}>
           <img
              src="/images/brain.png"
              alt="Brain Visualization"
-             className={dashStyles.dashboardImage} // Use dashboard image class
+             className={dashStyles.dashboardImage}
            />
         </div>
-
-      </section> {/* End Dashboard Section */}
-
-      {/* Report Viewer Section (Below Dashboard Section) */}
+      </section>
       {selectedReportId && (
         <section id="report-viewer-section" style={{ maxWidth: '1100px', margin: '0 auto 4rem auto', padding: '0 2rem' }}>
           <ReportViewer

@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import supabase from '../lib/supabaseClient';
-import { useUser } from '../components/AuthProvider'; // Using useUser to get user object
+import { useUser } from '../components/AuthProvider';
 import LoadingSpinner from '../components/LoadingSpinner';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import styles from '../styles/PreviousUploads.module.css';
 
 const ITEMS_PER_PAGE = 5;
 
 export default function PreviousUploads() {
-  // Use useUser() which you already have in AuthProvider context
-  // It should return { user } based on your AuthProvider setup
   const { user } = useUser();
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,16 +22,12 @@ export default function PreviousUploads() {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const fetchPredictions = async () => {
-      // Ensure user object is available before fetching
       if (!user) {
         setLoading(false);
         setPredictions([]);
         setTotalCount(0);
-        // Optional: Set an error or message indicating login is required
-        // setError("Please log in to view history.");
         return;
       }
-      // Reset error if user is now available
       setError(null);
 
       if (!isFiltering) setLoading(true);
@@ -43,9 +37,8 @@ export default function PreviousUploads() {
       try {
         let query = supabase
           .from('predictions')
-          // Make sure to select 'id' for the report link
           .select('id, filename, prediction, created_at', { count: 'exact' })
-          .eq('user_id', user.id); // Use user.id
+          .eq('user_id', user.id);
 
         if (startDate) {
           query = query.gte('created_at', `${startDate}T00:00:00.000Z`);
@@ -75,17 +68,15 @@ export default function PreviousUploads() {
       }
   };
 
-  // Fetch predictions when user, page, or dates change
   useEffect(() => {
     fetchPredictions();
-  }, [user, currentPage, startDate, endDate]); // user dependency is important
+  }, [user, currentPage, startDate, endDate]);
 
   const handleClearFilters = () => {
-      setIsFiltering(true); // Indicate activity
+      setIsFiltering(true);
       setStartDate('');
       setEndDate('');
-      setCurrentPage(1); // Reset to first page when filters change
-      // fetchPredictions will be triggered by useEffect
+      setCurrentPage(1);
   };
 
   const handlePreviousPage = () => {
@@ -96,7 +87,6 @@ export default function PreviousUploads() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // Format timestamp helper
   const formatTimestamp = (timestamp) => {
       if (!timestamp) return 'N/A';
       try {
@@ -104,45 +94,32 @@ export default function PreviousUploads() {
               year: 'numeric', month: 'short', day: 'numeric',
               hour: '2-digit', minute: '2-digit'
           });
-      } catch (e) { return timestamp; } // Fallback
+      } catch (e) { return timestamp; }
   };
 
-
-  // --- Render Logic ---
   return (
     <>
       <Navbar />
       <div className={styles.pageContainer}>
         <h1 className={styles.pageTitle}>Previous Predictions</h1>
-
-        {/* Main content layout */}
         <div className={styles.mainContentLayout}>
-
-          {/* Left Column: History Table and Pagination */}
           <div className={styles.historyColumn}>
-            {/* Loading State */}
             {loading && (
               <div className={`${styles.stateContainer} ${styles.loadingContainer}`}>
                 <LoadingSpinner />
                 <span>Loading history...</span>
               </div>
             )}
-
-            {/* Error State */}
             {error && !loading && (
               <div className={`${styles.stateContainer} ${styles.errorContainer}`}>
                 <p>{error}</p>
               </div>
             )}
-
-             {/* No User State */}
             {!user && !loading && !error && (
                  <div className={styles.stateContainer}>
                     <p>Please log in to view your prediction history.</p>
                  </div>
             )}
-
-            {/* Data Table (Render only if not loading, no error, user exists, and predictions have loaded) */}
             {!loading && !error && user && (
               <>
                  {predictions.length > 0 ? (
@@ -154,7 +131,7 @@ export default function PreviousUploads() {
                                 <th>Filename</th>
                                 <th>Prediction</th>
                                 <th>Date Analyzed</th>
-                                <th>Report</th> {/* <-- New Column Header */}
+                                <th>Report</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -167,23 +144,19 @@ export default function PreviousUploads() {
                                   <td className={styles.dateCell}>
                                     {formatTimestamp(p.created_at)}
                                   </td>
-                                  {/* --- New Report Link Cell --- */}
                                   <td>
                                      <Link
                                          href={`/report/${p.id}`}
-                                         className={styles.reportLinkButton} // Style this like a button
+                                         className={styles.reportLinkButton}
                                      >
                                          View Report
                                      </Link>
                                   </td>
-                                  {/* -------------------------- */}
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
-
-                        {/* Pagination Controls */}
                         {totalPages > 1 && (
                             <div className={styles.paginationContainer}>
                                 <button
@@ -207,7 +180,6 @@ export default function PreviousUploads() {
                         )}
                     </>
                  ) : (
-                     /* Empty State (User logged in, no predictions/no results after filter) */
                      <div className={styles.stateContainer}>
                         <p>{(startDate || endDate) ? "No predictions found for the selected date range." : "You haven't analyzed any files yet."}</p>
                      </div>
@@ -215,12 +187,8 @@ export default function PreviousUploads() {
               </>
             )}
           </div>
-          {/* End Left Column */}
-
-
-          {/* Right Column: Filters */}
           <div className={styles.filterColumn}>
-            {user && ( // Only show filters if logged in
+            {user && (
                  <div className={styles.filterContainer}>
                     <h3 style={{marginBottom:'1rem', fontWeight: 500, color:'#eee'}}>Filter by Date</h3>
                     <div className={styles.filterGroup}>
@@ -231,7 +199,7 @@ export default function PreviousUploads() {
                             className={styles.dateInput}
                             value={startDate}
                             onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); setIsFiltering(true);}}
-                            max={endDate || undefined} // Prevent start date > end date
+                            max={endDate || undefined}
                             disabled={loading || isFiltering}
                         />
                     </div>
@@ -243,7 +211,7 @@ export default function PreviousUploads() {
                             className={styles.dateInput}
                             value={endDate}
                             onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); setIsFiltering(true); }}
-                            min={startDate || undefined} // Prevent end date < start date
+                            min={startDate || undefined}
                             disabled={loading || isFiltering}
                         />
                     </div>
@@ -259,13 +227,8 @@ export default function PreviousUploads() {
                  </div>
             )}
           </div>
-          {/* End Right Column */}
-
         </div>
-        {/* End Main Content Layout */}
-
       </div>
-      {/* End Page Container */}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import Navbar from '../components/Navbar';
-import styles from '../styles/PageLayout.module.css'; // Reuse the CSS module
+import styles from '../styles/PageLayout.module.css';
 
 export default function AboutPage() {
   return (
@@ -30,8 +30,6 @@ export default function AboutPage() {
           <p className={styles.paragraph}>
             Our model is trained on carefully processed datasets relevant to Alzheimer's research, 
             enabling it to learn distinctive features from the EEG signals. 
-            {/* Optional: Add link to paper or more details if available */}
-            {/* <a href="#" className={styles.link}>Learn more about the ADFormer research</a> */}
           </p>
         </section>
 
@@ -44,21 +42,7 @@ export default function AboutPage() {
             We are committed to maintaining user privacy and data security according to best practices.
           </p>
         </section>
-
-        {/* Optional: Add sections about the team or future scope */}
-        {/*
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Meet the Team</h2>
-          <p className={styles.paragraph}>[Placeholder for team information or project background]</p>
-        </section>
-
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Future Directions</h2>
-          <p className={styles.paragraph}>[Placeholder for future plans, e.g., model improvements, additional analysis features]</p>
-        </section>
-        */}
       </div>
-      {/* Optional: Add a Footer component here */}
     </>
   );
 }

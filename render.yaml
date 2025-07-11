@@ -1,13 +1,11 @@
 services:
-  # 1. A Redis (Key Value) instance for Celery
   - type: redis
     name: alzheimer-redis
-    region: oregon # Important: Use the same region as your web service
+    region: oregon
     plan: free
     maxmemoryPolicy: volatile-ttl
     ipAllowList: []
 
-  # 2. The Python Web Service (your Flask API)
   - type: web
     name: alzheimer-backend
     env: python
@@ -24,13 +22,12 @@ services:
           name: alzheimer-redis
           property: connectionString
       - key: SUPABASE_URL
-        sync: false # These will be set in the Render dashboard
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false # These will be set in the Render dashboard
+        sync: false
       - key: FRONTEND_URL
-        sync: false # This will be set in the Render dashboard
+        sync: false
 
-  # 3. The Celery Background Worker
   - type: worker
     name: alzheimer-celery-worker
     env: python

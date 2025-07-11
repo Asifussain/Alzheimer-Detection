@@ -1,7 +1,5 @@
-// frontend/pages/select-role.jsx
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-// Import PENDING_ROLE_SELECTION from AuthProvider
 import { useAuth, PENDING_ROLE_SELECTION } from '../components/AuthProvider';
 import supabase from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';

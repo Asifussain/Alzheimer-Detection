@@ -1,4 +1,3 @@
-/* frontend/styles/SelectRole.module.css */
 .selectRoleContainer {
     max-width: 800px;
     margin: 3rem auto;
@@ -36,7 +35,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 150px; /* Ensure consistent height */
+    min-height: 150px;
 }
 
 .roleOption:hover {
@@ -47,8 +46,8 @@
 
 .roleOption.selected {
     border-color: var(--accent-teal);
-    box-shadow: 0 0 0 3px rgba(80, 227, 194, 0.4); /* Teal glow */
-    background-color: rgba(80, 227, 194, 0.1); /* Subtle teal background */
+    box-shadow: 0 0 0 3px rgba(80, 227, 194, 0.4);
+    background-color: rgba(80, 227, 194, 0.1);
 }
 
 .roleName {
@@ -66,14 +65,13 @@
 }
 
 .submitButton {
-    /* Base styles from globals.css are inherited for button */
     background-color: var(--accent-teal);
-    color: var(--background-start); /* Dark text on teal button */
+    color: var(--background-start);
     padding: 0.9rem 2rem;
     font-size: 1.05rem;
     font-weight: 600;
     border-radius: 6px;
-    align-self: center; /* Center button */
+    align-self: center;
     margin-top: 1.5rem;
     min-width: 250px;
     display: flex;
@@ -82,7 +80,7 @@
 }
 
 .submitButton:hover:not(:disabled) {
-    background-color: #45ccb4; /* Lighter teal on hover */
+    background-color: #45ccb4;
     box-shadow: 0 4px 15px rgba(80, 227, 194, 0.25);
 }
 
@@ -92,17 +90,14 @@
     cursor: not-allowed;
 }
 
-/* Reuse loading spinner component if it's small, or style it here */
-.submitButton svg { /* If LoadingSpinner is an SVG */
+.submitButton svg {
     width: 20px;
     height: 20px;
-    /* Assuming LoadingSpinner component's styles handle its color */
 }
-
 
 .errorMessage {
     color: var(--error-color);
-    background-color: rgba(248, 113, 113, 0.1); /* Light red background */
+    background-color: rgba(248, 113, 113, 0.1);
     border: 1px solid var(--error-color);
     padding: 0.8rem 1rem;
     border-radius: 6px;
