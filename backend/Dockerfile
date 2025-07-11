@@ -1,23 +1,23 @@
-# Step 1: Use a specific Python 3.9 image as our base
+# Python 3.9 slim image
 FROM python:3.9-slim
 
-# Step 2: Set the working directory inside the container
+# Set working directory
 WORKDIR /app
 
-# Step 3: Copy the requirements file into the container
+# Copy requirements file
 COPY requirements.txt .
 
-# Step 4: Install the CPU-only version of PyTorch first
+# Install CPU-only PyTorch
 RUN pip install torch==2.1.0 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Step 5: Install the rest of the dependencies
+# Install other dependencies
 RUN pip install -r requirements.txt
 
-# Step 6: Copy the rest of your backend code into the container
+# Copy application code
 COPY . .
 
-# Step 7: Expose the port the app will run on
+# Expose app port
 EXPOSE 8000
 
-# Step 8: Define the command to run the application
+# Start the app with Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]

@@ -1,4 +1,3 @@
-// frontend/components/FileUploadSection.jsx
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from './AuthProvider';
@@ -76,8 +75,6 @@ export default function FileUploadSection() {
     formData.append('channel_index', channelNum - 1);
 
     try {
-      // *** THIS IS THE CORRECTED PART ***
-      // It now correctly handles both local and production environments
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
       const apiUrl = `${backendUrl}/api/predict`;
 

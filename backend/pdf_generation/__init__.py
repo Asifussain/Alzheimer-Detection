@@ -1,5 +1,4 @@
 # This file makes the pdf_generation directory a Python package.
-# You can also use it to expose specific classes/functions at the package level if desired.
 
 from .base_report import BasePDFReport
 from .technical_report import TechnicalPDFReport, build_technical_pdf_report_content

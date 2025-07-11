@@ -35,19 +35,18 @@ def get_prediction_and_eeg(prediction_id: str):
             eeg_data = np.load(f, allow_pickle=True)
         
         # Standardize EEG data shape (samples, channels)
-        if eeg_data.ndim == 3: # Assuming (trials, samples, channels) or (trials, channels, samples)
+        if eeg_data.ndim == 3: 
             print(f"DB Helper: Original 3D EEG data shape: {eeg_data.shape}. Using first trial.")
             eeg_data = eeg_data[0, :, :] 
         
         if eeg_data.ndim != 2:
             raise ValueError(f"Unsupported EEG data dimension after potential trial selection: {eeg_data.ndim}")
 
-        # Ensure (samples, channels)
         if eeg_data.shape[0] < eeg_data.shape[1]:
             print(f"DB Helper: Transposing EEG data from {eeg_data.shape} to {(eeg_data.shape[1], eeg_data.shape[0])}")
             eeg_data = eeg_data.T
             
-        if eeg_data.ndim != 2: # Should not happen if logic above is correct
+        if eeg_data.ndim != 2: 
              raise ValueError(f"Final EEG data is not 2D after processing: {eeg_data.shape}")
 
         print(f"DB Helper: Successfully processed EEG data. Final shape: {eeg_data.shape}")

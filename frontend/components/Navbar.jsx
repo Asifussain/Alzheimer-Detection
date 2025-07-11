@@ -1,15 +1,13 @@
-// frontend/components/Navbar.jsx
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import supabase from '../lib/supabaseClient';
-import styles from '../styles/Navbar.module.css'; // Ensure CSS module path is correct
+import styles from '../styles/Navbar.module.css';
 
 export default function Navbar() {
   const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null); // Ref for the dropdown container
+  const dropdownRef = useRef(null); 
 
-  // Fetch initial session state
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -17,42 +15,34 @@ export default function Navbar() {
       }
     });
 
-    // Listen for auth state changes
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
-        // Close dropdown on logout/login
         if (_event === 'SIGNED_OUT' || _event === 'SIGNED_IN') {
              setDropdownOpen(false);
         }
       }
     );
-
-    // Cleanup listener on unmount
     return () => {
       listener?.subscription?.unsubscribe();
     };
   }, []);
 
-  // Handle click outside the dropdown to close it
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Check if the click is outside the dropdownRef element
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
     };
-    // Add event listener only when dropdown is open
     if (dropdownOpen) {
         document.addEventListener('mousedown', handleClickOutside);
     } else {
         document.removeEventListener('mousedown', handleClickOutside);
     }
-    // Cleanup function to remove listener
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [dropdownOpen]); // Re-run effect when dropdownOpen changes
+  }, [dropdownOpen]); 
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -63,10 +53,9 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setDropdownOpen(false); // Explicitly close dropdown on logout
+    setDropdownOpen(false); 
   };
 
-  // Toggle dropdown state on avatar click
   const toggleDropdown = () => {
     setDropdownOpen((prev) => !prev);
   };
@@ -88,16 +77,14 @@ export default function Navbar() {
       </ul>
       <div className={styles.rightSection}>
         {user ? (
-          // Assign the ref to the container div
           <div className={styles.profileContainer} ref={dropdownRef}>
             <img
               src={profileImage}
               alt="Profile"
               className={styles.profilePicture}
-              onClick={toggleDropdown} // Toggle on click
+              onClick={toggleDropdown} 
               onError={(e) => { e.target.onerror = null; e.target.src='/images/default-avatar.png'}}
             />
-            {/* Conditionally apply the 'open' class */}
             <div className={`${styles.dropdown} ${dropdownOpen ? styles.open : ''}`}>
               <div className={styles.userInfo}>
                 <span>{displayName}</span>

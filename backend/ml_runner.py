@@ -1,44 +1,38 @@
 import os
-import sys  # <-- Import sys
+import sys
 import subprocess
 import traceback
 from config import SIDDHI_FOLDER, OUTPUT_JSON_PATH
 
-# --- FIX: Add the SIDDHI directory to the Python path ---
-# This ensures that all sub-modules within SIDDHI can find each other,
-# solving the "No module named 'utils.masking'" error.
 ML_RUNNER_DIR = os.path.dirname(os.path.abspath(__file__))
 SIDDHI_PATH = os.path.join(ML_RUNNER_DIR, 'SIDDHI')
 if SIDDHI_PATH not in sys.path:
     sys.path.insert(0, SIDDHI_PATH)
 
-
 def run_model(filepath_to_process: str):
     """
-    Executes the SIDDHI ML model script as a subprocess.
+    Runs the SIDDHI ML model script as a subprocess.
     """
     print(f"ML Runner: Executing ML model for: {filepath_to_process}")
     
-    siddhi_absolute_path = SIDDHI_PATH # Use the path defined above
+    siddhi_absolute_path = SIDDHI_PATH
     absolute_filepath_for_ml = os.path.abspath(filepath_to_process)
-    
     expected_output_json_in_siddhi = os.path.join(siddhi_absolute_path, 'output.json')
 
     if not os.path.isdir(siddhi_absolute_path):
-        raise FileNotFoundError(f"ML Runner Error: SIDDHI directory not found at: {siddhi_absolute_path}")
+        raise FileNotFoundError(f"SIDDHI directory not found at: {siddhi_absolute_path}")
     if not os.path.isfile(absolute_filepath_for_ml):
-        raise FileNotFoundError(f"ML Runner Error: Input EEG file not found at: {absolute_filepath_for_ml}")
+        raise FileNotFoundError(f"Input EEG file not found at: {absolute_filepath_for_ml}")
 
-    # Clean up previous output if it exists
     if os.path.exists(expected_output_json_in_siddhi):
         try:
             os.remove(expected_output_json_in_siddhi)
-            print(f"ML Runner: Removed existing ML output file: {expected_output_json_in_siddhi}")
+            print(f"Removed existing output file: {expected_output_json_in_siddhi}")
         except Exception as rem_e:
-            print(f"ML Runner Warning: Could not remove existing {expected_output_json_in_siddhi}: {rem_e}")
+            print(f"Warning: Could not remove {expected_output_json_in_siddhi}: {rem_e}")
 
     original_cwd = os.getcwd()
-    print(f"ML Runner: Temporarily changing CWD from '{original_cwd}' to '{siddhi_absolute_path}'")
+    print(f"Changing CWD from '{original_cwd}' to '{siddhi_absolute_path}'")
     os.chdir(siddhi_absolute_path)
 
     try:
@@ -70,34 +64,34 @@ def run_model(filepath_to_process: str):
             "--up_dim_list", "19",
         ]
         
-        print(f"ML Runner: Running ML command: {' '.join(cmd)}")
+        print(f"Running ML command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=360)
         
-        print(f"ML Runner: ML Model STDOUT:\n{result.stdout}")
+        print(f"ML Model STDOUT:\n{result.stdout}")
         if result.stderr:
-            print(f"ML Runner: ML Model STDERR:\n{result.stderr}")
+            print(f"ML Model STDERR:\n{result.stderr}")
         
         if not os.path.exists('output.json'):
-            raise FileNotFoundError(f"ML Runner Error: 'output.json' not created in {siddhi_absolute_path} after script execution.")
+            raise FileNotFoundError(f"'output.json' not created in {siddhi_absolute_path} after script execution.")
         
-        print("ML Runner: ML model script executed successfully.")
+        print("ML model script executed successfully.")
         return expected_output_json_in_siddhi
 
     except subprocess.CalledProcessError as proc_error:
-        print(f"ML Runner Error: ML script execution failed (Return Code {proc_error.returncode})\n--- ML STDERR ---\n{proc_error.stderr}\n--- End ML STDERR ---")
+        print(f"ML script execution failed (Return Code {proc_error.returncode})\n--- ML STDERR ---\n{proc_error.stderr}\n--- End ML STDERR ---")
         traceback.print_exc()
         raise
     except subprocess.TimeoutExpired:
-        print("ML Runner Error: ML script execution timed out.")
+        print("ML script execution timed out.")
         raise TimeoutError("ML model execution timed out.")
     except FileNotFoundError as fnf_error:
-        print(f"ML Runner File System Error: {fnf_error}")
+        print(f"File System Error: {fnf_error}")
         traceback.print_exc()
         raise
     except Exception as e:
-        print(f"ML Runner Error: An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
         traceback.print_exc()
         raise
     finally:
-        print(f"ML Runner: Changing CWD back to original: {original_cwd}")
+        print(f"Changing CWD back to original: {original_cwd}")
         os.chdir(original_cwd)

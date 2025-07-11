@@ -1,23 +1,18 @@
-// frontend/components/ReportViewer.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import supabase from '../lib/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import styles from '../styles/ReportViewer.module.css';
-import pageStyles from '../styles/PageLayout.module.css'; // Assuming this is for general page layout if needed
+import pageStyles from '../styles/PageLayout.module.css';
 import { useAuth } from './AuthProvider';
-
-// Using the original set of icons, plus a few common ones if absolutely needed for clarity
 import { FiDownload, FiActivity, FiCheckCircle, FiAlertTriangle, FiBarChart2, FiTarget, FiZap, FiCompass, FiHash, FiMessageSquare, FiInfo, FiCpu, FiShield, FiThumbsUp, FiFileText, FiEye, FiCalendar, FiBarChart } from 'react-icons/fi';
 
-// Original formatMetric from your code
 const formatMetric = (value, type = 'float', precision = 1) => {
     if (value === null || value === undefined || isNaN(value)) return 'N/A';
-    if (type === 'percent') return `${(Number(value) * 100).toFixed(precision)}%`; // Ensured value is Number
-    if (type === 'float') return Number(value).toFixed(precision); // Ensured value is Number
+    if (type === 'percent') return `${(Number(value) * 100).toFixed(precision)}%`;
+    if (type === 'float') return Number(value).toFixed(precision);
     return String(value);
 };
 
-// Original MetricItem from your code
 const MetricItem = ({ icon, label, value, unit = '', description = '', variant = 'technical', highlightValue = false }) => (
     <div className={styles.metricItem} style={{
         backgroundColor: variant === 'patient' ? 'rgba(74, 144, 226, 0.07)' : 'rgba(50, 50, 70, 0.5)',
@@ -37,7 +32,6 @@ const MetricItem = ({ icon, label, value, unit = '', description = '', variant =
         {description && <span className={styles.metricDescription} style={{color: variant === 'patient' ? 'var(--text-secondary)' : '#a0a0b0', fontSize: variant === 'patient' ? '0.75rem' : '0.8rem'}}>{description}</span>}
     </div>
 );
-
 
 export default function ReportViewer({ predictionId }) {
   const { profile, isLoading: authLoading } = useAuth();
@@ -84,7 +78,6 @@ export default function ReportViewer({ predictionId }) {
       similarity_results, similarity_plot_url, consistency_metrics
   } = reportData;
 
-  // PDF URL and Filename Logic from your provided code
   let displayPdfUrl;
   let downloadFilename;
   let reportTypeString;
@@ -97,12 +90,12 @@ export default function ReportViewer({ predictionId }) {
     displayPdfUrl = technical_pdf_url;
     downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Technical Report (PDF)';
-  } else if (userRole === 'clinician') { // Added for clinician
+  } else if (userRole === 'clinician') {
     displayPdfUrl = clinician_pdf_url;
     downloadFilename = `Clinician_EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Clinician Report (PDF)';
-  } else { // Fallback for other roles
-    displayPdfUrl = technical_pdf_url; // Default to technical or some other sensible default
+  } else {
+    displayPdfUrl = technical_pdf_url;
     downloadFilename = `EEG_Report_${filename || predictionId}.pdf`;
     reportTypeString = 'Report (PDF)';
     console.warn(`ReportViewer: Unknown user role ${userRole}, defaulting PDF.`);
@@ -112,7 +105,6 @@ export default function ReportViewer({ predictionId }) {
     console.warn(`ReportViewer: PDF URL missing for prediction ${predictionId}, role ${userRole}.`);
   }
 
-  // Original formattedProbs from your code
   const formattedProbs = () => {
     if (!probabilities || typeof probabilities !== 'object') return 'N/A';
     if (Array.isArray(probabilities) && probabilities.length === 2) {
@@ -121,18 +113,12 @@ export default function ReportViewer({ predictionId }) {
     if (probabilities.Normal !== undefined && probabilities["Alzheimer's"] !== undefined) {
         return `Normal: ${formatMetric(probabilities.Normal, 'percent')}, Alzheimer's Pattern: ${formatMetric(probabilities["Alzheimer's"], 'percent')}`;
     }
-    return 'N/A'; // Keep it simple
+    return 'N/A';
   };
   const createdDate = created_at ? new Date(created_at).toLocaleString() : 'N/A';
   const createdDateShort = created_at ? new Date(created_at).toLocaleDateString() : 'N/A';
 
-
-  // --- PATIENT REPORT WEB VIEW (as per your provided code) ---
   if (userRole === 'patient') {
-    // ... This extensive JSX block for patient is from your provided code.
-    // I will keep it as is.
-    // For brevity in this response, I'm collapsing it.
-    // Ensure this entire block from your original code is here.
     const mainPredictionText = prediction === "Alzheimer's" ? "Patterns Suggestive of Alzheimer's Characteristics" : "Normal Brainwave Patterns Observed";
     let confidenceValue = "N/A";
     if (probabilities && Array.isArray(probabilities) && probabilities.length === 2) {
@@ -247,7 +233,6 @@ export default function ReportViewer({ predictionId }) {
         </div>
     );
   }
-  // --- CLINICIAN REPORT WEB VIEW ---
   else if (userRole === 'clinician') {
     const clinicianPredictionText = prediction === "Alzheimer's" ? "Pattern Suggestive of Alzheimer's-related Changes" : "Normal EEG Pattern";
 
@@ -269,7 +254,6 @@ export default function ReportViewer({ predictionId }) {
         }
     }
 
-
     return (
         <div className={styles.container}>
             <div className={styles.reportHeader} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
@@ -286,7 +270,7 @@ export default function ReportViewer({ predictionId }) {
 
             <section className={styles.section}>
                 <h3 className={styles.sectionTitle}><FiInfo /> Analysis Overview</h3>
-                <div className={styles.infoGridSimple}> {/* Using a potentially simpler grid style if defined, or default */}
+                <div className={styles.infoGridSimple}>
                     <p><strong>File Analyzed:</strong> {filename || 'N/A'}</p>
                     <p><strong>Date of Analysis:</strong> {createdDateShort}</p>
                 </div>
@@ -297,13 +281,13 @@ export default function ReportViewer({ predictionId }) {
                 <h3 className={styles.sectionTitle}><FiCpu /> AI Assessment</h3>
                 <div className={styles.infoGridSimple}>
                     <p><strong>Primary AI Finding:</strong> <span className={prediction === "Alzheimer's" ? styles.predictionAlz : styles.predictionNorm}>{clinicianPredictionText}</span></p>
-                    <p><strong>Assessment Confidence:</strong> {formattedProbs()}</p> {/* Using original formattedProbs */}
+                    <p><strong>Assessment Confidence:</strong> {formattedProbs()}</p>
                     <p><strong>Finding Consistency:</strong> {consistencySummary} {consistencyDetails && <span style={{fontSize: '0.8em', color: 'var(--text-secondary)'}}>{consistencyDetails}</span>}</p>
                 </div>
             </section>
             <hr className={styles.sectionSeparator}/>
 
-            { (similarity_results || similarity_plot_url) && // Show section only if there's data
+            { (similarity_results || similarity_plot_url) &&
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}><FiCompass/> EEG Waveform Characteristics</h3>
                     {similarity_results && !similarity_results.error && similarity_results.interpretation &&
@@ -325,7 +309,6 @@ export default function ReportViewer({ predictionId }) {
             }
             { (similarity_results || similarity_plot_url) && <hr className={styles.sectionSeparator}/>}
 
-
             {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 &&
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}><FiBarChart /> Brainwave Frequency Profile</h3>
@@ -338,7 +321,6 @@ export default function ReportViewer({ predictionId }) {
                 </section>
             }
             {stats_data && !stats_data.error && stats_data.avg_band_power && Object.keys(stats_data.avg_band_power).length > 0 && <hr className={styles.sectionSeparator}/>}
-
 
             {(timeseries_plot_url || psd_plot_url) &&
                 <section className={styles.section}>
@@ -362,7 +344,6 @@ export default function ReportViewer({ predictionId }) {
             }
             {(timeseries_plot_url || psd_plot_url) && <hr className={styles.sectionSeparator}/>}
 
-
             <div className={styles.disclaimer} style={{marginTop:'2rem', textAlign:'center', padding:'1rem', backgroundColor:'rgba(var(--text-secondary-rgb),0.05)', borderRadius:'var(--border-radius)'}}>
                 <FiAlertTriangle style={{ marginRight: '8px', color:'var(--text-secondary)', verticalAlign:'middle' }} />
                 <span style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>This AI report is a decision-support tool. Interpret in conjunction with full clinical assessment. Not a standalone diagnosis.</span>
@@ -370,8 +351,6 @@ export default function ReportViewer({ predictionId }) {
         </div>
     );
   }
-  // --- TECHNICAL REPORT WEB VIEW (as per your provided code) ---
-  // This will now be explicitly for 'technician'
   else if (userRole === 'technician') {
     const consistencyError = consistency_metrics?.error;
     const consistencyMessage = consistency_metrics?.message;
@@ -379,9 +358,6 @@ export default function ReportViewer({ predictionId }) {
 
     return (
     <div className={styles.container}>
-            {/* ... This extensive JSX block for technical report is from your provided code ... */}
-            {/* I will keep it as is. For brevity in this response, I'm collapsing it. */}
-            {/* Ensure this entire block from your original code is here. */}
             <div className={styles.reportHeader} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
                 <h2 className={styles.title} style={{borderBottom:'none', margin:0}}>Comprehensive Analysis Report</h2>
                 {displayPdfUrl ? (
@@ -491,7 +467,6 @@ export default function ReportViewer({ predictionId }) {
     </div>
     );
   } else {
-    // Fallback for any other role not explicitly handled
     return <div className={styles.container}><p>Report view not available for your current role ({userRole || 'unknown'}).</p></div>;
   }
 }

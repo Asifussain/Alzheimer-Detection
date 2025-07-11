@@ -1,4 +1,3 @@
-// frontend/components/PageLayout.jsx
 import Navbar from './Navbar';
 import styles from '../styles/PageLayout.module.css';
 
@@ -9,7 +8,6 @@ const PageLayout = ({ children }) => {
       <main className={styles.mainContent}>
         {children}
       </main>
-      {/* You could add a Footer component here later if you want */}
     </div>
   );
 };
