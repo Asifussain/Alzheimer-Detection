@@ -6,7 +6,8 @@ import styles from '../styles/Navbar.module.css';
 export default function Navbar() {
   const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null); 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -19,7 +20,8 @@ export default function Navbar() {
       (_event, session) => {
         setUser(session?.user ?? null);
         if (_event === 'SIGNED_OUT' || _event === 'SIGNED_IN') {
-             setDropdownOpen(false);
+          setDropdownOpen(false);
+          setMobileMenuOpen(false);
         }
       }
     );
@@ -34,15 +36,24 @@ export default function Navbar() {
         setDropdownOpen(false);
       }
     };
+    
+    const handleResize = () => {
+      if (window.innerWidth > 480) {
+        setMobileMenuOpen(false);
+      }
+    };
+
     if (dropdownOpen) {
-        document.addEventListener('mousedown', handleClickOutside);
-    } else {
-        document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
+    
+    window.addEventListener('resize', handleResize);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [dropdownOpen]); 
+  }, [dropdownOpen]);
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -53,11 +64,19 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setDropdownOpen(false); 
+    setDropdownOpen(false);
   };
 
   const toggleDropdown = () => {
     setDropdownOpen((prev) => !prev);
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen((prev) => !prev);
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   const profileImage = user?.user_metadata?.avatar_url || '/images/default-avatar.png';
@@ -67,14 +86,25 @@ export default function Navbar() {
     <nav className={styles.navbar}>
       <div className={styles.navbarBrand}>
         <Link href="/">AI4NEURO</Link>
-        </div>
-      <ul className={styles.navbarLinks}>
-        <li><Link href="/">Home</Link></li>
-        <li><Link href="/service">Service</Link></li>
-        <li><Link href="/about">About</Link></li>
-        <li><Link href="/contact">Contact Us</Link></li>
-        <li><Link href="/previous">History</Link></li>
+      </div>
+      
+      {/* Mobile Menu Toggle */}
+      <button 
+        className={styles.mobileMenuToggle}
+        onClick={toggleMobileMenu}
+        aria-label="Toggle mobile menu"
+      >
+        ☰
+      </button>
+      
+      <ul className={`${styles.navbarLinks} ${mobileMenuOpen ? styles.mobileOpen : ''}`}>
+        <li><Link href="/" onClick={closeMobileMenu}>Home</Link></li>
+        <li><Link href="/service" onClick={closeMobileMenu}>Service</Link></li>
+        <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
+        <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
+        <li><Link href="/previous" onClick={closeMobileMenu}>History</Link></li>
       </ul>
+      
       <div className={styles.rightSection}>
         {user ? (
           <div className={styles.profileContainer} ref={dropdownRef}>
@@ -82,8 +112,11 @@ export default function Navbar() {
               src={profileImage}
               alt="Profile"
               className={styles.profilePicture}
-              onClick={toggleDropdown} 
-              onError={(e) => { e.target.onerror = null; e.target.src='/images/default-avatar.png'}}
+              onClick={toggleDropdown}
+              onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src='/images/default-avatar.png';
+              }}
             />
             <div className={`${styles.dropdown} ${dropdownOpen ? styles.open : ''}`}>
               <div className={styles.userInfo}>
