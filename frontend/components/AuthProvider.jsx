@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext, useContext, useCallback, useRef } from 'react';
+import { useEffect, useState, createContext, useContext, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import supabase from '../lib/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -139,19 +139,19 @@ export const AuthProvider = ({ children }) => {
           router.replace('/select-role');
         }
       } else {
-        if (currentPath === '/' || currentPath === '/login' || currentPath === '/select-role') {
+        if (currentPath === '/login' || currentPath === '/select-role') {
           router.replace(`/${profile.role}/dashboard`);
         }
       }
     } else if (!user) {
-      const publicPaths = ['/', '/login', '/service', '/about', '/contact'];
+      const publicPaths = ['/', '/home', '/login', '/landing', '/service', '/about', '/contact'];
       if (!publicPaths.includes(currentPath) && !currentPath.startsWith('/_next/')) {
         router.replace('/');
       }
     }
   }, [isLoading, session, user, profile, router]);
 
-  
+
   const signOut = useCallback(async () => {
     if (!isMountedRef.current) return;
     setIsLoading(true);
@@ -166,7 +166,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, session, fetchAndSetProfile]);
 
-  const contextValue = { session, user, profile, isLoading, signOut, refreshProfile };
+  // --- FIX IS HERE ---
+  // Memoize the context value to prevent unnecessary re-renders in consumers
+  const contextValue = useMemo(() => ({
+    session,
+    user,
+    profile,
+    isLoading,
+    signOut,
+    refreshProfile
+  }), [session, user, profile, isLoading, signOut, refreshProfile]);
+  // --------------------
+
 
   if (isLoading && session === undefined) {
     return (

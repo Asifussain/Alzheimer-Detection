@@ -1,0 +1,275 @@
+.centeredLoader {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    gap: 1rem;
+}
+
+.profilePage {
+    max-width: 900px;
+    margin: 7rem auto;
+    padding: 0 1rem;
+}
+
+.profileHeader {
+    text-align: center;
+    padding: 2rem;
+    background: var(--background-glass);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--accent-neural-blue);
+    margin: 0 auto 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.profileHeader h1 {
+    font-size: 2.2rem;
+    margin-bottom: 0.25rem;
+}
+
+.roleTag {
+    display: inline-block;
+    background-color: rgba(var(--accent-teal-rgb), 0.15);
+    color: var(--accent-teal);
+    padding: 0.3rem 0.8rem;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: capitalize;
+    margin-bottom: 1.5rem;
+}
+
+.profileContent {
+    background: var(--background-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 2.5rem;
+}
+
+/* Display Mode Styles */
+.detailsSection, .formSection {
+    margin-bottom: 2rem;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-normal);
+}
+
+.sectionTitle {
+    font-size: 1.3rem;
+    color: var(--text-heading);
+    margin: 0;
+}
+
+.inlineEditButton {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--radius-md);
+    transition: var(--transition-normal);
+}
+
+.inlineEditButton:hover {
+    background-color: var(--background-glass-hover);
+    color: var(--accent-neural-blue);
+    border-color: var(--border-subtle);
+}
+
+.displayField {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.fieldLabel {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.fieldValue {
+    color: var(--text-primary);
+}
+
+/* Edit Mode Styles */
+.editField {
+    margin-bottom: 1.25rem;
+}
+
+.editField label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.editField input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-normal);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.editField input:focus {
+    border-color: var(--accent-neural-blue);
+    outline: none;
+}
+
+.editField input:disabled {
+    background: var(--background-tertiary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.saveButton, .cancelButton {
+    padding: 0.7rem 1.8rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.saveButton {
+    background: var(--accent-teal);
+    color: var(--background-primary);
+    border: none;
+}
+
+.saveButton:hover:not(:disabled) {
+    background: var(--primary-deep-blue);
+    transform: translateY(-2px);
+}
+
+.saveButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cancelButton {
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-normal);
+}
+
+.cancelButton:hover {
+    background: var(--background-glass-hover);
+    border-color: var(--border-subtle);
+}
+
+/* Message styles */
+.successMessage, .errorMessage {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-top: 1.5rem;
+    text-align: center;
+    font-weight: 500;
+}
+
+.successMessage {
+    background: rgba(var(--medical-green-rgb), 0.1);
+    color: var(--medical-green);
+}
+
+.errorMessage {
+    background: rgba(var(--error-rgb), 0.1);
+    color: var(--error);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .profilePage {
+        margin: 1rem auto;
+        padding: 0 0.5rem;
+    }
+    
+    .profileHeader {
+        padding: 1.5rem;
+    }
+    
+    .avatar {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .profileHeader h1 {
+        font-size: 1.8rem;
+    }
+    
+    .profileContent {
+        padding: 1.5rem;
+    }
+    
+    .displayField {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .sectionHeader {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+    
+    .inlineEditButton {
+        align-self: flex-end;
+    }
+    
+    .formActions {
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+    }
+    
+    .saveButton, .cancelButton {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .profileHeader {
+        padding: 1rem;
+    }
+    
+    .profileHeader h1 {
+        font-size: 1.5rem;
+    }
+    
+    .profileContent {
+        padding: 1rem;
+    }
+    
+    .sectionTitle {
+        font-size: 1.1rem;
+    }
+}

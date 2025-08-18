@@ -1,0 +1,687 @@
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/router';
+import { motion } from 'motion/react';
+import Navbar from '../components/Navbar';
+import { useAuth, PENDING_ROLE_SELECTION } from '../components/AuthProvider';
+import styles from '../styles/Home.module.css';
+
+// Material UI Timeline Components
+import Timeline from '@mui/lab/Timeline';
+import TimelineItem from '@mui/lab/TimelineItem';
+import TimelineSeparator from '@mui/lab/TimelineSeparator';
+import TimelineConnector from '@mui/lab/TimelineConnector';
+import TimelineContent from '@mui/lab/TimelineContent';
+import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
+import TimelineDot from '@mui/lab/TimelineDot';
+
+// Professional Material UI Icons
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+
+// ShinyText Component
+const ShinyText = ({ text, disabled = false, speed = 5, className = '' }) => {
+  const animationDuration = `${speed}s`;
+
+  return (
+    <div
+      className={`${className}`}
+      style={{ 
+        animationDuration,
+        color: '#b5b5b5a4',
+        background: 'linear-gradient(120deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0) 60%)',
+        backgroundSize: '200% 100%',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        display: 'inline-block',
+        animation: disabled ? 'none' : `shine ${speed}s linear infinite`
+      }}
+    >
+      {text}
+      <style jsx>{`
+        @keyframes shine {
+          0% {
+            background-position: 100%;
+          }
+          100% {
+            background-position: -100%;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Perlin Noise Classes (keeping your existing implementation)
+class Grad {
+  constructor(x, y, z) {
+    this.x = x; this.y = y; this.z = z;
+  }
+  dot2(x, y) { return this.x * x + this.y * y; }
+}
+
+class Noise {
+  constructor(seed = 0) {
+    this.grad3 = [
+      new Grad(1, 1, 0), new Grad(-1, 1, 0), new Grad(1, -1, 0), new Grad(-1, -1, 0),
+      new Grad(1, 0, 1), new Grad(-1, 0, 1), new Grad(1, 0, -1), new Grad(-1, 0, -1),
+      new Grad(0, 1, 1), new Grad(0, -1, 1), new Grad(0, 1, -1), new Grad(0, -1, -1)
+    ];
+    this.p = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30,
+      69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219,
+      203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74,
+      165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105,
+      92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208,
+      89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217,
+      226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17,
+      182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167,
+      43, 172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246,
+      97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239,
+      107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254,
+      138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180
+    ];
+    this.perm = new Array(512);
+    this.gradP = new Array(512);
+    this.seed(seed);
+  }
+  seed(seed) {
+    if (seed > 0 && seed < 1) seed *= 65536;
+    seed = Math.floor(seed);
+    if (seed < 256) seed |= seed << 8;
+    for (let i = 0; i < 256; i++) {
+      let v = (i & 1) ? (this.p[i] ^ (seed & 255)) : (this.p[i] ^ ((seed >> 8) & 255));
+      this.perm[i] = this.perm[i + 256] = v;
+      this.gradP[i] = this.gradP[i + 256] = this.grad3[v % 12];
+    }
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return (1 - t) * a + t * b; }
+  perlin2(x, y) {
+    let X = Math.floor(x), Y = Math.floor(y);
+    x -= X; y -= Y; X &= 255; Y &= 255;
+    const n00 = this.gradP[X + this.perm[Y]].dot2(x, y);
+    const n01 = this.gradP[X + this.perm[Y + 1]].dot2(x, y - 1);
+    const n10 = this.gradP[X + 1 + this.perm[Y]].dot2(x - 1, y);
+    const n11 = this.gradP[X + 1 + this.perm[Y + 1]].dot2(x - 1, y - 1);
+    const u = this.fade(x);
+    return this.lerp(
+      this.lerp(n00, n10, u),
+      this.lerp(n01, n11, u),
+      this.fade(y)
+    );
+  }
+}
+
+// WavesComponent (keeping your existing implementation)
+const WavesComponent = ({
+  lineColor = "rgba(139, 69, 255, 0.3)",
+  backgroundColor = "transparent",
+  waveSpeedX = 0.0125,
+  waveSpeedY = 0.005,
+  waveAmpX = 32,
+  waveAmpY = 16,
+  xGap = 10,
+  yGap = 32,
+  friction = 0.925,
+  tension = 0.005,
+  maxCursorMove = 100,
+  style = {},
+  className = ""
+}) => {
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+  const ctxRef = useRef(null);
+  const boundingRef = useRef({ width: 0, height: 0, left: 0, top: 0 });
+  const noiseRef = useRef(new Noise(Math.random()));
+  const linesRef = useRef([]);
+  const mouseRef = useRef({
+    x: -10, y: 0, lx: 0, ly: 0, sx: 0, sy: 0, v: 0, vs: 0, a: 0, set: false
+  });
+  const configRef = useRef({
+    lineColor, waveSpeedX, waveSpeedY, waveAmpX, waveAmpY,
+    friction, tension, maxCursorMove, xGap, yGap
+  });
+  const frameIdRef = useRef(null);
+
+  useEffect(() => {
+    configRef.current = { lineColor, waveSpeedX, waveSpeedY, waveAmpX, waveAmpY, friction, tension, maxCursorMove, xGap, yGap };
+  }, [lineColor, waveSpeedX, waveSpeedY, waveAmpX, waveAmpY, friction, tension, maxCursorMove, xGap, yGap]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    ctxRef.current = canvas.getContext("2d");
+
+    function setSize() {
+      boundingRef.current = container.getBoundingClientRect();
+      canvas.width = boundingRef.current.width;
+      canvas.height = boundingRef.current.height;
+    }
+
+    function setLines() {
+      const { width, height } = boundingRef.current;
+      linesRef.current = [];
+      const oWidth = width + 200, oHeight = height + 30;
+      const { xGap, yGap } = configRef.current;
+      const totalLines = Math.ceil(oWidth / xGap);
+      const totalPoints = Math.ceil(oHeight / yGap);
+      const xStart = (width - xGap * totalLines) / 2;
+      const yStart = (height - yGap * totalPoints) / 2;
+      for (let i = 0; i <= totalLines; i++) {
+        const pts = [];
+        for (let j = 0; j <= totalPoints; j++) {
+          pts.push({
+            x: xStart + xGap * i,
+            y: yStart + yGap * j,
+            wave: { x: 0, y: 0 },
+            cursor: { x: 0, y: 0, vx: 0, vy: 0 }
+          });
+        }
+        linesRef.current.push(pts);
+      }
+    }
+
+    function movePoints(time) {
+      const lines = linesRef.current, mouse = mouseRef.current, noise = noiseRef.current;
+      const { waveSpeedX, waveSpeedY, waveAmpX, waveAmpY, friction, tension, maxCursorMove } = configRef.current;
+      lines.forEach((pts) => {
+        pts.forEach((p) => {
+          const move = noise.perlin2(
+            (p.x + time * waveSpeedX) * 0.002,
+            (p.y + time * waveSpeedY) * 0.0015
+          ) * 12;
+          p.wave.x = Math.cos(move) * waveAmpX;
+          p.wave.y = Math.sin(move) * waveAmpY;
+
+          const dx = p.x - mouse.sx, dy = p.y - mouse.sy;
+          const dist = Math.hypot(dx, dy), l = Math.max(175, mouse.vs);
+          if (dist < l) {
+            const s = 1 - dist / l;
+            const f = Math.cos(dist * 0.001) * s;
+            p.cursor.vx += Math.cos(mouse.a) * f * l * mouse.vs * 0.00065;
+            p.cursor.vy += Math.sin(mouse.a) * f * l * mouse.vs * 0.00065;
+          }
+
+          p.cursor.vx += (0 - p.cursor.x) * tension;
+          p.cursor.vy += (0 - p.cursor.y) * tension;
+          p.cursor.vx *= friction;
+          p.cursor.vy *= friction;
+          p.cursor.x += p.cursor.vx * 2;
+          p.cursor.y += p.cursor.vy * 2;
+          p.cursor.x = Math.min(maxCursorMove, Math.max(-maxCursorMove, p.cursor.x));
+          p.cursor.y = Math.min(maxCursorMove, Math.max(-maxCursorMove, p.cursor.y));
+        });
+      });
+    }
+
+    function moved(point, withCursor = true) {
+      const x = point.x + point.wave.x + (withCursor ? point.cursor.x : 0);
+      const y = point.y + point.wave.y + (withCursor ? point.cursor.y : 0);
+      return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+    }
+
+    function drawLines() {
+      const { width, height } = boundingRef.current;
+      const ctx = ctxRef.current;
+      ctx.clearRect(0, 0, width, height);
+      ctx.beginPath();
+      ctx.strokeStyle = configRef.current.lineColor;
+      linesRef.current.forEach((points) => {
+        let p1 = moved(points[0], false);
+        ctx.moveTo(p1.x, p1.y);
+        points.forEach((p, idx) => {
+          const isLast = idx === points.length - 1;
+          p1 = moved(p, !isLast);
+          const p2 = moved(points[idx + 1] || points[points.length - 1], !isLast);
+          ctx.lineTo(p1.x, p1.y);
+          if (isLast) ctx.moveTo(p2.x, p2.y);
+        });
+      });
+      ctx.stroke();
+    }
+
+    function tick(t) {
+      const mouse = mouseRef.current;
+      mouse.sx += (mouse.x - mouse.sx) * 0.1;
+      mouse.sy += (mouse.y - mouse.sy) * 0.1;
+      const dx = mouse.x - mouse.lx, dy = mouse.y - mouse.ly;
+      const d = Math.hypot(dx, dy);
+      mouse.v = d;
+      mouse.vs += (d - mouse.vs) * 0.1;
+      mouse.vs = Math.min(100, mouse.vs);
+      mouse.lx = mouse.x; mouse.ly = mouse.y;
+      mouse.a = Math.atan2(dy, dx);
+      
+      movePoints(t);
+      drawLines();
+      frameIdRef.current = requestAnimationFrame(tick);
+    }
+
+    function onResize() {
+      setSize();
+      setLines();
+    }
+    function onMouseMove(e) { updateMouse(e.clientX, e.clientY); }
+    function onTouchMove(e) {
+      const touch = e.touches[0];
+      updateMouse(touch.clientX, touch.clientY);
+    }
+    function updateMouse(x, y) {
+      const mouse = mouseRef.current, b = boundingRef.current;
+      mouse.x = x - b.left;
+      mouse.y = y - b.top;
+      if (!mouse.set) {
+        mouse.sx = mouse.x; mouse.sy = mouse.y;
+        mouse.lx = mouse.x; mouse.ly = mouse.y;
+        mouse.set = true;
+      }
+    }
+
+    setSize();
+    setLines();
+    frameIdRef.current = requestAnimationFrame(tick);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      if(frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`${styles.waves} ${className}`}
+      style={{
+        position: "absolute",
+        top: 0, left: 0, margin: 0, padding: 0,
+        width: "100%", height: "100%", overflow: "hidden",
+        backgroundColor,
+        ...style
+      }}
+    >
+      <canvas ref={canvasRef} className={styles.wavesCanvas} />
+    </div>
+  );
+};
+
+// Enhanced Timeline Component with Material UI
+const InteractiveTimeline = () => {
+  const [activeStage, setActiveStage] = useState(0);
+
+  const stages = [
+    {
+      id: 'CN',
+      title: 'Cognitively Normal',
+      subtitle: 'Baseline Cognitive Health',
+      description: 'Individuals in this stage demonstrate optimal cognitive function with memory, thinking, and reasoning skills that align perfectly with their age and educational background.',
+      detailedInfo: 'Regular cognitive assessments show consistent performance across all domains including executive function, memory consolidation, and information processing speed. This represents the gold standard of healthy brain aging.',
+      icon: <PsychologyIcon sx={{ fontSize: 40 }} />,
+      color: '#06d6a0',
+      time: 'Optimal Function',
+      prevalence: '70-80% of population'
+    },
+    {
+      id: 'MCI',
+      title: 'Mild Cognitive Impairment',
+      subtitle: 'Critical Intervention Window',
+      description: 'MCI represents a crucial intermediate stage where subtle but measurable changes in cognitive function become apparent, presenting the most valuable opportunity for early intervention.',
+      detailedInfo: 'Characterized by mild memory problems, occasional word-finding difficulties, and slight changes in executive function that are noticeable to the individual and family members.',
+      icon: <WarningAmberIcon sx={{ fontSize: 40 }} />,
+      color: '#f59e0b',
+      time: 'Early Detection Phase',
+      prevalence: '15-20% progress annually'
+    },
+    {
+      id: 'AD',
+      title: "Alzheimer's Dementia",
+      subtitle: 'Advanced Neurodegeneration',
+      description: 'The most severe stage characterized by significant cognitive decline that substantially impacts daily functioning, requiring comprehensive care and support systems.',
+      detailedInfo: 'Advanced symptoms include severe memory impairment, disorientation, language difficulties, and changes in personality and behavior requiring specialized medical care and family support.',
+      icon: <LocalHospitalIcon sx={{ fontSize: 40 }} />,
+      color: '#ef4444',
+      time: 'Advanced Care Required',
+      prevalence: '6.5M+ affected in US'
+    }
+  ];
+
+  return (
+    <div className={styles.timelineSection}>
+      <div className={styles.timelineHeader}>
+        <h2 className={styles.timelineTitle}>
+          Understanding the Cognitive Health Journey
+        </h2>
+        
+        <ShinyText 
+          text="Navigate through the three critical stages of neurological health with our interactive timeline featuring professional medical insights and cutting-edge analysis"
+          speed={6}
+          className={styles.timelineSubtitle}
+        />
+      </div>
+
+      <Timeline position="alternate" className={styles.customTimeline}>
+        {stages.map((stage, index) => (
+          <TimelineItem key={stage.id} className={styles.timelineItem}>
+            <TimelineOppositeContent
+              sx={{ m: 'auto 0' }}
+              align={index % 2 === 0 ? "right" : "left"}
+              variant="body2"
+              className={styles.timelineOppositeContent}
+            >
+              <motion.div
+                initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+                animate={{ 
+                  opacity: activeStage === index ? 1 : 0.7, 
+                  x: 0 
+                }}
+                transition={{ duration: 0.5 }}
+                className={styles.stageInfo}
+              >
+                <div 
+                  className={styles.stageTime}
+                  style={{ color: stage.color }}
+                >
+                  {stage.time}
+                </div>
+                <div className={styles.stagePrevalence}>
+                  {stage.prevalence}
+                </div>
+              </motion.div>
+            </TimelineOppositeContent>
+
+            <TimelineSeparator>
+              <TimelineConnector className={styles.timelineConnector} />
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setActiveStage(index)}
+              >
+                <TimelineDot 
+                  color={activeStage === index ? "primary" : "grey"}
+                  variant={activeStage === index ? "filled" : "outlined"}
+                  className={styles.timelineDot}
+                  sx={{
+                    backgroundColor: activeStage === index ? stage.color : 'transparent',
+                    borderColor: stage.color,
+                    width: 80,
+                    height: 80,
+                    cursor: 'pointer',
+                    boxShadow: activeStage === index ? `0 0 20px ${stage.color}50` : 'none',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: `0 0 25px ${stage.color}70`
+                    }
+                  }}
+                >
+                  {stage.icon}
+                </TimelineDot>
+              </motion.div>
+              <TimelineConnector className={styles.timelineConnector} />
+            </TimelineSeparator>
+
+            <TimelineContent sx={{ py: '12px', px: 2 }} className={styles.timelineContent}>
+              <motion.div
+                initial={{ opacity: 0, x: index % 2 === 0 ? 20 : -20 }}
+                animate={{ 
+                  opacity: activeStage === index ? 1 : 0.8, 
+                  x: 0,
+                  scale: activeStage === index ? 1.02 : 1
+                }}
+                transition={{ duration: 0.5 }}
+                className={`${styles.stageContent} ${activeStage === index ? styles.activeStageContent : ''}`}
+                onClick={() => setActiveStage(index)}
+                style={{
+                  borderColor: activeStage === index ? `${stage.color}60` : 'rgba(255, 255, 255, 0.1)',
+                  background: activeStage === index 
+                    ? `linear-gradient(135deg, ${stage.color}10, rgba(255, 255, 255, 0.05))` 
+                    : 'rgba(255, 255, 255, 0.03)'
+                }}
+              >
+                <div 
+                  className={styles.stageGradientBorder}
+                  style={{ 
+                    background: `linear-gradient(90deg, ${stage.color}, ${stage.color}80)`,
+                    opacity: activeStage === index ? 1 : 0.3
+                  }}
+                />
+
+                <h3 className={styles.stageTitle}>{stage.title}</h3>
+                
+                <h4 
+                  className={styles.stageSubtitle}
+                  style={{ color: stage.color }}
+                >
+                  {stage.subtitle}
+                </h4>
+                
+                <p className={styles.stageDescription}>
+                  {activeStage === index ? stage.detailedInfo : stage.description}
+                </p>
+
+                <div 
+                  className={styles.stageBadge}
+                  style={{ 
+                    background: `linear-gradient(135deg, ${stage.color}, ${stage.color}CC)` 
+                  }}
+                >
+                  {stage.id}
+                </div>
+              </motion.div>
+            </TimelineContent>
+          </TimelineItem>
+        ))}
+      </Timeline>
+
+      {/* Interactive Stage Selector */}
+      <div className={styles.stageSelector}>
+        {stages.map((stage, index) => (
+          <motion.button
+            key={stage.id}
+            onClick={() => setActiveStage(index)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`${styles.stageSelectorBtn} ${activeStage === index ? styles.activeStageSelectorBtn : ''}`}
+            style={{
+              borderColor: activeStage === index ? stage.color : 'rgba(255, 255, 255, 0.2)',
+              background: activeStage === index 
+                ? `linear-gradient(135deg, ${stage.color}, ${stage.color}CC)` 
+                : 'rgba(255, 255, 255, 0.05)',
+              color: activeStage === index ? 'white' : 'rgba(255, 255, 255, 0.7)'
+            }}
+          >
+            {stage.id}
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default function Home() {
+  const { user, profile, loading: authLoading, session } = useAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || !session) {
+        router.replace('/landing');
+      } else if (!profile || !profile.role || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed) {
+        router.replace('/select-role');
+      }
+    }
+  }, [user, profile, authLoading, session, router]);
+
+  if (authLoading || !mounted) {
+    return (
+      <>
+        <Navbar />
+        <div className={styles.loadingScreen}>
+          <p>Loading...</p>
+        </div>
+      </>
+    );
+  }
+
+  const handleAnalyse = () => {
+    const role = profile?.role || 'patient';
+    router.push(`/${role}/dashboard`);
+  };
+
+  return (
+    <>
+      <Navbar />
+      <main className={styles.main}>
+        <WavesComponent 
+          lineColor="rgba(139, 69, 255, 0.2)"
+          backgroundColor="transparent"
+          waveSpeedX={0.015}
+          waveSpeedY={0.008}
+          waveAmpX={25}
+          waveAmpY={15}
+          xGap={15}
+          yGap={40}
+        />
+        
+        <div className={styles.content}>
+          <div className={styles.hero}>
+            <div className={styles.heroText}>
+              <div className={styles.heroTitle}>
+                Welcome to <span className={styles.brand}>AI4NEURO</span>
+              </div>
+              
+              <ShinyText 
+                text="Advanced AI-Powered Neurological Analysis for Early Alzheimer's Detection"
+                speed={4}
+                className={styles.heroSubtitle}
+              />
+              
+              <div className={styles.missionSection}>
+                <h2 className={styles.sectionTitle}>Our Motive</h2>
+                <ShinyText 
+                  text="Empowering healthcare professionals and patients with cutting-edge artificial intelligence to detect early signs of Alzheimer's disease through advanced EEG signal analysis and comprehensive neurological assessment."
+                  speed={5}
+                  className={styles.missionText}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Timeline */}
+          <InteractiveTimeline />
+
+          <div className={styles.ctaAndInfo}>
+            <div className={styles.infoGrid}>
+              <motion.div 
+                className={styles.infoCard}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
+              >
+                <div className={styles.cardIcon}>🧠</div>
+                <h3>Alzheimer's Disease</h3>
+                <p>A progressive neurodegenerative disorder affecting memory, thinking, and behavior. Early detection is crucial for better treatment outcomes.</p>
+              </motion.div>
+              
+              <motion.div 
+                className={styles.infoCard}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+              >
+                <div className={styles.cardIcon}>⚡</div>
+                <h3>EEG Analysis</h3>
+                <p>Electroencephalography captures brain electrical activity, revealing patterns that may indicate early neurological changes.</p>
+              </motion.div>
+              
+              <motion.div 
+                className={styles.infoCard}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7, duration: 0.6 }}
+              >
+                <div className={styles.cardIcon}>🤖</div>
+                <h3>Machine Learning</h3>
+                <p>Our ADFormer model uses advanced deep learning to analyze EEG patterns with clinical-grade accuracy and precision.</p>
+              </motion.div>
+              
+              <motion.div 
+                className={styles.infoCard}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+              >
+                <div className={styles.cardIcon}>🔬</div>
+                <h3>Cognitive Decline</h3>
+                <p>Early identification of cognitive impairment enables timely intervention and personalized treatment strategies.</p>
+              </motion.div>
+            </div>
+
+            <div className={styles.ctaSection}>
+              <motion.button 
+                onClick={handleAnalyse} 
+                className={styles.analyzeButton}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9, duration: 0.6 }}
+              >
+                <span className={styles.buttonText}>Start Analysis</span>
+                <div className={styles.buttonGlow}></div>
+              </motion.button>
+              
+              <motion.div 
+                className={styles.userInfo}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1, duration: 0.6 }}
+              >
+                <p>Welcome back, <span className={styles.userName}>{profile?.full_name || user?.email}</span></p>
+                <p className={styles.roleText}>Role: {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1)}</p>
+              </motion.div>
+            </div>
+          </div>
+
+          <motion.div 
+            className={styles.stats}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1, duration: 0.8 }}
+          >
+            {[
+              { value: '95%', label: 'Accuracy' },
+              { value: '10K+', label: 'Analyses' },
+              { value: '500+', label: 'Clinicians' },
+              { value: '24/7', label: 'Support' }
+            ].map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                className={styles.statCard}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.2 + index * 0.1, duration: 0.6 }}
+                whileHover={{ 
+                  transform: 'translateY(-5px)',
+                  boxShadow: '0 10px 30px rgba(6, 214, 160, 0.2)'
+                }}
+              >
+                <div className={styles.statValue}>{stat.value}</div>
+                <div className={styles.statLabel}>{stat.label}</div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </main>
+    </>
+  );
+}
