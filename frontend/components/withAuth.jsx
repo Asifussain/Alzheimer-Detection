@@ -1,60 +1,177 @@
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-import { useAuth, PENDING_ROLE_SELECTION } from './AuthProvider';
+import { useAuth } from './AuthProvider';
 import LoadingSpinner from './LoadingSpinner';
 
-const withAuth = (WrappedComponent, allowedRoles = []) => {
+const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = true) => {
     const Wrapper = (props) => {
-        const { user, profile, isLoading, session } = useAuth();
+        const { user, userProfile, isLoading, session } = useAuth();
         const router = useRouter();
         const componentName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
 
         useEffect(() => {
-                if (isLoading) {
-                        return;
+            if (isLoading) {
+                return;
+            }
+            
+            const currentPath = router.pathname;
+
+            // Not authenticated
+            if (!user || !session) {
+                const publicPaths = ['/', '/home', '/login', '/landing', '/about', '/contact'];
+                if (!publicPaths.includes(currentPath)) {
+                    router.replace('/');
                 }
-                const currentPath = router.pathname;
+                return;
+            }
 
-                if (!user || !session) {
-                        return;
+            // No profile exists - needs to complete setup
+            if (!userProfile || userProfile.needsSetup) {
+                if (currentPath !== '/complete-profile') {
+                    router.replace('/complete-profile');
                 }
+                return;
+            }
 
-                if (!profile) {
-                        return;
+            // Account pending verification
+            if (userProfile.account_status === 'pending') {
+                if (currentPath !== '/account-pending') {
+                    router.replace('/account-pending');
                 }
+                return;
+            }
 
-                const needsRoleSelection = !profile.role || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed;
-                if (needsRoleSelection) {
-                        if (currentPath !== '/select-role') {
-                        }
-                        return;
+            // Account suspended or inactive
+            if (['suspended', 'inactive'].includes(userProfile.account_status)) {
+                if (currentPath !== '/account-pending') {
+                    router.replace('/account-pending');
                 }
+                return;
+            }
 
-                if (allowedRoles.length > 0 && !allowedRoles.includes(profile.role)) {
-                        router.replace('/');
-                        return;
+            // Phone verification required
+            if (requireVerification && userProfile.account_status === 'active' && !userProfile.phone_verified) {
+                if (currentPath !== '/verify-phone') {
+                    router.replace('/verify-phone');
                 }
-        }, [isLoading, user, session, profile, router, allowedRoles, componentName]);
+                return;
+            }
 
+            // Role-based access control
+            if (allowedRoles.length > 0 && !allowedRoles.includes(userProfile.role)) {
+                // Redirect to appropriate dashboard
+                router.replace(`/${userProfile.role}/dashboard`);
+                return;
+            }
 
+            // Additional role-specific verification checks
+            if (requireVerification && userProfile.role === 'doctor') {
+                const doctorData = userProfile.doctor_profiles?.[0];
+                if (doctorData && doctorData.verification_status !== 'verified') {
+                    if (currentPath !== '/doctor/verification-pending') {
+                        router.replace('/doctor/verification-pending');
+                    }
+                    return;
+                }
+            }
+
+            if (requireVerification && userProfile.role === 'patient') {
+                const patientData = userProfile.patient_profiles?.[0];
+                if (patientData && patientData.verification_status !== 'verified') {
+                    if (currentPath !== '/patient/verification-pending') {
+                        router.replace('/patient/verification-pending');
+                    }
+                    return;
+                }
+            }
+        }, [isLoading, user, session, userProfile, router, allowedRoles, requireVerification, componentName]);
+
+        // Show loading spinner
         if (isLoading) {
             return (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--background-start)' }}>
-                    <LoadingSpinner /> <p style={{ color: 'var(--text-secondary)', marginLeft: '10px' }}>Loading User Session...</p>
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    height: '100vh', 
+                    backgroundColor: 'var(--background-start)',
+                    flexDirection: 'column',
+                    gap: '1rem'
+                }}>
+                    <LoadingSpinner /> 
+                    <p style={{ color: 'var(--text-secondary)' }}>Loading User Session...</p>
                 </div>
             );
         }
 
-        if (user && profile && profile.role_confirmed && profile.role !== PENDING_ROLE_SELECTION) {
-                if (allowedRoles.length === 0 || allowedRoles.includes(profile.role)) {
-                        return <WrappedComponent {...props} />;
+        // Check if user meets all requirements
+        if (user && userProfile && 
+            userProfile.account_status === 'active' && 
+            (!requireVerification || userProfile.phone_verified)) {
+            
+            // Check role permissions
+            if (allowedRoles.length === 0 || allowedRoles.includes(userProfile.role)) {
+                // Additional verification checks passed
+                if (requireVerification) {
+                    if (userProfile.role === 'doctor') {
+                        const doctorData = userProfile.doctor_profiles?.[0];
+                        if (!doctorData || doctorData.verification_status !== 'verified') {
+                            return (
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    alignItems: 'center', 
+                                    height: '100vh', 
+                                    backgroundColor: 'var(--background-start)',
+                                    flexDirection: 'column',
+                                    gap: '1rem'
+                                }}>
+                                    <LoadingSpinner /> 
+                                    <p style={{ color: 'var(--text-secondary)' }}>Verifying credentials...</p>
+                                </div>
+                            );
+                        }
+                    }
+                    
+                    if (userProfile.role === 'patient') {
+                        const patientData = userProfile.patient_profiles?.[0];
+                        if (!patientData || patientData.verification_status !== 'verified') {
+                            return (
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    alignItems: 'center', 
+                                    height: '100vh', 
+                                    backgroundColor: 'var(--background-start)',
+                                    flexDirection: 'column',
+                                    gap: '1rem'
+                                }}>
+                                    <LoadingSpinner /> 
+                                    <p style={{ color: 'var(--text-secondary)' }}>Verifying patient status...</p>
+                                </div>
+                            );
+                        }
+                    }
                 }
+                
+                return <WrappedComponent {...props} />;
+            }
         }
 
+        // Fallback loading state
         return (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--background-start)' }}>
-                        <LoadingSpinner /> <p style={{ color: 'var(--text-secondary)', marginLeft: '10px' }}>Verifying access...</p>
-                </div>
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh', 
+                backgroundColor: 'var(--background-start)',
+                flexDirection: 'column',
+                gap: '1rem'
+            }}>
+                <LoadingSpinner /> 
+                <p style={{ color: 'var(--text-secondary)' }}>Verifying access...</p>
+            </div>
         );
     };
 

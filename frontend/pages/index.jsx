@@ -29,8 +29,8 @@ export default function Home() {
       profile.role === PENDING_ROLE_SELECTION ||
       !profile.role_confirmed
     ) {
-      if (router.pathname !== "/select-role") {
-        router.replace("/select-role");
+      if (router.pathname !== "/complete-profile") {
+        router.replace("/complete-profile");
       }
       return;
     }

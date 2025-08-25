@@ -6,18 +6,34 @@ import LoadingSpinner from './LoadingSpinner';
 const AuthContext = createContext({
   session: undefined,
   user: undefined,
-  profile: undefined,
+  userProfile: undefined,
+  hospitalData: undefined,
   isLoading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  getUserId: () => null,
 });
 
 export const PENDING_ROLE_SELECTION = 'pending_selection';
 
+// Hospital-based unique ID generator
+const generateHospitalBasedId = (hospitalCode, role, sequence) => {
+  const rolePrefix = {
+    'patient': 'PAT',
+    'doctor': 'DOC', 
+    'admin': 'ADM'
+  };
+  
+  const prefix = rolePrefix[role] || 'USR';
+  const paddedSequence = sequence.toString().padStart(4, '0');
+  return `${hospitalCode}-${prefix}-${paddedSequence}`;
+};
+
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(undefined);
   const [user, setUser] = useState(undefined);
-  const [profile, setProfile] = useState(undefined);
+  const [userProfile, setUserProfile] = useState(undefined);
+  const [hospitalData, setHospitalData] = useState(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const isMountedRef = useRef(false);
@@ -31,43 +47,75 @@ export const AuthProvider = ({ children }) => {
   const fetchAndSetProfile = useCallback(async (currentUser, currentSession) => {
     if (!isMountedRef.current) return;
     if (!currentUser) {
-      setProfile(null);
+      setUserProfile(null);
+      setHospitalData(null);
       return;
     }
+
     try {
+      // Fetch user profile from new user_profiles table
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
+        .from('user_profiles')
+        .select(`
+          *,
+          hospitals(
+            id,
+            name,
+            hospital_code,
+            address,
+            phone,
+            email
+          ),
+          patient_profiles(
+            patient_id,
+            blood_group_id,
+            emergency_contact_name,
+            emergency_contact_phone,
+            medical_history,
+            current_medications,
+            allergies,
+            verification_status,
+            prescription_url,
+            blood_groups(blood_type)
+          ),
+          doctor_profiles(
+            medical_license,
+            qualification_id,
+            specialization,
+            experience_years,
+            consultation_fee,
+            verification_status,
+            qualifications(qualification_name)
+          ),
+          admin_profiles(
+            employee_id,
+            department,
+            permissions
+          )
+        `)
         .eq('id', currentUser.id)
         .maybeSingle();
 
       if (!isMountedRef.current) return;
 
       if (profileError && profileError.code !== 'PGRST116') {
-        setProfile(null);
+        console.error('Profile fetch error:', profileError);
+        setUserProfile(null);
+        setHospitalData(null);
       } else if (profileData) {
-        // Check if user needs to select a role
-        const needsSetup = !profileData.role || profileData.role === '' || typeof profileData.role_confirmed === 'undefined' || !profileData.role_confirmed;
-        if (needsSetup && profileData.role !== PENDING_ROLE_SELECTION) {
-          setProfile({ ...profileData, role: PENDING_ROLE_SELECTION, role_confirmed: false });
-        } else {
-          setProfile(profileData);
-        }
+        setUserProfile(profileData);
+        setHospitalData(profileData.hospitals);
       } else {
-        // Create default profile if not found
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({ id: currentUser.id, full_name: currentUser.user_metadata?.full_name || currentUser.email, email: currentUser.email, role: PENDING_ROLE_SELECTION, role_confirmed: false })
-          .select().single();
-        if (!isMountedRef.current) return;
-        if (insertError) {
-          setProfile(null);
-        } else {
-          setProfile(newProfile);
-        }
+        // No profile found - user needs to complete setup
+        setUserProfile({ needsSetup: true });
+        setHospitalData(null);
       }
     } catch (error) {
-      if (isMountedRef.current) setProfile(null);
+      console.error('Error fetching profile:', error);
+      if (isMountedRef.current) {
+        setUserProfile(null);
+        setHospitalData(null);
+      }
     }
   }, []);
 
@@ -132,15 +180,29 @@ export const AuthProvider = ({ children }) => {
     if (isLoading) return;
     const currentPath = router.pathname;
 
-    if (user && profile) {
-      const needsRoleSelection = !profile.role || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed;
-      if (needsRoleSelection) {
-        if (currentPath !== '/select-role' && currentPath !== '/login') {
-          router.replace('/select-role');
+    if (user && userProfile) {
+      // Check if user needs to complete profile setup
+      if (userProfile.needsSetup || !userProfile.role) {
+        if (currentPath !== '/complete-profile' && currentPath !== '/login') {
+          router.replace('/complete-profile');
         }
-      } else {
-        if (currentPath === '/login' || currentPath === '/select-role') {
-          router.replace(`/${profile.role}/dashboard`);
+      } 
+      // Check if account is pending activation
+      else if (userProfile.account_status === 'pending') {
+        if (currentPath !== '/account-pending') {
+          router.replace('/account-pending');
+        }
+      }
+      // Check if phone verification is needed
+      else if (!userProfile.phone_verified && userProfile.account_status === 'active') {
+        if (currentPath !== '/verify-phone') {
+          router.replace('/verify-phone');
+        }
+      }
+      // User is fully set up and verified
+      else if (userProfile.account_status === 'active' && userProfile.phone_verified) {
+        if (currentPath === '/login' || currentPath === '/complete-profile' || currentPath === '/verify-phone' || currentPath === '/account-pending') {
+          router.replace(`/${userProfile.role}/dashboard`);
         }
       }
     } else if (!user) {
@@ -149,8 +211,7 @@ export const AuthProvider = ({ children }) => {
         router.replace('/');
       }
     }
-  }, [isLoading, session, user, profile, router]);
-
+  }, [isLoading, session, user, userProfile, router]);
 
   const signOut = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -166,24 +227,35 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, session, fetchAndSetProfile]);
 
-  // --- FIX IS HERE ---
-  // Memoize the context value to prevent unnecessary re-renders in consumers
+  const getUserId = useCallback(() => {
+    return userProfile?.unique_identifier || user?.id || null;
+  }, [userProfile, user]);
+
+  // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     session,
     user,
-    profile,
+    userProfile,
+    hospitalData,
     isLoading,
     signOut,
-    refreshProfile
-  }), [session, user, profile, isLoading, signOut, refreshProfile]);
-  // --------------------
-
+    refreshProfile,
+    getUserId
+  }), [session, user, userProfile, hospitalData, isLoading, signOut, refreshProfile, getUserId]);
 
   if (isLoading && session === undefined) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--background-start)' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh', 
+        backgroundColor: 'var(--background-start)',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
         <LoadingSpinner />
-        <p style={{ color: 'var(--text-secondary)', marginLeft: '10px' }}>Initializing AI4NEURO...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Initializing AI4NEURO...</p>
       </div>
     );
   }
@@ -204,6 +276,27 @@ export const useAuth = () => {
 };
 
 export const useUser = () => {
-  const { user } = useContext(AuthContext);
-  return { user };
+  const { user, userProfile } = useContext(AuthContext);
+  return { user, userProfile };
+};
+
+// Additional hooks for specific role data
+export const usePatientData = () => {
+  const { userProfile } = useAuth();
+  return userProfile?.patient_profiles?.[0] || null;
+};
+
+export const useDoctorData = () => {
+  const { userProfile } = useAuth();
+  return userProfile?.doctor_profiles?.[0] || null;
+};
+
+export const useAdminData = () => {
+  const { userProfile } = useAuth();
+  return userProfile?.admin_profiles?.[0] || null;
+};
+
+export const useHospital = () => {
+  const { hospitalData } = useAuth();
+  return hospitalData;
 };
