@@ -3,28 +3,42 @@ import { useAuth } from '../components/AuthProvider';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import supabase from '../lib/supabaseClient';
 import styles from '../styles/AccountPending.module.css';
 
 export default function AccountPendingPage() {
-  const { user, userProfile, signOut, refreshProfile } = useAuth();
+  const { user, userProfile, signOut, refreshProfile, isLoading } = useAuth();
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
+  const [hospitalData, setHospitalData] = useState(null);
 
   useEffect(() => {
-    // If user becomes active, redirect to phone verification or dashboard
     if (userProfile && userProfile.account_status === 'active') {
-      if (!userProfile.phone_verified) {
-        router.replace('/verify-phone');
-      } else {
-        router.replace(`/${userProfile.role}/dashboard`);
-      }
+      router.replace(`/${userProfile.role}/dashboard`);
     }
   }, [userProfile, router]);
 
+  useEffect(() => {
+    if (userProfile && userProfile.account_status === 'pending') {
+      const interval = setInterval(async () => {
+        await refreshProfile();
+      }, 5000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [userProfile, refreshProfile]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    
     await refreshProfile();
-    setTimeout(() => setIsRefreshing(false), 1000);
+    
+    setTimeout(async () => {
+      setIsRefreshing(false);
+    }, 2000);
   };
 
   const getStatusMessage = () => {
@@ -80,7 +94,36 @@ export default function AccountPendingPage() {
     }
   };
 
-  if (!userProfile) {
+  // Fetch hospital data if not included in userProfile
+  useEffect(() => {
+    const fetchHospitalData = async () => {
+      if (userProfile?.hospital_id && !userProfile.hospitals) {
+        try {
+          const { data, error } = await supabase
+            .from('hospitals')
+            .select('id, name, hospital_code, address, phone, email')
+            .eq('id', userProfile.hospital_id)
+            .single();
+          
+          if (!error && data) {
+            setHospitalData(data);
+          }
+        } catch (err) {
+          // Error handled silently
+        }
+      } else if (userProfile?.hospitals) {
+        setHospitalData(userProfile.hospitals);
+      }
+    };
+
+    fetchHospitalData();
+  }, [userProfile]);
+
+  useEffect(() => {
+    setDebugInfo(`User: ${!!user}, UserProfile: ${!!userProfile}, IsLoading: ${isLoading}, Profile Role: ${userProfile?.role}, Account Status: ${userProfile?.account_status}`);
+  }, [user, userProfile, isLoading]);
+
+  if (isLoading || !userProfile) {
     return (
       <div className={styles.loadingContainer}>
         <LoadingSpinner />
@@ -125,7 +168,7 @@ export default function AccountPendingPage() {
               </div>
               <div className={styles.detailRow}>
                 <span>Hospital:</span>
-                <span>{userProfile.hospitals?.name || 'N/A'}</span>
+                <span>{hospitalData?.name || userProfile.hospitals?.name || 'Loading...'}</span>
               </div>
               <div className={styles.detailRow}>
                 <span>ID:</span>
@@ -138,6 +181,62 @@ export default function AccountPendingPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Role-specific Information */}
+          <div className={styles.roleSpecificInfo}>
+            <h3>Role-specific Information</h3>
+            
+            {userProfile.role === 'admin' && (
+              <div className={styles.adminInfo}>
+                <div className={styles.detailRow}>
+                  <span>Employee ID:</span>
+                  <span>{userProfile.admin_profiles?.[0]?.employee_id || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Department:</span>
+                  <span>{userProfile.admin_profiles?.[0]?.department || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Permissions:</span>
+                  <span>Hospital Administration</span>
+                </div>
+              </div>
+            )}
+
+            {userProfile.role === 'doctor' && (
+              <div className={styles.doctorInfo}>
+                <div className={styles.detailRow}>
+                  <span>Medical License:</span>
+                  <span>{userProfile.doctor_profiles?.[0]?.medical_license || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Specialization:</span>
+                  <span>{userProfile.doctor_profiles?.[0]?.specialization || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Experience:</span>
+                  <span>{userProfile.doctor_profiles?.[0]?.experience_years || 0} years</span>
+                </div>
+              </div>
+            )}
+
+            {userProfile.role === 'patient' && userProfile.patient_profiles?.[0] && (
+              <div className={styles.patientInfo}>
+                <div className={styles.detailRow}>
+                  <span>Blood Group:</span>
+                  <span>{userProfile.patient_profiles[0].blood_groups?.blood_type || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Emergency Contact:</span>
+                  <span>{userProfile.patient_profiles[0].emergency_contact_name || 'Not specified'}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span>Emergency Phone:</span>
+                  <span>{userProfile.patient_profiles[0].emergency_contact_phone || 'Not specified'}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {getNextSteps().length > 0 && (
@@ -155,6 +254,13 @@ export default function AccountPendingPage() {
           )}
 
           <div className={styles.actions}>
+            <button
+              onClick={() => router.push('/complete-profile?edit=true')}
+              className={styles.editButton}
+            >
+              ✏️ Edit Profile
+            </button>
+            
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}

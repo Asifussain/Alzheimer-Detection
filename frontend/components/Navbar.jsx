@@ -1,31 +1,19 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useAuth } from './AuthProvider';
 import supabase from '../lib/supabaseClient';
 import styles from '../styles/Navbar.module.css';
 
 export default function Navbar() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const { user, userProfile: profile } = useAuth(); // Use AuthProvider data
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Restored
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // Handle auth state changes for UI cleanup
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        fetchProfile(session.user.id);
-      }
-    });
-
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
+      (_event) => {
         if (_event === 'SIGNED_OUT' || _event === 'SIGNED_IN') {
           setDropdownOpen(false);
           setMobileMenuOpen(false);
@@ -37,16 +25,6 @@ export default function Navbar() {
       listener?.subscription?.unsubscribe();
     };
   }, []);
-
-  async function fetchProfile(userId) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (!error) setProfile(data);
-  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -95,20 +73,51 @@ export default function Navbar() {
         ☰
       </button>
 
-      {/* The onClick handlers will now work correctly */}
+      {/* Only show accessible links based on user state */}
       <ul className={`${styles.navbarLinks} ${mobileMenuOpen ? styles.mobileOpen : ''}`}>
-        <li><Link href="/home" onClick={closeMobileMenu}>Home</Link></li>
-        <li>
-          <Link
-            href={user && profile?.role ? `/${profile.role}/dashboard` : "/"}
-            onClick={closeMobileMenu}
-          >
-            Dashboard
-          </Link>
-        </li>
-        <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
-        <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
-        <li><Link href="/previous" onClick={closeMobileMenu}>History</Link></li>
+        {/* Always show these links if user is authenticated */}
+        {user && (
+          <>
+            {/* Home link - only show if user has active status */}
+            {profile?.account_status === 'active' && (
+              <li><Link href="/home" onClick={closeMobileMenu}>Home</Link></li>
+            )}
+            
+            {/* Dashboard link - only show if user has role and is active */}
+            {profile?.role && profile?.account_status === 'active' && (
+              <li>
+                <Link
+                  href={`/${profile.role}/dashboard`}
+                  onClick={closeMobileMenu}
+                >
+                  Dashboard
+                </Link>
+              </li>
+            )}
+            
+            {/* About link - always accessible for logged in users */}
+            <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
+            
+            {/* Contact link - always accessible for logged in users */}
+            <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
+            
+            {/* History link - only show for active users with role */}
+            {profile?.role && profile?.account_status === 'active' && (
+              <li><Link href="/previous" onClick={closeMobileMenu}>History</Link></li>
+            )}
+            
+            {/* Profile link - always accessible for logged in users */}
+            <li><Link href="/profile" onClick={closeMobileMenu}>Profile</Link></li>
+          </>
+        )}
+        
+        {/* For non-authenticated users, show minimal navigation */}
+        {!user && (
+          <>
+            <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
+            <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
+          </>
+        )}
       </ul>
 
       <div className={styles.rightSection}>

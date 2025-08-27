@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
             phone,
             email
           ),
-          patient_profiles(
+          patient_profiles!patient_profiles_user_fkey(
             patient_id,
             blood_group_id,
             emergency_contact_name,
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
             prescription_url,
             blood_groups(blood_type)
           ),
-          doctor_profiles(
+          doctor_profiles!doctor_profiles_user_fkey(
             medical_license,
             qualification_id,
             specialization,
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
             verification_status,
             qualifications(qualification_name)
           ),
-          admin_profiles(
+          admin_profiles!admin_profiles_user_fkey(
             employee_id,
             department,
             permissions
@@ -99,10 +99,27 @@ export const AuthProvider = ({ children }) => {
       if (!isMountedRef.current) return;
 
       if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Profile fetch error:', profileError);
-        setUserProfile(null);
-        setHospitalData(null);
+        // Try a simpler query without joins
+        try {
+          const { data: simpleProfileData, error: simpleError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+          
+          if (simpleProfileData && !simpleError) {
+            setUserProfile(simpleProfileData);
+            setHospitalData(null); // Will fetch separately if needed
+          } else {
+            setUserProfile(null);
+            setHospitalData(null);
+          }
+        } catch (fallbackError) {
+          setUserProfile(null);
+          setHospitalData(null);
+        }
       } else if (profileData) {
+        
         setUserProfile(profileData);
         setHospitalData(profileData.hospitals);
       } else {
@@ -111,10 +128,26 @@ export const AuthProvider = ({ children }) => {
         setHospitalData(null);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
       if (isMountedRef.current) {
-        setUserProfile(null);
-        setHospitalData(null);
+        // Try simple fetch as fallback
+        try {
+          const { data: simpleProfileData, error: simpleError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+          
+          if (simpleProfileData && !simpleError) {
+            setUserProfile(simpleProfileData);
+            setHospitalData(null);
+          } else {
+            setUserProfile(null);
+            setHospitalData(null);
+          }
+        } catch (fallbackError) {
+          setUserProfile(null);
+          setHospitalData(null);
+        }
       }
     }
   }, []);
@@ -189,19 +222,20 @@ export const AuthProvider = ({ children }) => {
       } 
       // Check if account is pending activation
       else if (userProfile.account_status === 'pending') {
-        if (currentPath !== '/account-pending') {
+        // Allow user to stay on complete-profile if they're still filling it out
+        if (currentPath !== '/account-pending' && currentPath !== '/complete-profile') {
           router.replace('/account-pending');
         }
       }
       // Check if phone verification is needed
       else if (!userProfile.phone_verified && userProfile.account_status === 'active') {
-        if (currentPath !== '/verify-phone') {
-          router.replace('/verify-phone');
+        if (currentPath !== '/VerifyPhone') {
+          router.replace('/VerifyPhone');
         }
       }
       // User is fully set up and verified
       else if (userProfile.account_status === 'active' && userProfile.phone_verified) {
-        if (currentPath === '/login' || currentPath === '/complete-profile' || currentPath === '/verify-phone' || currentPath === '/account-pending') {
+        if (currentPath === '/login' || currentPath === '/complete-profile' || currentPath === '/VerifyPhone' || currentPath === '/account-pending') {
           router.replace(`/${userProfile.role}/dashboard`);
         }
       }
@@ -220,12 +254,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    
     if (user && session && isMountedRef.current) {
       setIsLoading(true);
       await fetchAndSetProfile(user, session);
       if (isMountedRef.current) setIsLoading(false);
+    } else {
     }
-  }, [user, session, fetchAndSetProfile]);
+  }, [user, session, fetchAndSetProfile, userProfile?.account_status]);
 
   const getUserId = useCallback(() => {
     return userProfile?.unique_identifier || user?.id || null;
@@ -283,17 +319,23 @@ export const useUser = () => {
 // Additional hooks for specific role data
 export const usePatientData = () => {
   const { userProfile } = useAuth();
-  return userProfile?.patient_profiles?.[0] || null;
+  // Handle both array and single object cases
+  const patientProfiles = userProfile?.patient_profiles;
+  return Array.isArray(patientProfiles) ? patientProfiles?.[0] : patientProfiles || null;
 };
 
 export const useDoctorData = () => {
   const { userProfile } = useAuth();
-  return userProfile?.doctor_profiles?.[0] || null;
+  // Handle both array and single object cases
+  const doctorProfiles = userProfile?.doctor_profiles;
+  return Array.isArray(doctorProfiles) ? doctorProfiles?.[0] : doctorProfiles || null;
 };
 
 export const useAdminData = () => {
   const { userProfile } = useAuth();
-  return userProfile?.admin_profiles?.[0] || null;
+  // Handle both array and single object cases
+  const adminProfiles = userProfile?.admin_profiles;
+  return Array.isArray(adminProfiles) ? adminProfiles?.[0] : adminProfiles || null;
 };
 
 export const useHospital = () => {

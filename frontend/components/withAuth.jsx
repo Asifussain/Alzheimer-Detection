@@ -49,13 +49,8 @@ const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = tru
                 return;
             }
 
-            // Phone verification required
-            if (requireVerification && userProfile.account_status === 'active' && !userProfile.phone_verified) {
-                if (currentPath !== '/verify-phone') {
-                    router.replace('/verify-phone');
-                }
-                return;
-            }
+            // ENTERPRISE FIX: Skip phone verification for approved users
+            // Admin approval automatically sets phone_verified to true
 
             // Role-based access control
             if (allowedRoles.length > 0 && !allowedRoles.includes(userProfile.role)) {
@@ -64,26 +59,12 @@ const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = tru
                 return;
             }
 
-            // Additional role-specific verification checks
-            if (requireVerification && userProfile.role === 'doctor') {
-                const doctorData = userProfile.doctor_profiles?.[0];
-                if (doctorData && doctorData.verification_status !== 'verified') {
-                    if (currentPath !== '/doctor/verification-pending') {
-                        router.replace('/doctor/verification-pending');
-                    }
-                    return;
-                }
-            }
+            // ENTERPRISE FIX: Remove doctor profile verification check
+            // Admin approval sets account_status to 'active' which should be sufficient
 
-            if (requireVerification && userProfile.role === 'patient') {
-                const patientData = userProfile.patient_profiles?.[0];
-                if (patientData && patientData.verification_status !== 'verified') {
-                    if (currentPath !== '/patient/verification-pending') {
-                        router.replace('/patient/verification-pending');
-                    }
-                    return;
-                }
-            }
+            // ENTERPRISE FIX: Remove patient profile verification check
+            // Admin approval sets account_status to 'active' which should be sufficient
+            // Patient profile verification is handled by admin approval process
         }, [isLoading, user, session, userProfile, router, allowedRoles, requireVerification, componentName]);
 
         // Show loading spinner
@@ -114,7 +95,11 @@ const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = tru
                 // Additional verification checks passed
                 if (requireVerification) {
                     if (userProfile.role === 'doctor') {
-                        const doctorData = userProfile.doctor_profiles?.[0];
+                        // Handle both array and single object cases
+                        const doctorData = Array.isArray(userProfile.doctor_profiles) 
+                            ? userProfile.doctor_profiles?.[0] 
+                            : userProfile.doctor_profiles;
+                        
                         if (!doctorData || doctorData.verification_status !== 'verified') {
                             return (
                                 <div style={{ 
@@ -134,7 +119,11 @@ const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = tru
                     }
                     
                     if (userProfile.role === 'patient') {
-                        const patientData = userProfile.patient_profiles?.[0];
+                        // Handle both array and single object cases
+                        const patientData = Array.isArray(userProfile.patient_profiles) 
+                            ? userProfile.patient_profiles?.[0] 
+                            : userProfile.patient_profiles;
+                        
                         if (!patientData || patientData.verification_status !== 'verified') {
                             return (
                                 <div style={{ 

@@ -1,7 +1,7 @@
 .profileSetup {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  padding: 2rem 1rem;
+  padding: 7rem 1rem 2rem 1rem;
   color: #e2e8f0;
 }
 
@@ -45,6 +45,38 @@
   background: rgba(59, 130, 246, 0.2);
   border-radius: 2px;
   margin-bottom: 1rem;
+}
+
+.fileInput {
+  padding: 0.75rem;
+  border: 2px dashed rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.05);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.fileInput:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.fileHelp {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.noOptionsMessage {
+  color: #f59e0b;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #f59e0b;
 }
 
 .progressFill {
@@ -338,4 +370,262 @@
     height: 28px;
     font-size: 12px;
   }
+}
+
+/* NEW PROFESSIONAL STYLES */
+
+/* Role Selection Grid */
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin: 3rem 0;
+}
+
+.roleCard {
+  background: rgba(30, 41, 59, 0.8);
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  backdrop-filter: blur(20px);
+  position: relative;
+  overflow: hidden;
+}
+
+.roleCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.roleCard:hover::before {
+  left: 100%;
+}
+
+.roleCard:hover {
+  transform: translateY(-8px);
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+}
+
+.roleCard.selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 15px 35px rgba(59, 130, 246, 0.3);
+}
+
+.roleIcon {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.1);
+  width: fit-content;
+  margin: 0 auto 1.5rem;
+}
+
+.roleCard h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.roleCard p {
+  color: #94a3b8;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Form Grid */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  padding: 0.875rem 1rem;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.formGroup input::placeholder,
+.formGroup textarea::placeholder {
+  color: #64748b;
+}
+
+/* Shiny Button */
+.shinyButton {
+  position: relative;
+  padding: 0.875rem 2rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 120px;
+}
+
+.shinyButton.primary {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.shinyButton.secondary {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.3);
+}
+
+.shinyButton:hover:not(.disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(59, 130, 246, 0.4);
+}
+
+.shinyButton.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.buttonText {
+  position: relative;
+  z-index: 2;
+}
+
+.buttonShine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.6s ease;
+  z-index: 1;
+}
+
+.shinyButton:hover:not(.disabled) .buttonShine {
+  left: 100%;
+}
+
+/* Shiny Text */
+.shinyText {
+  position: relative;
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.textShine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: textShine 3s ease-in-out infinite;
+}
+
+@keyframes textShine {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+.stepTitle {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.mainTitle {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  gap: 1rem;
+}
+
+.stepContent {
+  padding: 2rem 0;
+}
+
+.stepDescription {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.stepIndicator {
+  color: #64748b;
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+/* Override existing form actions */
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(59, 130, 246, 0.1);
 }

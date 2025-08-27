@@ -25,6 +25,7 @@
   position: relative;
   overflow-x: hidden;
   background: var(--background-primary);
+  padding-top: 7rem;
 }
 
 .layoutContainer::before {

@@ -32,7 +32,6 @@ export default function VerifyPhonePage() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Mock OTP sending function - replace with actual SMS service
   const sendOTP = async () => {
     setIsSubmitting(true);
     setError('');
@@ -56,16 +55,16 @@ export default function VerifyPhonePage() {
 
       if (error) throw error;
 
-      // In production, integrate with SMS service like Twilio
-      console.log(`OTP for ${userProfile.phone}: ${generatedOTP}`);
+      // For development - show OTP in console and success message
+      console.log(`🔐 Development Mode - OTP for ${userProfile.phone}: ${generatedOTP}`);
       
-      setSuccess(`OTP sent to ${userProfile.phone}`);
+      setSuccess(`Verification code sent to ${userProfile.phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`);
       setStep(2);
       setCountdown(60); // 60 second cooldown
       
     } catch (err) {
       console.error('Error sending OTP:', err);
-      setError('Failed to send OTP. Please try again.');
+      setError('Failed to send verification code. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

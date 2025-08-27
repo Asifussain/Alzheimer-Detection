@@ -12,7 +12,7 @@
 .pendingPage {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  padding: 2rem 1rem;
+  padding: 7rem 1rem 2rem 1rem;
   color: #e2e8f0;
 }
 
@@ -198,6 +198,7 @@
   flex-wrap: wrap;
 }
 
+.editButton,
 .refreshButton,
 .signOutButton {
   padding: 0.75rem 2rem;
@@ -240,6 +241,39 @@
   border-color: rgba(239, 68, 68, 0.3);
   color: #fca5a5;
   transform: translateY(-2px);
+}
+
+.editButton {
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
+  color: white;
+}
+
+.editButton:hover {
+  background: linear-gradient(135deg, #2563eb, #059669);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.roleSpecificInfo {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 15px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+  margin-bottom: 2rem;
+}
+
+.roleSpecificInfo h3 {
+  color: #3b82f6;
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+}
+
+.adminInfo,
+.doctorInfo,
+.patientInfo {
+  display: grid;
+  gap: 1rem;
 }
 
 .helpSection {
@@ -322,6 +356,7 @@
     align-items: center;
   }
   
+  .editButton,
   .refreshButton,
   .signOutButton {
     width: 100%;

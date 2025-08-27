@@ -1,101 +1,336 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../components/AuthProvider';
+import { useRouter } from 'next/router';
 import supabase from '../../lib/supabaseClient';
 import Navbar from '../../components/Navbar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import withAuth from '../../components/withAuth';
 import styles from '../../styles/Profile.module.css';
-import EditProfileModal from '../../components/EditProfileModal'; // Import the new modal
 
 function ProfilePage() {
-  const { user, profile, refreshProfile } = useAuth();
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, userProfile, hospitalData, refreshProfile } = useAuth();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
   const [error, setError] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false); // State to control the modal
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (!profile) return;
+    if (userProfile) {
+      setEditData({
+        full_name: userProfile.full_name || '',
+        phone: userProfile.phone || '',
+        address: userProfile.address || ''
+      });
+      setIsLoading(false);
+    }
+  }, [userProfile]);
 
-    const fetchProfileDetails = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('profile_details')
-        .select('*')
-        .eq('profile_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        setError('Could not load profile details.');
-      } else {
-        setDetails(data);
-      }
-      setLoading(false);
-    };
-
-    fetchProfileDetails();
-  }, [profile, user]);
-
-  const handleSaveSuccess = () => {
-    refreshProfile();
-    setIsModalOpen(false);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setError('');
   };
-  
-  const DisplayField = ({ label, value }) => (
-    <div className={styles.displayField}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <span className={styles.fieldValue}>{value || 'Not set'}</span>
-    </div>
-  );
 
-  const RoleSpecificFields = () => {
-    if (!profile) return null;
-    switch (profile.role) {
-      case 'patient': return <><DisplayField label="Date of Birth" value={details?.date_of_birth} /><DisplayField label="Emergency Contact Name" value={details?.emergency_contact_name} /><DisplayField label="Emergency Contact Phone" value={details?.emergency_contact_phone} /></>;
-      case 'clinician': return <><DisplayField label="Clinic Name" value={details?.clinic_name} /><DisplayField label="Specialization" value={details?.specialization} /><DisplayField label="License Number" value={details?.license_number} /></>;
-      case 'technician': return <><DisplayField label="Hospital Affiliation" value={details?.hospital_affiliation} /><DisplayField label="Certification ID" value={details?.certification_id} /></>;
-      default: return null;
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+
+      // Validate inputs
+      if (!editData.full_name.trim()) {
+        setError('Full name is required');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!editData.phone.trim()) {
+        setError('Phone number is required');
+        setIsLoading(false);
+        return;
+      }
+
+      // Update user profile
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({
+          full_name: editData.full_name.trim(),
+          phone: editData.phone.trim(),
+          address: editData.address.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      await refreshProfile();
+      setSuccess('Profile updated successfully!');
+      setIsEditing(false);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setError('Failed to update profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (loading) {
-    return ( <div className={styles.centeredLoader}><LoadingSpinner /><p>Loading Profile...</p></div> );
+  const handleCancel = () => {
+    setEditData({
+      full_name: userProfile?.full_name || '',
+      phone: userProfile?.phone || '',
+      address: userProfile?.address || ''
+    });
+    setIsEditing(false);
+    setError('');
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return '#10b981';
+      case 'pending': return '#f59e0b';
+      case 'suspended': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'patient': return '🏥';
+      case 'doctor': return '👨‍⚕️';
+      case 'admin': return '👑';
+      default: return '👤';
+    }
+  };
+
+  if (isLoading && !userProfile) {
+    return (
+      <div className={styles.loadingContainer}>
+        <LoadingSpinner />
+        <p>Loading your profile...</p>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className={styles.errorContainer}>
+        <h2>Profile Not Found</h2>
+        <p>Unable to load your profile information.</p>
+        <button onClick={() => router.push('/complete-profile')} className={styles.primaryButton}>
+          Complete Profile Setup
+        </button>
+      </div>
+    );
   }
 
   return (
     <>
       <Navbar />
-      {isModalOpen && (
-        <EditProfileModal
-          user={user}
-          profile={profile}
-          details={details}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleSaveSuccess}
-        />
-      )}
       <div className={styles.profilePage}>
-        <div className={styles.profileHeader}>
-          <img src={user?.user_metadata?.avatar_url || '/images/default-avatar.png'} alt="Profile Avatar" className={styles.avatar} />
-          <h1>{profile?.full_name || user?.email}</h1>
-          <p className={styles.roleTag}>{profile?.role}</p>
-        </div>
+        <div className={styles.profileContainer}>
+          {/* Profile Header */}
+          <div className={styles.profileHeader}>
+            <div className={styles.avatarSection}>
+              <div className={styles.avatar}>
+                <span className={styles.avatarText}>
+                  {userProfile.full_name?.charAt(0)?.toUpperCase() || '?'}
+                </span>
+              </div>
+              <div className={styles.userInfo}>
+                <h1 className={styles.userName}>{userProfile.full_name || 'No Name Set'}</h1>
+                <div className={styles.userMeta}>
+                  <span className={styles.roleChip}>
+                    {getRoleIcon(userProfile.role)} {userProfile.role}
+                  </span>
+                  <span 
+                    className={styles.statusChip}
+                    style={{ backgroundColor: getStatusColor(userProfile.account_status) }}
+                  >
+                    {userProfile.account_status}
+                  </span>
+                </div>
+                <p className={styles.userEmail}>{userProfile.email}</p>
+                <p className={styles.userId}>ID: {userProfile.unique_identifier}</p>
+              </div>
+            </div>
 
-        <div className={styles.profileContent}>
-          <div className={styles.detailsSection}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>Account Information</h3>
-              <button onClick={() => setIsModalOpen(true)} className={styles.inlineEditButton}>✎ Edit</button>
-            </div>
-            <DisplayField label="Full Name" value={profile?.full_name} />
-            <DisplayField label="Email Address" value={profile?.email} />
+            {!isEditing && (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className={styles.editButton}
+              >
+                Edit Profile
+              </button>
+            )}
           </div>
-          <div className={styles.detailsSection}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>Role-Specific Details</h3>
-              <button onClick={() => setIsModalOpen(true)} className={styles.inlineEditButton}>✎ Edit</button>
+
+          {/* Success/Error Messages */}
+          {success && (
+            <div className={styles.successMessage}>
+              ✅ {success}
             </div>
-            <RoleSpecificFields />
+          )}
+
+          {error && (
+            <div className={styles.errorMessage}>
+              ❌ {error}
+            </div>
+          )}
+
+          {/* Profile Content */}
+          <div className={styles.profileContent}>
+            {/* Basic Information */}
+            <div className={styles.infoCard}>
+              <h3 className={styles.cardTitle}>Basic Information</h3>
+              <div className={styles.infoGrid}>
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Full Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={editData.full_name}
+                      onChange={handleInputChange}
+                      className={styles.editInput}
+                      placeholder="Enter your full name"
+                    />
+                  ) : (
+                    <span className={styles.infoValue}>
+                      {userProfile.full_name || 'Not set'}
+                    </span>
+                  )}
+                </div>
+
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Email</label>
+                  <span className={styles.infoValue}>
+                    {userProfile.email}
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Phone Number</label>
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={editData.phone}
+                      onChange={handleInputChange}
+                      className={styles.editInput}
+                      placeholder="Enter your phone number"
+                    />
+                  ) : (
+                    <span className={styles.infoValue}>
+                      {userProfile.phone || 'Not set'}
+                    </span>
+                  )}
+                </div>
+
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Date of Birth</label>
+                  <span className={styles.infoValue}>
+                    {userProfile.date_of_birth 
+                      ? new Date(userProfile.date_of_birth).toLocaleDateString()
+                      : 'Not set'
+                    }
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Address</label>
+                  {isEditing ? (
+                    <textarea
+                      name="address"
+                      value={editData.address}
+                      onChange={handleInputChange}
+                      className={styles.editTextarea}
+                      placeholder="Enter your address"
+                      rows={3}
+                    />
+                  ) : (
+                    <span className={styles.infoValue}>
+                      {userProfile.address || 'Not set'}
+                    </span>
+                  )}
+                </div>
+
+                <div className={styles.infoItem}>
+                  <label className={styles.infoLabel}>Hospital</label>
+                  <span className={styles.infoValue}>
+                    {hospitalData?.name || 'Not specified'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Status */}
+            <div className={styles.infoCard}>
+              <h3 className={styles.cardTitle}>Account Status</h3>
+              <div className={styles.statusGrid}>
+                <div className={styles.statusItem}>
+                  <span className={styles.statusLabel}>Account Status</span>
+                  <span 
+                    className={styles.statusBadge}
+                    style={{ backgroundColor: getStatusColor(userProfile.account_status) }}
+                  >
+                    {userProfile.account_status}
+                  </span>
+                </div>
+                <div className={styles.statusItem}>
+                  <span className={styles.statusLabel}>Phone Verified</span>
+                  <span className={styles.statusBadge} style={{
+                    backgroundColor: userProfile.phone_verified ? '#10b981' : '#ef4444'
+                  }}>
+                    {userProfile.phone_verified ? '✅ Verified' : '❌ Not Verified'}
+                  </span>
+                </div>
+                <div className={styles.statusItem}>
+                  <span className={styles.statusLabel}>Member Since</span>
+                  <span className={styles.infoValue}>
+                    {new Date(userProfile.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Edit Actions */}
+            {isEditing && (
+              <div className={styles.editActions}>
+                <button 
+                  onClick={handleSave}
+                  disabled={isLoading}
+                  className={styles.saveButton}
+                >
+                  {isLoading ? <LoadingSpinner size={16} /> : '💾'} Save Changes
+                </button>
+                <button 
+                  onClick={handleCancel}
+                  className={styles.cancelButton}
+                >
+                  ❌ Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            {!isEditing && userProfile.role && (
+              <div className={styles.quickActions}>
+                <button 
+                  onClick={() => router.push(`/${userProfile.role}/dashboard`)}
+                  className={styles.actionButton}
+                >
+                  📊 Go to Dashboard
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -16,10 +16,10 @@ function PatientDashboard() {
   const [selectedSessionId, setSelectedSessionId] = useState(null);
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && patientData) {
       fetchPatientData();
     }
-  }, [userProfile]);
+  }, [userProfile, patientData]);
 
   const fetchPatientData = async () => {
     try {
@@ -36,17 +36,17 @@ function PatientDashboard() {
             confidence_score,
             analysis_completed_at
           ),
-          doctor_profiles!eeg_sessions_doctor_id_fkey(
+          doctor_profiles!eeg_sessions_doctor_fkey(
             user_id,
             medical_license,
             specialization,
-            user_profiles!doctor_profiles_user_id_fkey(
+            user_profiles!doctor_profiles_user_fkey(
               full_name,
               email
             )
           )
         `)
-        .eq('patient_id', user.id)
+        .eq('patient_id', userProfile.id)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -59,7 +59,7 @@ function PatientDashboard() {
           .from('doctor_profiles')
           .select(`
             *,
-            user_profiles!doctor_profiles_user_id_fkey(
+            user_profiles!doctor_profiles_user_fkey(
               full_name,
               email,
               phone
@@ -78,14 +78,14 @@ function PatientDashboard() {
       setAssignedDoctor(doctorInfo);
 
     } catch (error) {
-      console.error('Error fetching patient data:', error);
+      // Error handled silently
     } finally {
       setIsLoading(false);
     }
   };
 
   const getVerificationStatus = () => {
-    if (!patientData) return { status: 'unknown', message: 'Loading...' };
+    if (!patientData) return { status: 'unknown', message: 'Setting up your profile...' };
     
     switch (patientData.verification_status) {
       case 'pending':

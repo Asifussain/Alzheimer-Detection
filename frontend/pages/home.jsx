@@ -503,7 +503,7 @@ const InteractiveTimeline = () => {
 };
 
 export default function Home() {
-  const { user, profile, loading: authLoading, session } = useAuth();
+  const { user, userProfile, isLoading: authLoading, session } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -515,11 +515,11 @@ export default function Home() {
     if (!authLoading) {
       if (!user || !session) {
         router.replace('/landing');
-      } else if (!profile || !profile.role || profile.role === PENDING_ROLE_SELECTION || !profile.role_confirmed) {
-        router.replace('/select-role');
+      } else if (!userProfile || userProfile.needsSetup || !userProfile.role) {
+        router.replace('/complete-profile');
       }
     }
-  }, [user, profile, authLoading, session, router]);
+  }, [user, userProfile, authLoading, session, router]);
 
   if (authLoading || !mounted) {
     return (
@@ -533,7 +533,7 @@ export default function Home() {
   }
 
   const handleAnalyse = () => {
-    const role = profile?.role || 'patient';
+    const role = userProfile?.role || 'patient';
     router.push(`/${role}/dashboard`);
   };
 
@@ -646,8 +646,8 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1, duration: 0.6 }}
               >
-                <p>Welcome back, <span className={styles.userName}>{profile?.full_name || user?.email}</span></p>
-                <p className={styles.roleText}>Role: {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1)}</p>
+                <p>Welcome back, <span className={styles.userName}>{userProfile?.full_name || user?.email}</span></p>
+                <p className={styles.roleText}>Role: {userProfile?.role?.charAt(0).toUpperCase() + userProfile?.role?.slice(1)}</p>
               </motion.div>
             </div>
           </div>

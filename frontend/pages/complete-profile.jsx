@@ -1,813 +1,1024 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../components/AuthProvider';
-import supabase from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import supabase from '../lib/supabaseClient';
 import styles from '../styles/CompleteProfile.module.css';
-
-const ROLES = [
-  { 
-    id: 'patient', 
-    name: 'Patient', 
-    description: 'I am seeking medical analysis and care',
-    icon: '🏥'
-  },
-  { 
-    id: 'doctor', 
-    name: 'Doctor', 
-    description: 'I am a healthcare professional providing care',
-    icon: '👩‍⚕️'
-  },
-  { 
-    id: 'admin', 
-    name: 'Hospital Admin', 
-    description: 'I manage hospital operations and staff',
-    icon: '👨‍💼'
-  },
-];
 
 const BLOOD_GROUPS = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
 ];
 
+// Shiny Button Component
+const ShinyButton = ({ children, onClick, disabled, variant = 'primary', type = 'button' }) => (
+  <button
+    type={type}
+    onClick={onClick}
+    disabled={disabled}
+    className={`${styles.shinyButton} ${styles[variant]} ${disabled ? styles.disabled : ''}`}
+  >
+    <span className={styles.buttonText}>{children}</span>
+    <div className={styles.buttonShine}></div>
+  </button>
+);
+
+// Shiny Text Component
+const ShinyText = ({ children, className = '' }) => (
+  <div className={`${styles.shinyText} ${className}`}>
+    {children}
+    <div className={styles.textShine}></div>
+  </div>
+);
+
 export default function CompleteProfilePage() {
   const { user, refreshProfile } = useAuth();
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1: hospital, 2: role, 3: details
+  
+  // State Management
+  const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [hospitals, setHospitals] = useState([]);
-  const [bloodGroups, setBloodGroups] = useState([]);
-  const [qualifications, setQualifications] = useState([]);
-  const [existingProfile, setExistingProfile] = useState(null);
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-
+  
+  // Form Data
   const [formData, setFormData] = useState({
-    // Hospital & Basic Info
-    hospital_id: '',
-    full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || '',
-    email: user?.email || '',
+    // Step 1: Role Selection
+    role: '',
+    
+    // Step 2: Basic Information
+    full_name: '',
     phone: '',
     date_of_birth: '',
     address: '',
-    role: '',
-
-    // Patient specific
-    patient_id: '', // Will be auto-generated
+    hospital_id: '',
+    
+    // Step 3: Role-specific Information
+    // Patient
     blood_group_id: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
     medical_history: '',
     current_medications: '',
     allergies: '',
-
-    // Doctor specific
+    preferred_doctor_id: '',
+    prescriptionFile: null,
+    
+    // Doctor
     medical_license: '',
     qualification_id: '',
     specialization: '',
     experience_years: '',
     consultation_fee: '',
-
-    // Admin specific
+    
+    // Admin
     employee_id: '',
-    department: '',
+    department: ''
   });
+
+  // Supporting Data
+  const [hospitals, setHospitals] = useState([]);
+  const [bloodGroups, setBloodGroups] = useState([]);
+  const [qualifications, setQualifications] = useState([]);
+  const [availableDoctors, setAvailableDoctors] = useState([]);
+
+  // Auto-save effect
+  useEffect(() => {
+    const savedData = localStorage.getItem('profileFormData');
+    if (savedData && !isLoading) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(prev => ({ ...prev, ...parsed }));
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+  }, [isLoading]);
+
+  // Auto-save form data
+  const saveFormData = useCallback(() => {
+    if (Object.keys(formData).some(key => formData[key] && key !== 'prescriptionFile')) {
+      localStorage.setItem('profileFormData', JSON.stringify({ 
+        ...formData, 
+        prescriptionFile: null // Don't save file objects
+      }));
+    }
+  }, [formData]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(saveFormData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, saveFormData]);
 
   useEffect(() => {
     fetchInitialData();
-  }, [user]);
+  }, []);
 
   const fetchInitialData = async () => {
     try {
       setIsLoading(true);
-
-      // Check if user already has a profile - handle potential errors gracefully
-      const { data: existingProfileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no record exists
-
-      // Only set existing profile if we actually found one and there's no error
-      if (existingProfileData && !profileError) {
-        setExistingProfile(existingProfileData);
-        console.log('Found existing profile:', existingProfileData);
-        
-        // Pre-populate form with existing data
-        setFormData(prev => ({
-          ...prev,
-          hospital_id: existingProfileData.hospital_id || '',
-          full_name: existingProfileData.full_name || prev.full_name,
-          phone: existingProfileData.phone || '',
-          date_of_birth: existingProfileData.date_of_birth || '',
-          address: existingProfileData.address || '',
-          role: existingProfileData.role || '',
-        }));
-
-        // Load role-specific data if exists
-        if (existingProfileData.role === 'patient') {
-          const { data: patientData } = await supabase
-            .from('patient_profiles')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (patientData) {
-            setFormData(prev => ({
-              ...prev,
-              blood_group_id: patientData.blood_group_id || '',
-              emergency_contact_name: patientData.emergency_contact_name || '',
-              emergency_contact_phone: patientData.emergency_contact_phone || '',
-              medical_history: patientData.medical_history || '',
-              current_medications: patientData.current_medications || '',
-              allergies: patientData.allergies || '',
-            }));
-          }
-        } else if (existingProfileData.role === 'doctor') {
-          const { data: doctorData } = await supabase
-            .from('doctor_profiles')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (doctorData) {
-            setFormData(prev => ({
-              ...prev,
-              medical_license: doctorData.medical_license || '',
-              qualification_id: doctorData.qualification_id || '',
-              specialization: doctorData.specialization || '',
-              experience_years: doctorData.experience_years?.toString() || '',
-              consultation_fee: doctorData.consultation_fee?.toString() || '',
-            }));
-          }
-        } else if (existingProfileData.role === 'admin') {
-          const { data: adminData } = await supabase
-            .from('admin_profiles')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (adminData) {
-            setFormData(prev => ({
-              ...prev,
-              employee_id: adminData.employee_id || '',
-              department: adminData.department || '',
-            }));
-          }
-        }
-      } else if (profileError) {
-        console.log('No existing profile found or error:', profileError);
-        setExistingProfile(null);
-      }
-
-      // Fetch hospitals
-      const { data: hospitalsData } = await supabase
-        .from('hospitals')
-        .select('id, name, hospital_code, address')
-        .eq('status', 'active')
-        .order('name');
-
-      // Fetch blood groups
-      const { data: bloodGroupsData } = await supabase
-        .from('blood_groups')
-        .select('*')
-        .order('blood_type');
-
-      // Fetch qualifications
-      const { data: qualificationsData } = await supabase
-        .from('qualifications')
-        .select('*')
-        .order('qualification_name');
-
-      setHospitals(hospitalsData || []);
-      setBloodGroups(bloodGroupsData || []);
-      setQualifications(qualificationsData || []);
-    } catch (error) {
-      console.error('Error fetching initial data:', error);
-      setError('Failed to load required data. Please refresh the page.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setError('');
-  };
-
-  const generateUniqueId = async (hospitalCode, role) => {
-    try {
-      // If updating existing profile, keep the same unique identifier
-      if (existingProfile && existingProfile.unique_identifier) {
-        return existingProfile.unique_identifier;
-      }
-
-      // Get the last sequence number for this hospital and role
-      const { data: existingProfiles } = await supabase
-        .from('user_profiles')
-        .select('unique_identifier')
-        .eq('hospital_id', formData.hospital_id)
-        .eq('role', role)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let sequence = 1;
-      if (existingProfiles && existingProfiles.length > 0) {
-        const lastId = existingProfiles[0].unique_identifier;
-        const lastSequence = parseInt(lastId.split('-')[2]) || 0;
-        sequence = lastSequence + 1;
-      }
-
-      const rolePrefix = {
-        'patient': 'PAT',
-        'doctor': 'DOC', 
-        'admin': 'ADM'
-      };
       
-      const prefix = rolePrefix[role] || 'USR';
-      const paddedSequence = sequence.toString().padStart(4, '0');
-      return `${hospitalCode}-${prefix}-${paddedSequence}`;
-    } catch (error) {
-      console.error('Error generating unique ID:', error);
-      return null;
-    }
-  };
-
-  const handleNext = () => {
-    if (step === 1) {
-      if (!formData.hospital_id || !formData.full_name || !formData.phone) {
-        setError('Please fill in all required fields');
-        return;
-      }
-    } else if (step === 2) {
-      if (!formData.role) {
-        setError('Please select a role');
-        return;
-      }
-    }
-    setStep(step + 1);
-    setError('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      // Double-check for existing profile right before submission
-      const { data: currentProfile, error: checkError } = await supabase
+      // Check if user is coming to edit their profile
+      const isEditing = router.query.edit === 'true';
+      
+      // Check for existing profile
+      const { data: existingProfile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        throw checkError;
+      if (!profileError && existingProfile && existingProfile.role && !isEditing) {
+        // User already has a profile and is not editing, redirect appropriately
+        if (existingProfile.account_status === 'pending') {
+          router.replace('/account-pending');
+          return;
+        } else if (!existingProfile.phone_verified) {
+          router.replace('/VerifyPhone');
+          return;
+        } else {
+          router.replace(`/${existingProfile.role}/dashboard`);
+          return;
+        }
       }
 
-      // Update our existing profile state if we found one
-      const profileExists = currentProfile && !checkError;
-      if (profileExists && !existingProfile) {
-        setExistingProfile(currentProfile);
+      // Fetch supporting data using public API (bypasses RLS issues)
+      console.log('🏥 Fetching hospitals and supporting data via API...');
+      try {
+        const response = await fetch('/api/public/hospitals');
+        const result = await response.json();
+        
+        console.log('🏥 Public API fetch result:', result);
+        
+        if (result.success) {
+          setHospitals(result.data.hospitals);
+          setBloodGroups(result.data.bloodGroups);
+          setQualifications(result.data.qualifications);
+          
+          console.log('✅ Data loaded successfully:', {
+            hospitals: result.data.hospitals.length,
+            bloodGroups: result.data.bloodGroups.length,
+            qualifications: result.data.qualifications.length
+          });
+        } else {
+          console.error('❌ Public API failed:', result);
+          // Fallback to direct Supabase queries
+          console.log('🔄 Falling back to direct queries...');
+          const [hospitalsRes, bloodGroupsRes, qualificationsRes] = await Promise.all([
+            supabase.from('hospitals').select('*').order('name'),
+            supabase.from('blood_groups').select('*').order('blood_type'),
+            supabase.from('qualifications').select('*').order('qualification_name')
+          ]);
+          
+          setHospitals(hospitalsRes.data || []);
+          setBloodGroups(bloodGroupsRes.data || []);
+          setQualifications(qualificationsRes.data || []);
+        }
+      } catch (apiError) {
+        console.error('❌ API fetch failed:', apiError);
+        // Fallback to direct Supabase queries
+        const [hospitalsRes, bloodGroupsRes, qualificationsRes] = await Promise.all([
+          supabase.from('hospitals').select('*').order('name'),
+          supabase.from('blood_groups').select('*').order('blood_type'),
+          supabase.from('qualifications').select('*').order('qualification_name')
+        ]);
+        
+        setHospitals(hospitalsRes.data || []);
+        setBloodGroups(bloodGroupsRes.data || []);
+        setQualifications(qualificationsRes.data || []);
       }
 
-      // Get hospital code for ID generation
-      const selectedHospital = hospitals.find(h => h.id === formData.hospital_id);
-      if (!selectedHospital) {
-        throw new Error('Selected hospital not found');
+      // Pre-populate with existing profile data if editing
+      if (isEditing && existingProfile) {
+        // Fetch role-specific data
+        let roleSpecificData = {};
+        
+        if (existingProfile.role === 'patient') {
+          const { data: patientData } = await supabase
+            .from('patient_profiles')
+            .select('*, blood_groups(*)')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (patientData) {
+            roleSpecificData = {
+              blood_group_id: patientData.blood_group_id,
+              emergency_contact_name: patientData.emergency_contact_name || '',
+              emergency_contact_phone: patientData.emergency_contact_phone || '',
+              assigned_doctor_id: patientData.assigned_doctor_id || ''
+            };
+          }
+        } else if (existingProfile.role === 'doctor') {
+          const { data: doctorData } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (doctorData) {
+            roleSpecificData = {
+              medical_license: doctorData.medical_license || '',
+              specialization: doctorData.specialization || '',
+              experience_years: doctorData.experience_years || '',
+              qualification_ids: doctorData.qualification_ids || []
+            };
+          }
+        } else if (existingProfile.role === 'admin') {
+          const { data: adminData } = await supabase
+            .from('admin_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (adminData) {
+            roleSpecificData = {
+              employee_id: adminData.employee_id || '',
+              department: adminData.department || ''
+            };
+          }
+        }
+
+        setFormData({
+          role: existingProfile.role,
+          full_name: existingProfile.full_name || '',
+          phone: existingProfile.phone || '',
+          date_of_birth: existingProfile.date_of_birth || '',
+          address: existingProfile.address || '',
+          hospital_id: existingProfile.hospital_id || '',
+          ...roleSpecificData
+        });
+
+        // Set appropriate step based on what data exists
+        if (existingProfile.role) {
+          if (existingProfile.full_name && existingProfile.phone) {
+            setCurrentStep(3); // Go to role-specific details
+          } else {
+            setCurrentStep(2); // Go to basic info
+          }
+        }
+        
+        // Fetch doctors if patient with hospital selected
+        if (existingProfile.role === 'patient' && existingProfile.hospital_id) {
+          fetchDoctorsForHospital(existingProfile.hospital_id);
+        }
+      } else if (user) {
+        // Pre-populate with user's email data for new profiles
+        setFormData(prev => ({
+          ...prev,
+          full_name: user.user_metadata?.full_name || '',
+        }));
       }
 
-      // Generate unique identifier (will reuse existing if updating)
-      const uniqueId = await generateUniqueId(selectedHospital.hospital_code, formData.role);
-      if (!uniqueId) {
-        throw new Error('Failed to generate unique identifier');
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to load form data. Please refresh the page and try again.';
+      
+      if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your internet connection and refresh the page.';
+      } else if (error.message?.includes('permission')) {
+        errorMessage = 'You do not have permission to access this page. Please sign in again.';
+      } else if (error.message?.includes('not found')) {
+        errorMessage = 'Required data not found. Please contact support if this issue persists.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDoctorsForHospital = async (hospitalId) => {
+    try {
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select(`
+          user_id,
+          medical_license,
+          specialization,
+          verification_status,
+          user_profiles!inner(full_name, hospital_id)
+        `)
+        .eq('user_profiles.hospital_id', hospitalId)
+        .eq('verification_status', 'verified');
+
+      if (error) throw error;
+      setAvailableDoctors(data || []);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      setAvailableDoctors([]);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type, files } = e.target;
+    
+    if (type === 'file') {
+      setFormData(prev => ({ ...prev, [name]: files[0] }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      
+      // Fetch doctors when hospital is selected for patients
+      if (name === 'hospital_id' && value && formData.role === 'patient') {
+        fetchDoctorsForHospital(value);
+      }
+    }
+    
+    setError('');
+  };
+
+  const validateStep = () => {
+    switch (currentStep) {
+      case 1:
+        if (!formData.role) {
+          setError('Please select your role to continue');
+          return false;
+        }
+        break;
+      case 2:
+        // More user-friendly field name mapping
+        const fieldNames = {
+          full_name: 'full name',
+          phone: 'phone number',
+          date_of_birth: 'date of birth',
+          address: 'address',
+          hospital_id: 'hospital'
+        };
+        
+        const requiredBasic = ['full_name', 'phone', 'date_of_birth', 'address', 'hospital_id'];
+        for (const field of requiredBasic) {
+          if (!formData[field]) {
+            setError(`Please enter your ${fieldNames[field]}`);
+            return false;
+          }
+        }
+        
+        // Phone validation
+        if (formData.phone && !/^\+?[\d\s-()]{10,}$/.test(formData.phone.replace(/\s+/g, ''))) {
+          setError('Please enter a valid phone number');
+          return false;
+        }
+        break;
+      case 3:
+        if (formData.role === 'patient') {
+          if (!formData.blood_group_id) {
+            setError('Please select your blood group');
+            return false;
+          }
+          if (!formData.emergency_contact_name) {
+            setError('Please enter emergency contact name');
+            return false;
+          }
+          if (!formData.emergency_contact_phone) {
+            setError('Please enter emergency contact phone number');
+            return false;
+          }
+          // Validate emergency contact phone
+          if (!/^\+?[\d\s-()]{10,}$/.test(formData.emergency_contact_phone.replace(/\s+/g, ''))) {
+            setError('Please enter a valid emergency contact phone number');
+            return false;
+          }
+        } else if (formData.role === 'doctor') {
+          if (!formData.medical_license) {
+            setError('Please enter your medical license number');
+            return false;
+          }
+          if (!formData.qualification_id) {
+            setError('Please select your qualification');
+            return false;
+          }
+          if (!formData.specialization) {
+            setError('Please enter your specialization');
+            return false;
+          }
+          if (!formData.experience_years) {
+            setError('Please enter your years of experience');
+            return false;
+          }
+          if (formData.experience_years && (formData.experience_years < 0 || formData.experience_years > 70)) {
+            setError('Please enter a valid number of years of experience (0-70)');
+            return false;
+          }
+        } else if (formData.role === 'admin') {
+          if (!formData.employee_id) {
+            setError('Please enter your employee ID');
+            return false;
+          }
+          if (!formData.department) {
+            setError('Please enter your department');
+            return false;
+          }
+        }
+        break;
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep()) {
+      setCurrentStep(prev => prev + 1);
+      setError('');
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => prev - 1);
+    setError('');
+  };
+
+  const generateUniqueId = async (hospitalCode, role) => {
+    const rolePrefix = role.charAt(0).toUpperCase();
+    const hospitalPrefix = hospitalCode.substring(0, 3).toUpperCase();
+    let attempts = 0;
+    
+    while (attempts < 10) {
+      const randomNum = Math.floor(Math.random() * 9999) + 1000;
+      const uniqueId = `${hospitalPrefix}-${rolePrefix}${randomNum}`;
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('unique_identifier')
+        .eq('unique_identifier', uniqueId);
+      
+      if (!error && (!data || data.length === 0)) {
+        return uniqueId;
+      }
+      attempts++;
+    }
+    
+    throw new Error('Unable to generate unique ID');
+  };
+
+  const uploadPrescription = async (file) => {
+    if (!file) return null;
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}_prescription_${Date.now()}.${fileExt}`;
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from('prescriptions')
+        .upload(fileName, file);
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('prescriptions')
+        .getPublicUrl(fileName);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading prescription:', error);
+      throw new Error('Failed to upload prescription');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateStep()) return;
+    
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Get hospital information for unique ID generation
+      const hospital = hospitals.find(h => h.id === formData.hospital_id);
+      if (!hospital) throw new Error('Hospital not found');
+
+      // Check if we're editing an existing profile
+      const isEditing = router.query.edit === 'true';
+      let uniqueId;
+      
+      if (isEditing) {
+        // Get existing unique_identifier
+        const { data: existingProfile } = await supabase
+          .from('user_profiles')
+          .select('unique_identifier')
+          .eq('id', user.id)
+          .single();
+        
+        uniqueId = existingProfile?.unique_identifier || await generateUniqueId(hospital.hospital_code, formData.role);
+        console.log('Updating profile for role:', formData.role);
+      } else {
+        uniqueId = await generateUniqueId(hospital.hospital_code, formData.role);
+        console.log('Creating profile for role:', formData.role);
       }
 
-      const profileData = {
-        hospital_id: formData.hospital_id,
-        unique_identifier: uniqueId,
+      // Create main user profile
+      const mainProfileData = {
+        id: user.id,
+        email: user.email, // Add missing email field
         full_name: formData.full_name,
-        email: formData.email,
         phone: formData.phone,
-        date_of_birth: formData.date_of_birth || null,
-        address: formData.address || null,
+        date_of_birth: formData.date_of_birth,
+        address: formData.address,
+        hospital_id: formData.hospital_id,
         role: formData.role,
-        account_status: (profileExists ? currentProfile.account_status : null) || 'pending',
-        phone_verified: (profileExists ? currentProfile.phone_verified : null) || false
+        unique_identifier: uniqueId,
+        account_status: formData.role === 'admin' ? 'active' : 'pending', // Auto-approve admins
+        phone_verified: formData.role === 'admin' ? true : false, // Auto-verify admin phones
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      let userProfileData;
-
-      if (profileExists) {
-        console.log('Updating existing profile for user:', user.id);
-        // Update existing profile
-        const { data: updatedProfile, error: profileError } = await supabase
-          .from('user_profiles')
-          .update(profileData)
-          .eq('id', user.id)
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error('Error updating profile:', profileError);
-          throw profileError;
-        }
-        userProfileData = updatedProfile;
-      } else {
-        console.log('Creating new profile for user:', user.id);
-        // Create new profile with explicit UPSERT to handle race conditions
-        const { data: newProfile, error: profileError } = await supabase
-          .from('user_profiles')
-          .upsert({
-            id: user.id,
-            ...profileData
-          }, { 
-            onConflict: 'id',
-            ignoreDuplicates: false 
-          })
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-          throw profileError;
-        }
-        userProfileData = newProfile;
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert(mainProfileData);
+      
+      if (profileError) {
+        throw profileError;
       }
 
-      // Handle role-specific profiles with proper error handling for RLS
+      // Create role-specific profile
       if (formData.role === 'patient') {
+        let prescriptionUrl = null;
+        if (formData.prescriptionFile) {
+          prescriptionUrl = await uploadPrescription(formData.prescriptionFile);
+        }
+
         const patientData = {
+          user_id: user.id,
           patient_id: uniqueId,
-          blood_group_id: formData.blood_group_id || null,
-          emergency_contact_name: formData.emergency_contact_name || null,
-          emergency_contact_phone: formData.emergency_contact_phone || null,
+          blood_group_id: formData.blood_group_id,
+          emergency_contact_name: formData.emergency_contact_name,
+          emergency_contact_phone: formData.emergency_contact_phone,
           medical_history: formData.medical_history || null,
           current_medications: formData.current_medications || null,
           allergies: formData.allergies || null,
+          assigned_doctor_id: formData.preferred_doctor_id || null,
+          prescription_url: prescriptionUrl,
+          prescription_uploaded_at: prescriptionUrl ? new Date().toISOString() : null,
           verification_status: 'pending'
         };
 
-        // Check if patient profile exists
-        const { data: existingPatient, error: patientCheckError } = await supabase
+        const { error: patientError } = await supabase
           .from('patient_profiles')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .upsert(patientData);
 
-        if (patientCheckError && patientCheckError.code !== 'PGRST116') {
-          console.error('Error checking patient profile:', patientCheckError);
-          throw patientCheckError;
-        }
-
-        try {
-          if (existingPatient) {
-            console.log('Updating existing patient profile');
-            // Update existing patient profile
-            const { error: patientError } = await supabase
-              .from('patient_profiles')
-              .update(patientData)
-              .eq('user_id', user.id);
-
-            if (patientError) {
-              console.error('Error updating patient profile:', patientError);
-              throw patientError;
-            }
-          } else {
-            console.log('Creating new patient profile');
-            // Create new patient profile with explicit user_id
-            const { error: patientError } = await supabase
-              .from('patient_profiles')
-              .insert({
-                user_id: user.id,
-                ...patientData
-              });
-
-            if (patientError) {
-              console.error('Error creating patient profile:', patientError);
-              
-              // If RLS error, try to provide more helpful error message
-              if (patientError.code === '42501') {
-                throw new Error('Unable to create patient profile. Please ensure you are properly authenticated and have the necessary permissions.');
-              }
-              throw patientError;
-            }
-          }
-        } catch (error) {
-          console.error('Patient profile operation failed:', error);
-          throw error;
+        if (patientError) {
+          throw patientError;
         }
 
       } else if (formData.role === 'doctor') {
         const doctorData = {
+          user_id: user.id,
           medical_license: formData.medical_license,
-          qualification_id: formData.qualification_id || null,
-          specialization: formData.specialization || null,
-          experience_years: parseInt(formData.experience_years) || null,
+          qualification_id: formData.qualification_id,
+          specialization: formData.specialization,
+          experience_years: parseInt(formData.experience_years),
           consultation_fee: parseFloat(formData.consultation_fee) || null,
           verification_status: 'pending'
         };
 
-        // Check if doctor profile exists
-        const { data: existingDoctor, error: doctorCheckError } = await supabase
+        const { error: doctorError } = await supabase
           .from('doctor_profiles')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .upsert(doctorData);
 
-        if (doctorCheckError && doctorCheckError.code !== 'PGRST116') {
-          throw doctorCheckError;
-        }
-
-        if (existingDoctor) {
-          console.log('Updating existing doctor profile');
-          // Update existing doctor profile
-          const { error: doctorError } = await supabase
-            .from('doctor_profiles')
-            .update(doctorData)
-            .eq('user_id', user.id);
-
-          if (doctorError) throw doctorError;
-        } else {
-          console.log('Creating new doctor profile');
-          // Create new doctor profile with UPSERT
-          const { error: doctorError } = await supabase
-            .from('doctor_profiles')
-            .upsert({
-              user_id: user.id,
-              ...doctorData
-            }, {
-              onConflict: 'user_id',
-              ignoreDuplicates: false
-            });
-
-          if (doctorError) throw doctorError;
-        }
+        if (doctorError) throw doctorError;
 
       } else if (formData.role === 'admin') {
         const adminData = {
-          employee_id: formData.employee_id || null,
-          department: formData.department || null,
+          user_id: user.id,
+          employee_id: formData.employee_id,
+          department: formData.department,
           permissions: {
+            manage_users: true,
             manage_doctors: true,
             manage_patients: true,
             view_all_reports: true
           }
         };
 
-        // Check if admin profile exists
-        const { data: existingAdmin, error: adminCheckError } = await supabase
+        const { error: adminError } = await supabase
           .from('admin_profiles')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .upsert(adminData);
 
-        if (adminCheckError && adminCheckError.code !== 'PGRST116') {
-          throw adminCheckError;
-        }
-
-        if (existingAdmin) {
-          console.log('Updating existing admin profile');
-          // Update existing admin profile
-          const { error: adminError } = await supabase
-            .from('admin_profiles')
-            .update(adminData)
-            .eq('user_id', user.id);
-
-          if (adminError) throw adminError;
-        } else {
-          console.log('Creating new admin profile');
-          // Create new admin profile with UPSERT
-          const { error: adminError } = await supabase
-            .from('admin_profiles')
-            .upsert({
-              user_id: user.id,
-              ...adminData
-            }, {
-              onConflict: 'user_id',
-              ignoreDuplicates: false
-            });
-
-          if (adminError) throw adminError;
-        }
+        if (adminError) throw adminError;
       }
 
-      // Refresh profile and redirect
-      await refreshProfile();
-      router.replace('/account-pending');
 
-    } catch (err) {
-      console.error('Error creating/updating profile:', err);
-      setError(err.message || 'Failed to save profile. Please try again.');
+      // Clear saved form data
+      localStorage.removeItem('profileFormData');
+      
+      // Show success message
+      setSuccess(`Profile ${isEditing ? 'updated' : 'completed'} successfully!`);
+      
+      // Refresh profile and redirect
+      setTimeout(async () => {
+        await refreshProfile();
+        if (formData.role === 'admin') {
+          router.replace('/admin/dashboard');
+        } else {
+          router.replace('/account-pending');
+        }
+      }, 1500);
+
+    } catch (error) {
+      console.error('Profile operation error:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to save profile. Please try again.';
+      
+      if (error.message?.includes('duplicate key')) {
+        errorMessage = 'An account with this information already exists. Please check your details or contact support.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message?.includes('not-null constraint')) {
+        errorMessage = 'Please fill in all required fields before submitting.';
+      } else if (error.message?.includes('foreign key')) {
+        errorMessage = 'Please ensure you have selected valid options for all fields.';
+      } else if (error.message?.includes('Hospital not found')) {
+        errorMessage = 'Selected hospital is not available. Please choose a different hospital.';
+      } else if (error.message?.includes('permission')) {
+        errorMessage = 'You do not have permission to perform this action. Please contact support.';
+      }
+      
+      setError(errorMessage);
       setIsSubmitting(false);
     }
   };
 
-  const renderStep1 = () => (
-    <div className={styles.stepContent}>
-      <h2>Hospital & Basic Information</h2>
-      <p className={styles.stepDescription}>
-        {existingProfile ? 'Update your basic information and hospital affiliation' : 'First, let\'s get your basic information and hospital affiliation'}
-      </p>
-      
-      <div className={styles.formGroup}>
-        <label htmlFor="hospital_id">Select Hospital *</label>
-        <select
-          id="hospital_id"
-          name="hospital_id"
-          value={formData.hospital_id}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Choose your hospital...</option>
-          {hospitals.map(hospital => (
-            <option key={hospital.id} value={hospital.id}>
-              {hospital.name} ({hospital.hospital_code})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className={styles.formRow}>
-        <div className={styles.formGroup}>
-          <label htmlFor="full_name">Full Name *</label>
-          <input
-            type="text"
-            id="full_name"
-            name="full_name"
-            value={formData.full_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className={styles.formGroup}>
-          <label htmlFor="phone">Phone Number *</label>
-          <input
-            type="tel"
-            id="phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            placeholder="+1234567890"
-            required
-          />
-        </div>
-      </div>
-
-      <div className={styles.formGroup}>
-        <label htmlFor="email">Email Address</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          disabled
-        />
-      </div>
-
-      <div className={styles.formRow}>
-        <div className={styles.formGroup}>
-          <label htmlFor="date_of_birth">Date of Birth</label>
-          <input
-            type="date"
-            id="date_of_birth"
-            name="date_of_birth"
-            value={formData.date_of_birth}
-            onChange={handleChange}
-          />
-        </div>
-      </div>
-
-      <div className={styles.formGroup}>
-        <label htmlFor="address">Address</label>
-        <textarea
-          id="address"
-          name="address"
-          value={formData.address}
-          onChange={handleChange}
-          rows="3"
-          placeholder="Your complete address..."
-        />
-      </div>
-    </div>
-  );
-
-  const renderStep2 = () => (
-    <div className={styles.stepContent}>
-      <h2>Select Your Role</h2>
-      <p className={styles.stepDescription}>Choose the role that best describes your position</p>
-      
-      <div className={styles.roleGrid}>
-        {ROLES.map((role) => (
-          <div
-            key={role.id}
-            className={`${styles.roleCard} ${formData.role === role.id ? styles.selectedRole : ''}`}
-            onClick={() => handleChange({ target: { name: 'role', value: role.id } })}
-          >
-            <div className={styles.roleIcon}>{role.icon}</div>
-            <h3>{role.name}</h3>
-            <p>{role.description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => {
-    if (formData.role === 'patient') {
-      return (
-        <div className={styles.stepContent}>
-          <h2>Patient Details</h2>
-          <p className={styles.stepDescription}>Please provide your medical information</p>
-          
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="blood_group_id">Blood Group</label>
-              <select
-                id="blood_group_id"
-                name="blood_group_id"
-                value={formData.blood_group_id}
-                onChange={handleChange}
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className={styles.stepContent}>
+            <ShinyText className={styles.stepTitle}>Choose Your Role</ShinyText>
+            <p className={styles.stepDescription}>
+              Select the role that best describes how you'll use our platform
+            </p>
+            
+            <div className={styles.roleGrid}>
+              <div 
+                className={`${styles.roleCard} ${formData.role === 'patient' ? styles.selected : ''}`}
+                onClick={() => setFormData(prev => ({ ...prev, role: 'patient' }))}
               >
-                <option value="">Select blood group...</option>
-                {bloodGroups.map(bg => (
-                  <option key={bg.id} value={bg.id}>{bg.blood_type}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <div className={styles.roleIcon}>
+                  <span className={styles.iconPatient}>👤</span>
+                </div>
+                <h3>Patient</h3>
+                <p>I am seeking neurological analysis and medical care</p>
+              </div>
 
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="emergency_contact_name">Emergency Contact Name</label>
-              <input
-                type="text"
-                id="emergency_contact_name"
-                name="emergency_contact_name"
-                value={formData.emergency_contact_name}
-                onChange={handleChange}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label htmlFor="emergency_contact_phone">Emergency Contact Phone</label>
-              <input
-                type="tel"
-                id="emergency_contact_phone"
-                name="emergency_contact_phone"
-                value={formData.emergency_contact_phone}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="medical_history">Medical History</label>
-            <textarea
-              id="medical_history"
-              name="medical_history"
-              value={formData.medical_history}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Any relevant medical history..."
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="current_medications">Current Medications</label>
-            <textarea
-              id="current_medications"
-              name="current_medications"
-              value={formData.current_medications}
-              onChange={handleChange}
-              rows="3"
-              placeholder="List current medications..."
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="allergies">Allergies</label>
-            <textarea
-              id="allergies"
-              name="allergies"
-              value={formData.allergies}
-              onChange={handleChange}
-              rows="2"
-              placeholder="Any known allergies..."
-            />
-          </div>
-        </div>
-      );
-    } else if (formData.role === 'doctor') {
-      return (
-        <div className={styles.stepContent}>
-          <h2>Doctor Details</h2>
-          <p className={styles.stepDescription}>Please provide your professional credentials</p>
-          
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="medical_license">Medical License Number *</label>
-              <input
-                type="text"
-                id="medical_license"
-                name="medical_license"
-                value={formData.medical_license}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label htmlFor="qualification_id">Qualification</label>
-              <select
-                id="qualification_id"
-                name="qualification_id"
-                value={formData.qualification_id}
-                onChange={handleChange}
+              <div 
+                className={`${styles.roleCard} ${formData.role === 'doctor' ? styles.selected : ''}`}
+                onClick={() => setFormData(prev => ({ ...prev, role: 'doctor' }))}
               >
-                <option value="">Select qualification...</option>
-                {qualifications.map(qual => (
-                  <option key={qual.id} value={qual.id}>
-                    {qual.qualification_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <div className={styles.roleIcon}>
+                  <span className={styles.iconDoctor}>⚕️</span>
+                </div>
+                <h3>Doctor</h3>
+                <p>I am a healthcare professional providing medical services</p>
+              </div>
 
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="specialization">Specialization</label>
-              <input
-                type="text"
-                id="specialization"
-                name="specialization"
-                value={formData.specialization}
-                onChange={handleChange}
-                placeholder="e.g., Neurology, Cardiology"
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label htmlFor="experience_years">Years of Experience</label>
-              <input
-                type="number"
-                id="experience_years"
-                name="experience_years"
-                value={formData.experience_years}
-                onChange={handleChange}
-                min="0"
-                max="50"
-              />
+              <div 
+                className={`${styles.roleCard} ${formData.role === 'admin' ? styles.selected : ''}`}
+                onClick={() => setFormData(prev => ({ ...prev, role: 'admin' }))}
+              >
+                <div className={styles.roleIcon}>
+                  <span className={styles.iconAdmin}>⚙️</span>
+                </div>
+                <h3>Administrator</h3>
+                <p>I manage hospital operations and user verification</p>
+              </div>
             </div>
           </div>
+        );
 
-          <div className={styles.formGroup}>
-            <label htmlFor="consultation_fee">Consultation Fee ($)</label>
-            <input
-              type="number"
-              id="consultation_fee"
-              name="consultation_fee"
-              value={formData.consultation_fee}
-              onChange={handleChange}
-              min="0"
-              step="0.01"
-            />
-          </div>
-        </div>
-      );
-    } else if (formData.role === 'admin') {
-      return (
-        <div className={styles.stepContent}>
-          <h2>Admin Details</h2>
-          <p className={styles.stepDescription}>Please provide your administrative information</p>
-          
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="employee_id">Employee ID</label>
-              <input
-                type="text"
-                id="employee_id"
-                name="employee_id"
-                value={formData.employee_id}
-                onChange={handleChange}
-              />
+      case 2:
+        return (
+          <div className={styles.stepContent}>
+            <ShinyText className={styles.stepTitle}>Basic Information</ShinyText>
+            <p className={styles.stepDescription}>
+              Please provide your basic personal and contact information
+            </p>
+
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label htmlFor="full_name">Full Name</label>
+                <input
+                  type="text"
+                  id="full_name"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Enter your full name"
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="phone">Phone Number</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Enter your phone number"
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="date_of_birth">Date of Birth</label>
+                <input
+                  type="date"
+                  id="date_of_birth"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="hospital_id">Hospital</label>
+                <select
+                  id="hospital_id"
+                  name="hospital_id"
+                  value={formData.hospital_id}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select your hospital</option>
+                  {hospitals.map(hospital => (
+                    <option key={hospital.id} value={hospital.id}>
+                      {hospital.name} ({hospital.hospital_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="address">Address</label>
+                <textarea
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  required
+                  rows="3"
+                  placeholder="Enter your complete address"
+                />
+              </div>
             </div>
-            <div className={styles.formGroup}>
-              <label htmlFor="department">Department</label>
-              <input
-                type="text"
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                placeholder="e.g., Administration, IT"
-              />
-            </div>
           </div>
-        </div>
-      );
+        );
+
+      case 3:
+        if (formData.role === 'patient') {
+          return (
+            <div className={styles.stepContent}>
+              <ShinyText className={styles.stepTitle}>Patient Details</ShinyText>
+              <p className={styles.stepDescription}>
+                Please provide your medical information and emergency contacts
+              </p>
+
+              <div className={styles.formGrid}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="blood_group_id">Blood Group</label>
+                  <select
+                    id="blood_group_id"
+                    name="blood_group_id"
+                    value={formData.blood_group_id}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select blood group</option>
+                    {bloodGroups.map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.blood_type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="emergency_contact_name">Emergency Contact Name</label>
+                  <input
+                    type="text"
+                    id="emergency_contact_name"
+                    name="emergency_contact_name"
+                    value={formData.emergency_contact_name}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Emergency contact full name"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="emergency_contact_phone">Emergency Contact Phone</label>
+                  <input
+                    type="tel"
+                    id="emergency_contact_phone"
+                    name="emergency_contact_phone"
+                    value={formData.emergency_contact_phone}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Emergency contact phone number"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="preferred_doctor_id">Preferred Doctor (Optional)</label>
+                  <select
+                    id="preferred_doctor_id"
+                    name="preferred_doctor_id"
+                    value={formData.preferred_doctor_id}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Select a doctor (will be assigned if not selected)</option>
+                    {availableDoctors.map(doctor => (
+                      <option key={doctor.user_id} value={doctor.user_id}>
+                        {doctor.user_profiles.full_name} - {doctor.specialization}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="medical_history">Medical History (Optional)</label>
+                  <textarea
+                    id="medical_history"
+                    name="medical_history"
+                    value={formData.medical_history}
+                    onChange={handleInputChange}
+                    rows="3"
+                    placeholder="Any relevant medical history..."
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="current_medications">Current Medications (Optional)</label>
+                  <textarea
+                    id="current_medications"
+                    name="current_medications"
+                    value={formData.current_medications}
+                    onChange={handleInputChange}
+                    rows="2"
+                    placeholder="List current medications..."
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="allergies">Allergies (Optional)</label>
+                  <textarea
+                    id="allergies"
+                    name="allergies"
+                    value={formData.allergies}
+                    onChange={handleInputChange}
+                    rows="2"
+                    placeholder="Any known allergies..."
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="prescriptionFile">Upload Prescription (Optional)</label>
+                  <input
+                    type="file"
+                    id="prescriptionFile"
+                    name="prescriptionFile"
+                    onChange={handleInputChange}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className={styles.fileInput}
+                  />
+                  <p className={styles.fileHelp}>
+                    Upload your latest prescription or medical report (PDF or Image files only)
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        } else if (formData.role === 'doctor') {
+          return (
+            <div className={styles.stepContent}>
+              <ShinyText className={styles.stepTitle}>Doctor Details</ShinyText>
+              <p className={styles.stepDescription}>
+                Please provide your medical credentials and professional information
+              </p>
+
+              <div className={styles.formGrid}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="medical_license">Medical License Number</label>
+                  <input
+                    type="text"
+                    id="medical_license"
+                    name="medical_license"
+                    value={formData.medical_license}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your medical license number"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="qualification_id">Qualification</label>
+                  <select
+                    id="qualification_id"
+                    name="qualification_id"
+                    value={formData.qualification_id}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select your qualification</option>
+                    {qualifications.map(qual => (
+                      <option key={qual.id} value={qual.id}>
+                        {qual.qualification_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="specialization">Specialization</label>
+                  <input
+                    type="text"
+                    id="specialization"
+                    name="specialization"
+                    value={formData.specialization}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="e.g., Neurology, Cardiology"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="experience_years">Years of Experience</label>
+                  <input
+                    type="number"
+                    id="experience_years"
+                    name="experience_years"
+                    value={formData.experience_years}
+                    onChange={handleInputChange}
+                    required
+                    min="0"
+                    max="50"
+                    placeholder="Years of medical experience"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="consultation_fee">Consultation Fee (Optional)</label>
+                  <input
+                    type="number"
+                    id="consultation_fee"
+                    name="consultation_fee"
+                    value={formData.consultation_fee}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="0.01"
+                    placeholder="Consultation fee amount"
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        } else if (formData.role === 'admin') {
+          return (
+            <div className={styles.stepContent}>
+              <ShinyText className={styles.stepTitle}>Administrator Details</ShinyText>
+              <p className={styles.stepDescription}>
+                Please provide your administrative credentials and department information
+              </p>
+
+              <div className={styles.formGrid}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="employee_id">Employee ID</label>
+                  <input
+                    type="text"
+                    id="employee_id"
+                    name="employee_id"
+                    value={formData.employee_id}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your employee ID"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="department">Department</label>
+                  <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="e.g., Administration, IT, Medical Records"
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        }
+        break;
+
+      default:
+        return null;
     }
   };
 
@@ -815,16 +1026,15 @@ export default function CompleteProfilePage() {
     return (
       <>
         <Navbar />
-        <div className={styles.profileSetup}>
-          <div className={styles.setupContainer}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-              <LoadingSpinner size={32} />
-            </div>
-          </div>
+        <div className={styles.loadingContainer}>
+          <LoadingSpinner />
+          <p>Loading profile setup...</p>
         </div>
       </>
     );
   }
+
+  const totalSteps = 3;
 
   return (
     <>
@@ -832,31 +1042,34 @@ export default function CompleteProfilePage() {
       <div className={styles.profileSetup}>
         <div className={styles.setupContainer}>
           <div className={styles.setupHeader}>
-            <h1>{existingProfile ? 'Update Your Profile' : 'Complete Your Profile'}</h1>
+            <ShinyText className={styles.mainTitle}>Complete Your Profile</ShinyText>
+            
             <div className={styles.progressBar}>
               <div className={styles.progressTrack}>
                 <div 
                   className={styles.progressFill}
-                  style={{ width: `${(step / 3) * 100}%` }}
+                  style={{ width: `${(currentStep / totalSteps) * 100}%` }}
                 />
               </div>
               <div className={styles.progressSteps}>
-                {[1, 2, 3].map(stepNum => (
+                {Array.from({ length: totalSteps }, (_, i) => (
                   <div
-                    key={stepNum}
-                    className={`${styles.progressStep} ${stepNum <= step ? styles.activeStep : ''}`}
+                    key={i}
+                    className={`${styles.progressStep} ${i + 1 <= currentStep ? styles.completed : ''}`}
                   >
-                    {stepNum}
+                    {i + 1}
                   </div>
                 ))}
               </div>
             </div>
+            
+            <p className={styles.stepIndicator}>
+              Step {currentStep} of {totalSteps}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.setupForm}>
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
+            {renderStepContent()}
 
             {error && (
               <div className={styles.errorMessage}>
@@ -864,40 +1077,45 @@ export default function CompleteProfilePage() {
               </div>
             )}
 
+            {success && (
+              <div className={styles.successMessage}>
+                {success}
+              </div>
+            )}
+
             <div className={styles.formActions}>
-              {step > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(step - 1)}
-                  className={styles.backButton}
+              {currentStep > 1 && (
+                <ShinyButton
+                  variant="secondary"
+                  onClick={handlePrevious}
+                  disabled={isSubmitting}
                 >
-                  Back
-                </button>
+                  Previous
+                </ShinyButton>
               )}
-              
-              {step < 3 ? (
-                <button
-                  type="button"
+
+              {currentStep < totalSteps ? (
+                <ShinyButton
                   onClick={handleNext}
-                  className={styles.nextButton}
+                  disabled={isSubmitting}
                 >
                   Next
-                </button>
+                </ShinyButton>
               ) : (
-                <button
+                <ShinyButton
                   type="submit"
                   disabled={isSubmitting}
-                  className={styles.submitButton}
+                  variant="primary"
                 >
                   {isSubmitting ? (
                     <>
                       <LoadingSpinner size={16} />
-                      {existingProfile ? 'Updating Profile...' : 'Creating Profile...'}
+                      Creating Profile...
                     </>
                   ) : (
-                    existingProfile ? 'Update Profile' : 'Complete Setup'
+                    'Complete Profile'
                   )}
-                </button>
+                </ShinyButton>
               )}
             </div>
           </form>
