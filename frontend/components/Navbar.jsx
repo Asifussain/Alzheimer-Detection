@@ -1,14 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useAuth } from './AuthProvider';
 import supabase from '../lib/supabaseClient';
 import styles from '../styles/Navbar.module.css';
 
 export default function Navbar() {
-  const { user, userProfile: profile } = useAuth(); // Use AuthProvider data
+  const { user, userProfile: profile, signOut } = useAuth(); // Use AuthProvider data
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const router = useRouter();
 
   // Handle auth state changes for UI cleanup
   useEffect(() => {
@@ -38,12 +40,12 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  const handleLogin = () => {
+    router.push('/login');
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     setDropdownOpen(false);
   };
 
