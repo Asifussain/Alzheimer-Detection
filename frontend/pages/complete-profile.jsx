@@ -134,9 +134,6 @@ export default function CompleteProfilePage() {
         if (existingProfile.account_status === 'pending') {
           router.replace('/account-pending');
           return;
-        } else if (!existingProfile.phone_verified) {
-          router.replace('/VerifyPhone');
-          return;
         } else {
           router.replace(`/${existingProfile.role}/dashboard`);
           return;
@@ -518,8 +515,8 @@ export default function CompleteProfilePage() {
         hospital_id: formData.hospital_id,
         role: formData.role,
         unique_identifier: uniqueId,
-        account_status: formData.role === 'admin' ? 'active' : 'pending', // Auto-approve admins
-        phone_verified: formData.role === 'admin' ? true : false, // Auto-verify admin phones
+        account_status: 'active', // All users are active immediately
+        phone_verified: true, // Skip phone verification for all users
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

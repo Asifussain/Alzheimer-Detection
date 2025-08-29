@@ -32,6 +32,29 @@ export default function VerifyPhonePage() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
+  const skipVerification = async () => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ phone_verified: true })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      await refreshProfile();
+      router.replace(`/${userProfile.role}/dashboard`);
+    } catch (err) {
+      setError('Failed to skip verification');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const sendOTP = async () => {
     setIsSubmitting(true);
     setError('');
@@ -58,7 +81,13 @@ export default function VerifyPhonePage() {
       // For development - show OTP in console and success message
       console.log(`🔐 Development Mode - OTP for ${userProfile.phone}: ${generatedOTP}`);
       
-      setSuccess(`Verification code sent to ${userProfile.phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+      // In development, show OTP directly in the UI
+      if (process.env.NODE_ENV === 'development') {
+        setSuccess(`Development Mode: Your OTP is ${generatedOTP} (also sent to ${userProfile.phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')})`);
+      } else {
+        setSuccess(`Verification code sent to ${userProfile.phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+      }
+      
       setStep(2);
       setCountdown(60); // 60 second cooldown
       
@@ -212,6 +241,25 @@ export default function VerifyPhonePage() {
                   </>
                 )}
               </button>
+
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={skipVerification}
+                  disabled={isSubmitting}
+                  className={styles.skipButton}
+                  style={{
+                    marginTop: '1rem',
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🚀 Skip Verification (Dev Only)
+                </button>
+              )}
             </div>
           ) : (
             <div className={styles.stepContent}>
