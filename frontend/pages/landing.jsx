@@ -31,7 +31,7 @@ export default function LandingPage() {
     {
       icon: <FaBrain className={styles.featureIcon} />,
       title: "Advanced AI Analysis",
-      description: "State-of-the-art ADFormer neural network processes EEG signals with medical-grade precision"
+      description: "Advanced deep learning models process EEG signals with medical-grade precision"
     },
     {
       icon: <FiActivity className={styles.featureIcon} />,
@@ -213,7 +213,7 @@ export default function LandingPage() {
                 <div className={styles.stepNumber}>02</div>
                 <div className={styles.stepContent}>
                   <h3>AI Analysis</h3>
-                  <p>Our ADFormer model processes signals with advanced pattern recognition</p>
+                  <p>Our advanced deep learning algorithms process signals with sophisticated pattern recognition</p>
                 </div>
               </div>
               

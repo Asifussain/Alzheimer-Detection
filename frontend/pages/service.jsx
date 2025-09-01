@@ -11,7 +11,7 @@ export default function ServicePage() {
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Leveraging Advanced EEG Analysis</h2>
           <p className={styles.paragraph}>
-            AI4NEURO utilizes state-of-the-art Artificial Intelligence, specifically the ADFormer model, 
+            AI4NEURO utilizes state-of-the-art Artificial Intelligence and advanced deep learning models 
             to analyze Electroencephalogram (EEG) data. Our service aims to provide an accessible, non-invasive 
             method for early-stage Alzheimer's disease pattern detection.
           </p>
@@ -21,7 +21,7 @@ export default function ServicePage() {
           <h2 className={styles.sectionTitle}>How It Works</h2>
           <ol className={styles.orderedList}>
             <li><strong>Secure Upload:</strong> Users securely upload their anonymized EEG data in `.npy` format through our platform.</li>
-            <li><strong>AI Analysis:</strong> The uploaded data is processed by our fine-tuned ADFormer model, which analyzes complex patterns and biomarkers associated with Alzheimer's disease.</li>
+            <li><strong>AI Analysis:</strong> The uploaded data is processed by our advanced deep learning models, which analyze complex patterns and biomarkers associated with Alzheimer's disease.</li>
             <li><strong>Clear Results:</strong> We provide a clear indication based on the analysis – "Normal" or "Alzheimer Detected Pattern". Results are stored securely and accessible in your history.</li>
           </ol>
         </section>
@@ -31,7 +31,7 @@ export default function ServicePage() {
           <ul className={styles.unorderedList}>
             <li><strong>Early Indication:</strong> Potentially aids in the early detection of patterns associated with Alzheimer's, facilitating timely consultation with healthcare professionals.</li>
             <li><strong>Non-Invasive:</strong> Analysis is based purely on EEG data, a non-invasive brain activity recording method.</li>
-            <li><strong>AI-Driven Accuracy:</strong> Utilizes a sophisticated deep learning model (ADFormer) trained for EEG pattern recognition in Alzheimer's research contexts.</li>
+            <li><strong>AI-Driven Accuracy:</strong> Utilizes sophisticated deep learning models trained for EEG pattern recognition in Alzheimer's research contexts.</li>
             <li><strong>Secure & Private:</strong> We prioritize user data security and privacy, leveraging secure storage and handling practices.</li>
           </ul>
         </section>

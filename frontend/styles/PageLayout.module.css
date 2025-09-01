@@ -55,6 +55,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  margin-top: 6rem;
   min-height: calc(100vh - 120px);
 }
 

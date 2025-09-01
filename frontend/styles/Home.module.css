@@ -202,9 +202,93 @@
   letter-spacing: -0.01em;
 }
 
+.horizontalTimeline {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.timelineSteps {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  margin: 2rem 0;
+}
+
+.timelineConnectorLine {
+  position: absolute;
+  top: 50px;
+  left: 8%;
+  right: 8%;
+  height: 4px;
+  background: linear-gradient(90deg, #06d6a0 0%, #f59e0b 50%, #ef4444 100%);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.timelineStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  flex: 1;
+  max-width: 300px;
+}
+
+.timelineStep:hover {
+  transform: translateY(-5px);
+}
+
+.timelineStepIcon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: pointer;
+}
+
+.timelineStepIcon::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: subtract;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: subtract;
+}
+
+.timelineStepIcon.active {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+}
+
+.timelineStepContent {
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+  padding: 0 1rem;
+}
+
+.timelineStep.active .timelineStepContent {
+  opacity: 1;
+}
+
 .customTimeline {
   max-width: 1000px;
   margin: 0 auto;
+  display: none; /* Hide vertical timeline */
 }
 
 .timelineItem {
@@ -249,6 +333,11 @@
 .timelineDot {
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 56px !important;
+  min-width: 56px !important;
 }
 
 .timelineContent {

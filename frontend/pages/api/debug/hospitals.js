@@ -18,24 +18,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('🏥 DEBUG: Fetching hospitals...');
-    
-    // Try to fetch hospitals with service role
+        // Try to fetch hospitals with service role
     const { data: hospitals, error: hospitalError } = await supabaseAdmin
       .from('hospitals')
       .select('*')
       .order('name');
 
-    console.log('🏥 Hospitals fetch result:', {
-      hospitalsCount: hospitals?.length || 0,
-      error: hospitalError
-    });
-
-    if (hospitalError) {
+        if (hospitalError) {
       console.error('Hospital fetch error:', hospitalError);
     } else {
-      console.log('🏥 Hospitals fetched:', hospitals);
-    }
+          }
 
     // Also try blood groups and qualifications
     const { data: bloodGroups, error: bloodError } = await supabaseAdmin

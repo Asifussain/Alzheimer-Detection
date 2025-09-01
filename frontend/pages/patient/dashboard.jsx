@@ -286,26 +286,38 @@ function PatientDashboard() {
                 className={styles.actionButton}
                 onClick={() => window.location.href = '/patient/reports'}
               >
-                📊 View All Reports
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                  <path d="M3,3V21H21V3H3M5,19V5H19V19H5M7,12H9V17H7V12M11,7H13V17H11V7M15,10H17V17H15V10Z"/>
+                </svg>
+                View All Reports
               </button>
               <button 
                 className={styles.actionButton}
                 onClick={() => window.location.href = '/profile'}
               >
-                👤 Edit Profile
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                  <path d="M12,2C13.1,2 14,2.9 14,4C14,5.1 13.1,6 12,6C10.9,6 10,5.1 10,4C10,2.9 10.9,2 12,2M21,9V7L19,5.5C18.8,5.7 18.6,5.9 18.4,6.1C18.1,6.3 17.8,6.5 17.6,6.7L19,8.2V10.6L17.6,12.1C17.8,12.3 18.1,12.5 18.4,12.7C18.6,12.9 18.8,13.1 19,13.3L21,11.8V9.8L21,9M15,12C16.1,12 17,12.9 17,14V22H15V14H9V22H7V14C7,12.9 7.9,12 9,12H15Z"/>
+                </svg>
+                Edit Profile
               </button>
               <button 
                 className={styles.actionButton}
                 onClick={() => window.location.href = '/patient/history'}
               >
-                📋 Medical History
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
+                Medical History
               </button>
               {patientData?.prescription_url && (
                 <button 
                   className={styles.actionButton}
                   onClick={() => window.open(patientData.prescription_url, '_blank')}
                 >
-                  📋 View Prescription
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                  </svg>
+                  View Prescription
                 </button>
               )}
             </div>

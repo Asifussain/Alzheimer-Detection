@@ -38,8 +38,9 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  const handleLogin = () => {
+    // Navigate to custom login page instead of direct Google OAuth
+    window.location.href = '/login';
   };
 
   const handleLogout = async () => {
@@ -61,7 +62,7 @@ export default function Navbar() {
   return (
     <nav className={styles.navbar}>
       <div className={styles.navbarBrand}>
-        <Link href={user ? "/home" : "/landing"}>AI4NEURO</Link>
+        <Link href="/home">AI4NEURO</Link>
       </div>
 
       {/* Restored the mobile menu toggle button */}
@@ -73,17 +74,11 @@ export default function Navbar() {
         ☰
       </button>
 
-      {/* Only show accessible links based on user state */}
+      {/* Navigation links based on user state */}
       <ul className={`${styles.navbarLinks} ${mobileMenuOpen ? styles.mobileOpen : ''}`}>
-        {/* Always show these links if user is authenticated */}
-        {user && (
+        {user ? (
           <>
-            {/* Home link - only show if user has active status */}
-            {profile?.account_status === 'active' && (
-              <li><Link href="/home" onClick={closeMobileMenu}>Home</Link></li>
-            )}
-            
-            {/* Dashboard link - only show if user has role and is active */}
+            {/* Dashboard link - primary action for authenticated users */}
             {profile?.role && profile?.account_status === 'active' && (
               <li>
                 <Link
@@ -95,27 +90,18 @@ export default function Navbar() {
               </li>
             )}
             
-            {/* About link - always accessible for logged in users */}
+            {/* About link */}
             <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
             
-            {/* Contact link - always accessible for logged in users */}
-            <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
-            
-            {/* History link - only show for active users with role */}
-            {profile?.role && profile?.account_status === 'active' && (
-              <li><Link href="/previous" onClick={closeMobileMenu}>History</Link></li>
-            )}
-            
-            {/* Profile link - always accessible for logged in users */}
-            <li><Link href="/profile" onClick={closeMobileMenu}>Profile</Link></li>
+            {/* Contact link */}
+            <li><Link href="/contact" onClick={closeMobileMenu}>Contact</Link></li>
           </>
-        )}
-        
-        {/* For non-authenticated users, show minimal navigation */}
-        {!user && (
+        ) : (
           <>
+            {/* Public navigation for non-authenticated users */}
+            <li><Link href="/landing" onClick={closeMobileMenu}>Home</Link></li>
             <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
-            <li><Link href="/contact" onClick={closeMobileMenu}>Contact Us</Link></li>
+            <li><Link href="/contact" onClick={closeMobileMenu}>Contact</Link></li>
           </>
         )}
       </ul>
@@ -135,6 +121,9 @@ export default function Navbar() {
               </div>
               <Link href="/profile" className={styles.dropdownLink}>
                 Profile
+              </Link>
+              <Link href="/change-password" className={styles.dropdownLink}>
+                Change Password
               </Link>
               <button onClick={handleLogout} className={styles.logoutBtn}>
                 Logout

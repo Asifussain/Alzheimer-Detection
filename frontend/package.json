@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "cleanup-debug": "node scripts/cleanup-debug.js",
+    "prebuild": "npm run cleanup-debug"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -19,6 +21,7 @@
     "gsap": "^3.13.0",
     "motion": "^12.23.12",
     "next": "15.2.4",
+    "nodemailer": "^6.9.15",
     "react": "^19.0.0",
     "react-cssfx-loading": "^2.1.0",
     "react-dom": "^19.0.0",

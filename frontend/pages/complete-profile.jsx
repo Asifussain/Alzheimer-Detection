@@ -144,28 +144,18 @@ export default function CompleteProfilePage() {
       }
 
       // Fetch supporting data using public API (bypasses RLS issues)
-      console.log('🏥 Fetching hospitals and supporting data via API...');
-      try {
+            try {
         const response = await fetch('/api/public/hospitals');
         const result = await response.json();
         
-        console.log('🏥 Public API fetch result:', result);
-        
-        if (result.success) {
+                if (result.success) {
           setHospitals(result.data.hospitals);
           setBloodGroups(result.data.bloodGroups);
           setQualifications(result.data.qualifications);
           
-          console.log('✅ Data loaded successfully:', {
-            hospitals: result.data.hospitals.length,
-            bloodGroups: result.data.bloodGroups.length,
-            qualifications: result.data.qualifications.length
-          });
-        } else {
-          console.error('❌ Public API failed:', result);
-          // Fallback to direct Supabase queries
-          console.log('🔄 Falling back to direct queries...');
-          const [hospitalsRes, bloodGroupsRes, qualificationsRes] = await Promise.all([
+                  } else {
+                    // Fallback to direct Supabase queries
+                    const [hospitalsRes, bloodGroupsRes, qualificationsRes] = await Promise.all([
             supabase.from('hospitals').select('*').order('name'),
             supabase.from('blood_groups').select('*').order('blood_type'),
             supabase.from('qualifications').select('*').order('qualification_name')
@@ -176,8 +166,7 @@ export default function CompleteProfilePage() {
           setQualifications(qualificationsRes.data || []);
         }
       } catch (apiError) {
-        console.error('❌ API fetch failed:', apiError);
-        // Fallback to direct Supabase queries
+                // Fallback to direct Supabase queries
         const [hospitalsRes, bloodGroupsRes, qualificationsRes] = await Promise.all([
           supabase.from('hospitals').select('*').order('name'),
           supabase.from('blood_groups').select('*').order('blood_type'),

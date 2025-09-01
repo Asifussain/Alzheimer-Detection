@@ -142,7 +142,11 @@ function DoctorDashboard() {
   const renderOverview = () => (
     <div className={styles.overviewGrid}>
       <div className={styles.statCard}>
-        <div className={styles.statIcon}>👥</div>
+        <div className={styles.statIcon}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        </div>
         <div className={styles.statContent}>
           <h3>My Patients</h3>
           <div className={styles.statNumber}>{dashboardStats.totalPatients}</div>
@@ -151,7 +155,11 @@ function DoctorDashboard() {
       </div>
 
       <div className={styles.statCard}>
-        <div className={styles.statIcon}>📋</div>
+        <div className={styles.statIcon}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+          </svg>
+        </div>
         <div className={styles.statContent}>
           <h3>Pending Assessments</h3>
           <div className={styles.statNumber}>{dashboardStats.pendingAssessments}</div>
@@ -169,7 +177,11 @@ function DoctorDashboard() {
       </div>
 
       <div className={styles.statCard}>
-        <div className={styles.statIcon}>📅</div>
+        <div className={styles.statIcon}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9,10V12H7V10H9M13,10V12H11V10H13M17,10V12H15V10H17M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H6V1H8V3H16V1H18V3H19M19,19V8H5V19H19M9,14V16H7V14H9M13,14V16H11V14H13M17,14V16H15V14H17Z"/>
+          </svg>
+        </div>
         <div className={styles.statContent}>
           <h3>Today's Appointments</h3>
           <div className={styles.statNumber}>{dashboardStats.todayAppointments}</div>
@@ -244,7 +256,10 @@ function DoctorDashboard() {
                 onClick={() => fetchPatientDetails(patient.user_id)}
                 className={styles.viewDetailsBtn}
               >
-                👁️ View Full Details
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                  <path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/>
+                </svg>
+                View Full Details
               </button>
               <button 
                 className={styles.startSessionBtn}
@@ -382,7 +397,12 @@ function DoctorDashboard() {
         
         <div className={styles.patientActionPanel}>
           <button className={styles.primaryBtn}>🧠 Start New Assessment</button>
-          <button className={styles.secondaryBtn}>📈 View Assessment History</button>
+          <button className={styles.secondaryBtn}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <path d="M3,3V21H21V3H3M5,19V5H19V19H5M7,12H9V17H7V12M11,7H13V17H11V7M15,10H17V17H15V10Z"/>
+            </svg>
+            View Assessment History
+          </button>
           <button className={styles.secondaryBtn}>📝 Add Notes</button>
           <button className={styles.secondaryBtn}>📞 Schedule Appointment</button>
         </div>

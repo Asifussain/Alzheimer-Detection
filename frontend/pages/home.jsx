@@ -14,10 +14,30 @@ import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 
-// Professional Material UI Icons
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+// Professional SVG Icons (replacing Material UI icons)
+const BrainHealthIcon = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2C13.1,2 14,2.9 14,4C14,5.1 13.1,6 12,6C10.9,6 10,5.1 10,4C10,2.9 10.9,2 12,2M21,9V7L19,5.5C18.8,5.7 18.6,5.9 18.4,6.1C18.1,6.3 17.8,6.5 17.6,6.7L19,8.2V10.6L17.6,12.1C17.8,12.3 18.1,12.5 18.4,12.7C18.6,12.9 18.8,13.1 19,13.3L21,11.8V9.8L21,9M15,12C16.1,12 17,12.9 17,14V22H15V14H9V22H7V14C7,12.9 7.9,12 9,12H15Z"/>
+    </svg>
+  </div>
+);
+
+const CognitiveConcernIcon = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z"/>
+    </svg>
+  </div>
+);
+
+const DementiaCareIcon = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,18V20H5V18L7,16V14H9V15.5H15V14H17V16L19,18Z"/>
+    </svg>
+  </div>
+);
 
 // ShinyText Component
 const ShinyText = ({ text, disabled = false, speed = 5, className = '' }) => {
@@ -310,7 +330,7 @@ const WavesComponent = ({
   );
 };
 
-// Enhanced Timeline Component with Material UI
+// Enhanced Horizontal Interactive Timeline Component
 const InteractiveTimeline = () => {
   const [activeStage, setActiveStage] = useState(0);
 
@@ -321,7 +341,7 @@ const InteractiveTimeline = () => {
       subtitle: 'Baseline Cognitive Health',
       description: 'Individuals in this stage demonstrate optimal cognitive function with memory, thinking, and reasoning skills that align perfectly with their age and educational background.',
       detailedInfo: 'Regular cognitive assessments show consistent performance across all domains including executive function, memory consolidation, and information processing speed. This represents the gold standard of healthy brain aging.',
-      icon: <PsychologyIcon sx={{ fontSize: 40 }} />,
+      icon: <BrainHealthIcon />,
       color: '#06d6a0',
       time: 'Optimal Function',
       prevalence: '70-80% of population'
@@ -332,7 +352,7 @@ const InteractiveTimeline = () => {
       subtitle: 'Critical Intervention Window',
       description: 'MCI represents a crucial intermediate stage where subtle but measurable changes in cognitive function become apparent, presenting the most valuable opportunity for early intervention.',
       detailedInfo: 'Characterized by mild memory problems, occasional word-finding difficulties, and slight changes in executive function that are noticeable to the individual and family members.',
-      icon: <WarningAmberIcon sx={{ fontSize: 40 }} />,
+      icon: <CognitiveConcernIcon />,
       color: '#f59e0b',
       time: 'Early Detection Phase',
       prevalence: '15-20% progress annually'
@@ -343,7 +363,7 @@ const InteractiveTimeline = () => {
       subtitle: 'Advanced Neurodegeneration',
       description: 'The most severe stage characterized by significant cognitive decline that substantially impacts daily functioning, requiring comprehensive care and support systems.',
       detailedInfo: 'Advanced symptoms include severe memory impairment, disorientation, language difficulties, and changes in personality and behavior requiring specialized medical care and family support.',
-      icon: <LocalHospitalIcon sx={{ fontSize: 40 }} />,
+      icon: <DementiaCareIcon />,
       color: '#ef4444',
       time: 'Advanced Care Required',
       prevalence: '6.5M+ affected in US'
@@ -611,7 +631,7 @@ export default function Home() {
               >
                 <div className={styles.cardIcon}>🤖</div>
                 <h3>Machine Learning</h3>
-                <p>Our ADFormer model uses advanced deep learning to analyze EEG patterns with clinical-grade accuracy and precision.</p>
+                <p>Our advanced deep learning models analyze EEG patterns with clinical-grade accuracy and precision.</p>
               </motion.div>
               
               <motion.div 
