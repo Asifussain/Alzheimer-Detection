@@ -7,7 +7,7 @@ import supabase from '../lib/supabaseClient';
 import styles from '../styles/Auth.module.css';
 
 export default function LoginPage() {
-  const { user, userProfile, isLoading } = useAuth();
+  const { user, userProfile, isLoading, session } = useAuth();
   const router = useRouter();
   const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'google'
   const [formData, setFormData] = useState({
@@ -16,7 +16,9 @@ export default function LoginPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -105,7 +107,7 @@ export default function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    router.push('/auth/forgot-password');
+    setShowPasswordReset(true);
   };
 
   // Show loading spinner while checking authentication status
@@ -117,6 +119,47 @@ export default function LoginPage() {
           <div className={styles.loadingContainer}>
             <LoadingSpinner />
             <p>Checking authentication status...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Show password reset form if requested
+  if (showPasswordReset) {
+    return (
+      <>
+        <Navbar />
+        <div className={styles.authContainer}>
+          <div className={styles.authCard}>
+            <div className={styles.authHeader}>
+              <h1 className={styles.authTitle}>Reset Password</h1>
+              <p className={styles.authDescription}>
+                Enter your email to receive a password reset link
+              </p>
+            </div>
+
+            {error && (
+              <div className={styles.errorMessage}>
+                ❌ {error}
+              </div>
+            )}
+
+            {success && (
+              <div className={styles.successMessage}>
+                ✅ {success}
+              </div>
+            )}
+
+            <div className={styles.authForm}>
+              <button
+                type="button"
+                onClick={() => setShowPasswordReset(false)}
+                className={styles.linkButton}
+              >
+                ← Back to Login
+              </button>
+            </div>
           </div>
         </div>
       </>

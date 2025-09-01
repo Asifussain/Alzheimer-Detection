@@ -16,10 +16,10 @@ function PatientDashboard() {
   const [selectedSessionId, setSelectedSessionId] = useState(null);
 
   useEffect(() => {
-    if (userProfile && patientData) {
+    if (userProfile) {
       fetchPatientData();
     }
-  }, [userProfile, patientData]);
+  }, [userProfile]);
 
   const fetchPatientData = async () => {
     try {

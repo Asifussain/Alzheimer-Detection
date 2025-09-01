@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git reset:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(taskkill:*)",
+      "Bash(npx supabase:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(rd:*)",
+      "Bash(tasklist)",
+      "Bash(netstat:*)",
+      "Bash(cmd //c:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

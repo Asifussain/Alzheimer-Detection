@@ -1,6 +1,7 @@
 import { useEffect, useState, createContext, useContext, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import supabase from '../lib/supabaseClient';
+import emailAuthClient from '../lib/emailAuthClient';
 import LoadingSpinner from './LoadingSpinner';
 
 // Session persistence utilities
@@ -61,6 +62,7 @@ const AuthContext = createContext({
   isInitialLoad: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  forceAuthCheck: async () => {},
   getUserId: () => null,
 });
 
@@ -85,7 +87,9 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(undefined);
   const [hospitalData, setHospitalData] = useState(undefined);
   const [isLoading, setIsLoading] = useState(true);
+<<<<<<< HEAD
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [authType, setAuthType] = useState(null); // 'supabase' or 'email'
   const router = useRouter();
   const isMountedRef = useRef(false);
   const profileCacheRef = useRef(null);
@@ -330,6 +334,27 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Check for email authentication on mount
+  const checkEmailAuth = useCallback(async () => {
+    if (!isMountedRef.current) return null;
+    
+    try {
+      const tokenData = await emailAuthClient.verifyToken();
+      if (tokenData && tokenData.valid) {
+        setAuthType('email');
+        setUser({ id: tokenData.user.id, email: tokenData.user.email });
+        setUserProfile(tokenData.user);
+        setHospitalData(tokenData.user.hospitals);
+        // Create a mock session for compatibility
+        setSession({ user: { id: tokenData.user.id, email: tokenData.user.email } });
+        return tokenData.user;
+      }
+    } catch (error) {
+      console.error('Email auth check failed:', error);
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     setIsLoading(true);
     let currentSession = null;
@@ -340,6 +365,7 @@ export const AuthProvider = ({ children }) => {
       setSession(sessionToProcess);
       const currentUser = sessionToProcess?.user || null;
       setUser(currentUser);
+      setAuthType('supabase');
       
       // Cache session data for better performance
       if (sessionToProcess) {
@@ -363,24 +389,42 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Try to load cached session first for faster initial load
-    const cachedSession = getFromStorage(SESSION_STORAGE_KEY);
-    if (cachedSession && isInitialLoad && Date.now() - cachedSession.timestamp < 300000) { // 5 minutes
-      sessionCacheRef.current = cachedSession;
-      processSession(cachedSession.session, true);
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMountedRef.current) return;
-      currentSession = data.session;
-      if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
-        router.replace(router.pathname, undefined, { shallow: true });
+    const initializeAuth = async () => {
+      // First check for email authentication
+      const emailUser = await checkEmailAuth();
+      
+      if (emailUser) {
+        // User is authenticated with email system
+        if (isMountedRef.current) setIsLoading(false);
+        return;
       }
-      processSession(currentSession, false);
-    });
+
+      // Try to load cached session first for faster initial load
+      const cachedSession = getFromStorage(SESSION_STORAGE_KEY);
+      if (cachedSession && isInitialLoad && Date.now() - cachedSession.timestamp < 300000) { // 5 minutes
+        sessionCacheRef.current = cachedSession;
+        processSession(cachedSession.session, true);
+      }
+
+      // If no email auth, proceed with Supabase
+      supabase.auth.getSession().then(({ data }) => {
+        if (!isMountedRef.current) return;
+        currentSession = data.session;
+        if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
+          router.replace(router.pathname, undefined, { shallow: true });
+        }
+        processSession(currentSession, false);
+      });
+    };
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sessionFromListener) => {
       if (!isMountedRef.current) return;
+      
+      // Only handle Supabase auth changes if not using email auth
+      if (authType === 'email') return;
+      
       if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
         if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) {
           router.replace(router.pathname, undefined, { shallow: true });
@@ -393,15 +437,30 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    // DISABLED: Visibility change handler was causing excessive re-fetching
-    // Only check session on actual auth state changes, not visibility changes
-    const handleVisibilityChange = debounce(() => {
-      // Completely disabled to prevent tab-switching refetches
-      return;
+    const handleVisibilityChange = debounce(async () => {
+      if (!isMountedRef.current || document.visibilityState !== 'visible') return;
+      setIsLoading(true);
+      
+      // Check email auth first
+      const emailUser = await checkEmailAuth();
+      if (emailUser) {
+        if (isMountedRef.current) setIsLoading(false);
+        return;
+      }
+      
+      // Then check Supabase
+      supabase.auth.getSession().then(({ data: { session: sessionFromVisibility } }) => {
+        if (!isMountedRef.current) return;
+        if (JSON.stringify(sessionFromVisibility) !== JSON.stringify(currentSession)) {
+          currentSession = sessionFromVisibility;
+          processSession(sessionFromVisibility, false);
+        } else {
+          if (isMountedRef.current) setIsLoading(false);
+        }
+      });
     }, 1000);
     
-    // Don't add the event listener
-    // document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       subscription?.unsubscribe();
@@ -410,7 +469,7 @@ export const AuthProvider = ({ children }) => {
         clearTimeout(visibilityTimeoutRef.current);
       }
     };
-  }, [fetchAndSetProfile, router, isInitialLoad]);
+  }, [fetchAndSetProfile, router, checkEmailAuth, authType, isInitialLoad]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -430,14 +489,8 @@ export const AuthProvider = ({ children }) => {
           router.replace('/account-pending');
         }
       }
-      // Check if phone verification is needed
-      else if (!userProfile.phone_verified && userProfile.account_status === 'active') {
-        if (currentPath !== '/VerifyPhone') {
-          router.replace('/VerifyPhone');
-        }
-      }
-      // User is fully set up and verified
-      else if (userProfile.account_status === 'active' && userProfile.phone_verified) {
+      // User is fully set up and active (removed phone verification requirement)
+      else if (userProfile.account_status === 'active') {
         if (currentPath === '/login' || currentPath === '/complete-profile' || currentPath === '/VerifyPhone' || currentPath === '/account-pending') {
           router.replace(`/${userProfile.role}/dashboard`);
         }
@@ -454,6 +507,13 @@ export const AuthProvider = ({ children }) => {
     if (!isMountedRef.current) return;
     setIsLoading(true);
     
+    // Sign out from both systems
+    if (authType === 'email') {
+      emailAuthClient.logout();
+    } else {
+      await supabase.auth.signOut();
+    }
+    
     // Clear all cached data
     profileCacheRef.current = null;
     sessionCacheRef.current = null;
@@ -461,8 +521,14 @@ export const AuthProvider = ({ children }) => {
     clearFromStorage(SESSION_STORAGE_KEY);
     clearFromStorage(PROFILE_STORAGE_KEY);
     
-    await supabase.auth.signOut();
-  }, []);
+    // Clear all state
+    setSession(null);
+    setUser(null);
+    setUserProfile(null);
+    setHospitalData(null);
+    setAuthType(null);
+    setIsLoading(false);
+  }, [authType]);
 
   const refreshProfile = useCallback(async () => {
     if (user && session && isMountedRef.current) {
@@ -471,10 +537,52 @@ export const AuthProvider = ({ children }) => {
       clearFromStorage(PROFILE_STORAGE_KEY);
       
       setIsLoading(true);
-      await fetchAndSetProfile(user, session, false);
+      
+      if (authType === 'email') {
+        try {
+          const tokenData = await emailAuthClient.verifyToken();
+          if (tokenData && tokenData.valid) {
+            setUserProfile(tokenData.user);
+            setHospitalData(tokenData.user.hospitals);
+          }
+        } catch (error) {
+          console.error('Failed to refresh email auth profile:', error);
+        }
+      } else {
+        await fetchAndSetProfile(user, session, false);
+      }
+      
       if (isMountedRef.current) setIsLoading(false);
     }
-  }, [user, session, fetchAndSetProfile, userProfile?.account_status]);
+  }, [user, session, fetchAndSetProfile, authType, userProfile?.account_status]);
+
+  // Force check email authentication (useful after login)
+  const forceAuthCheck = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
+    setIsLoading(true);
+    const emailUser = await checkEmailAuth();
+    
+    if (!emailUser) {
+      // Check Supabase as fallback
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        setAuthType('supabase');
+        await fetchAndSetProfile(data.session.user, data.session);
+      } else {
+        // No authentication found
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
+        setHospitalData(null);
+        setAuthType(null);
+      }
+    }
+    
+    if (isMountedRef.current) setIsLoading(false);
+  }, [checkEmailAuth, fetchAndSetProfile]);
 
   const getUserId = useCallback(() => {
     return userProfile?.unique_identifier || user?.id || null;
@@ -490,8 +598,9 @@ export const AuthProvider = ({ children }) => {
     isInitialLoad,
     signOut,
     refreshProfile,
+    forceAuthCheck,
     getUserId
-  }), [session, user, userProfile, hospitalData, isLoading, isInitialLoad, signOut, refreshProfile, getUserId]);
+  }), [session, user, userProfile, hospitalData, isLoading, isInitialLoad, signOut, refreshProfile, forceAuthCheck, getUserId]);
 
   // Only show full loading screen on initial load to prevent flash
   if (isInitialLoad && isLoading && session === undefined) {

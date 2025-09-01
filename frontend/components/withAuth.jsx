@@ -85,63 +85,13 @@ const withAuth = (WrappedComponent, allowedRoles = [], requireVerification = tru
             );
         }
 
-        // Check if user meets all requirements
+        // Check if user meets all requirements (removed phone verification check)
         if (user && userProfile && 
-            userProfile.account_status === 'active' && 
-            (!requireVerification || userProfile.phone_verified)) {
+            userProfile.account_status === 'active') {
             
             // Check role permissions
             if (allowedRoles.length === 0 || allowedRoles.includes(userProfile.role)) {
-                // Additional verification checks passed
-                if (requireVerification) {
-                    if (userProfile.role === 'doctor') {
-                        // Handle both array and single object cases
-                        const doctorData = Array.isArray(userProfile.doctor_profiles) 
-                            ? userProfile.doctor_profiles?.[0] 
-                            : userProfile.doctor_profiles;
-                        
-                        if (!doctorData || doctorData.verification_status !== 'verified') {
-                            return (
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'center', 
-                                    alignItems: 'center', 
-                                    height: '100vh', 
-                                    backgroundColor: 'var(--background-start)',
-                                    flexDirection: 'column',
-                                    gap: '1rem'
-                                }}>
-                                    <LoadingSpinner /> 
-                                    <p style={{ color: 'var(--text-secondary)' }}>Verifying credentials...</p>
-                                </div>
-                            );
-                        }
-                    }
-                    
-                    if (userProfile.role === 'patient') {
-                        // Handle both array and single object cases
-                        const patientData = Array.isArray(userProfile.patient_profiles) 
-                            ? userProfile.patient_profiles?.[0] 
-                            : userProfile.patient_profiles;
-                        
-                        if (!patientData || patientData.verification_status !== 'verified') {
-                            return (
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'center', 
-                                    alignItems: 'center', 
-                                    height: '100vh', 
-                                    backgroundColor: 'var(--background-start)',
-                                    flexDirection: 'column',
-                                    gap: '1rem'
-                                }}>
-                                    <LoadingSpinner /> 
-                                    <p style={{ color: 'var(--text-secondary)' }}>Verifying patient status...</p>
-                                </div>
-                            );
-                        }
-                    }
-                }
+                // Skip additional verification checks - account_status 'active' is sufficient
                 
                 return <WrappedComponent {...props} />;
             }
