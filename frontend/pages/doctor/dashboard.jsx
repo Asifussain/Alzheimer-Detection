@@ -17,23 +17,30 @@ function DoctorDashboard() {
     todayAppointments: 0
   });
   
+  // EEG sessions state
+  const [eegSessions, setEegSessions] = useState([]);
+  const [technicianReports, setTechnicianReports] = useState([]);
+  
   // Patient management state
   const [myPatients, setMyPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientDetails, setPatientDetails] = useState(null);
 
   useEffect(() => {
-    if (userProfile && hospitalData) {
+    if (userProfile?.id && userProfile?.role === 'doctor') {
       fetchDashboardData();
     }
-  }, [userProfile, hospitalData]);
+  }, [userProfile]);
 
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      await Promise.all([
+      // Use Promise.allSettled instead of Promise.all to ensure all requests complete
+      await Promise.allSettled([
         fetchDashboardStats(),
-        fetchMyPatients()
+        fetchMyPatients(),
+        fetchEEGSessions(),
+        fetchTechnicianReports()
       ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -44,30 +51,73 @@ function DoctorDashboard() {
 
   const fetchDashboardStats = async () => {
     try {
+      // Initialize default stats
+      let stats = {
+        totalPatients: 0,
+        pendingAssessments: 0,
+        completedSessions: 0,
+        todayAppointments: 0
+      };
+
       // Get total patients assigned to this doctor
-      const { count: totalPatients } = await supabase
-        .from('patient_profiles')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('assigned_doctor_id', userProfile.id);
+      try {
+        const { count: totalPatients } = await supabase
+          .from('patient_profiles')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('assigned_doctor_id', userProfile.id)
+          .eq('verification_status', 'verified');
+        stats.totalPatients = totalPatients || 0;
+      } catch (error) {
+        console.error('Error fetching patient count:', error);
+      }
 
-      // Get pending assessments (patients without recent reports)
-      // This would need to be implemented based on your assessment/report system
-      const pendingAssessments = 0; // Placeholder
+      // Get pending EEG sessions for this doctor
+      try {
+        const { count: pendingEEGSessions } = await supabase
+          .from('eeg_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('doctor_id', userProfile.id)
+          .eq('status', 'uploaded');
+        stats.pendingAssessments = pendingEEGSessions || 0;
+      } catch (error) {
+        console.error('Error fetching pending sessions:', error);
+      }
 
-      // Get completed sessions (this would be based on your session tracking)
-      const completedSessions = 0; // Placeholder
+      // Get completed EEG sessions for this doctor
+      try {
+        const { count: completedEEGSessions } = await supabase
+          .from('eeg_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('doctor_id', userProfile.id)
+          .eq('status', 'completed');
+        stats.completedSessions = completedEEGSessions || 0;
+      } catch (error) {
+        console.error('Error fetching completed sessions:', error);
+      }
 
-      // Get today's appointments (this would be based on your appointment system)
-      const todayAppointments = 0; // Placeholder
+      // Get today's EEG sessions
+      try {
+        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        const { count: todayEEGSessions } = await supabase
+          .from('eeg_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('doctor_id', userProfile.id)
+          .gte('session_date', today);
+        stats.todayAppointments = todayEEGSessions || 0;
+      } catch (error) {
+        console.error('Error fetching today sessions:', error);
+      }
 
-      setDashboardStats({
-        totalPatients: totalPatients || 0,
-        pendingAssessments,
-        completedSessions,
-        todayAppointments
-      });
+      setDashboardStats(stats);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      // Set default stats on error
+      setDashboardStats({
+        totalPatients: 0,
+        pendingAssessments: 0,
+        completedSessions: 0,
+        todayAppointments: 0
+      });
     }
   };
 
@@ -97,6 +147,59 @@ function DoctorDashboard() {
       setMyPatients(data || []);
     } catch (error) {
       console.error('Error fetching my patients:', error);
+    }
+  };
+
+  const fetchEEGSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('eeg_sessions')
+        .select(`
+          *,
+          patient:user_profiles!patient_id(
+            full_name,
+            patient_profiles(patient_id, blood_groups(blood_type))
+          ),
+          eeg_analysis_results(
+            id,
+            prediction,
+            confidence_score,
+            analysis_completed_at
+          )
+        `)
+        .eq('doctor_id', userProfile.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setEegSessions(data || []);
+    } catch (error) {
+      console.error('Error fetching EEG sessions:', error);
+    }
+  };
+
+  const fetchTechnicianReports = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          eeg_sessions!session_id(
+            session_code,
+            filename,
+            session_date,
+            patient:user_profiles!patient_id(full_name)
+          )
+        `)
+        .eq('report_type', 'technical')
+        .eq('eeg_sessions.doctor_id', userProfile.id)
+        .order('generated_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setTechnicianReports(data || []);
+    } catch (error) {
+      console.error('Error fetching technician reports:', error);
     }
   };
 
@@ -161,18 +264,18 @@ function DoctorDashboard() {
           </svg>
         </div>
         <div className={styles.statContent}>
-          <h3>Pending Assessments</h3>
+          <h3>Pending EEG Analysis</h3>
           <div className={styles.statNumber}>{dashboardStats.pendingAssessments}</div>
-          <p>Need attention</p>
+          <p>Awaiting analysis</p>
         </div>
       </div>
 
       <div className={styles.statCard}>
         <div className={styles.statIcon}>✅</div>
         <div className={styles.statContent}>
-          <h3>Completed Sessions</h3>
+          <h3>Completed EEG Sessions</h3>
           <div className={styles.statNumber}>{dashboardStats.completedSessions}</div>
-          <p>This month</p>
+          <p>Analysis complete</p>
         </div>
       </div>
 
@@ -183,9 +286,9 @@ function DoctorDashboard() {
           </svg>
         </div>
         <div className={styles.statContent}>
-          <h3>Today's Appointments</h3>
+          <h3>Today's EEG Sessions</h3>
           <div className={styles.statNumber}>{dashboardStats.todayAppointments}</div>
-          <p>Scheduled</p>
+          <p>Uploaded today</p>
         </div>
       </div>
     </div>
@@ -410,6 +513,121 @@ function DoctorDashboard() {
     );
   };
 
+  const renderEEGSessions = () => (
+    <div className={styles.eegSessionsView}>
+      <div className={styles.sectionHeader}>
+        <h2>EEG Sessions</h2>
+        <p>EEG sessions uploaded by radiologists for your patients</p>
+      </div>
+
+      {eegSessions.length > 0 ? (
+        <div className={styles.sessionsGrid}>
+          {eegSessions.map(session => (
+            <div key={session.id} className={styles.sessionCard}>
+              <div className={styles.sessionHeader}>
+                <h3>{session.session_code || session.id.slice(0, 8)}</h3>
+                <span className={`${styles.statusBadge} ${styles[`status-${session.status}`]}`}>
+                  {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+                </span>
+              </div>
+
+              <div className={styles.sessionInfo}>
+                <p><strong>Patient:</strong> {session.patient?.full_name}</p>
+                <p><strong>Patient ID:</strong> {session.patient?.patient_profiles?.patient_id}</p>
+                <p><strong>File:</strong> {session.filename}</p>
+                <p><strong>Duration:</strong> {session.session_duration} minutes</p>
+                <p><strong>Date:</strong> {new Date(session.session_date).toLocaleDateString()}</p>
+                <p><strong>Analysis Type:</strong> {session.analysis_type}</p>
+              </div>
+
+              {session.eeg_analysis_results?.[0] && (
+                <div className={styles.analysisResults}>
+                  <h4>Analysis Results</h4>
+                  <p><strong>Prediction:</strong> {session.eeg_analysis_results[0].prediction}</p>
+                  <p><strong>Confidence:</strong> {(session.eeg_analysis_results[0].confidence_score * 100).toFixed(1)}%</p>
+                  <p><strong>Completed:</strong> {new Date(session.eeg_analysis_results[0].analysis_completed_at).toLocaleDateString()}</p>
+                </div>
+              )}
+
+              {session.session_notes && (
+                <div className={styles.sessionNotes}>
+                  <p><strong>Notes:</strong> {session.session_notes}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.emptyState}>
+          <p>No EEG sessions found for your patients yet.</p>
+          <p>Radiologists will upload EEG data for analysis, and you'll see the sessions here.</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTechnicianReports = () => (
+    <div className={styles.reportsView}>
+      <div className={styles.sectionHeader}>
+        <h2>Technical Reports</h2>
+        <p>Technical analysis reports generated from EEG sessions</p>
+      </div>
+
+      {technicianReports.length > 0 ? (
+        <div className={styles.reportsGrid}>
+          {technicianReports.map(report => (
+            <div key={report.id} className={styles.reportCard}>
+              <div className={styles.reportHeader}>
+                <h3>Technical Report</h3>
+                <span className={styles.reportDate}>
+                  {new Date(report.generated_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              <div className={styles.reportInfo}>
+                <p><strong>Session:</strong> {report.eeg_sessions?.session_code}</p>
+                <p><strong>Patient:</strong> {report.eeg_sessions?.patient?.full_name}</p>
+                <p><strong>File:</strong> {report.eeg_sessions?.filename}</p>
+                <p><strong>Session Date:</strong> {new Date(report.eeg_sessions?.session_date).toLocaleDateString()}</p>
+                <p className={`${styles.accessStatus} ${report.is_accessible ? styles.accessible : styles.restricted}`}>
+                  {report.is_accessible ? 'Accessible' : 'Access Restricted'}
+                </p>
+              </div>
+
+              {report.is_accessible && (
+                <div className={styles.reportActions}>
+                  <button
+                    className={styles.downloadBtn}
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = report.report_url;
+                      link.download = `technical-report-${report.eeg_sessions?.session_code}.pdf`;
+                      link.target = '_blank';
+                      link.click();
+                    }}
+                  >
+                    📄 Download Technical Report
+                  </button>
+                </div>
+              )}
+
+              {report.access_expires_at && (
+                <div className={styles.expiryInfo}>
+                  <p><strong>Access Expires:</strong> {new Date(report.access_expires_at).toLocaleDateString()}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.emptyState}>
+          <p>No technical reports available yet.</p>
+          <p>Reports will appear here once EEG analysis is completed.</p>
+        </div>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className={styles.loadingContainer}>
@@ -455,34 +673,24 @@ function DoctorDashboard() {
                 My Patients ({dashboardStats.totalPatients})
               </button>
               <button 
-                className={activeTab === 'assessments' ? styles.activeTab : styles.tab}
-                onClick={() => setActiveTab('assessments')}
+                className={activeTab === 'eeg-sessions' ? styles.activeTab : styles.tab}
+                onClick={() => setActiveTab('eeg-sessions')}
               >
-                Assessments
+                EEG Sessions ({eegSessions.length})
               </button>
               <button 
                 className={activeTab === 'reports' ? styles.activeTab : styles.tab}
                 onClick={() => setActiveTab('reports')}
               >
-                Reports
+                Technical Reports ({technicianReports.length})
               </button>
             </div>
 
             <div className={styles.tabContent}>
               {activeTab === 'overview' && renderOverview()}
               {activeTab === 'patients' && renderMyPatients()}
-              {activeTab === 'assessments' && (
-                <div className={styles.comingSoon}>
-                  <h2>Assessment Module</h2>
-                  <p>This feature is coming soon! You'll be able to conduct cognitive assessments and track patient progress.</p>
-                </div>
-              )}
-              {activeTab === 'reports' && (
-                <div className={styles.comingSoon}>
-                  <h2>Reports & Analytics</h2>
-                  <p>This feature is coming soon! You'll be able to view detailed reports and analytics for your patients.</p>
-                </div>
-              )}
+              {activeTab === 'eeg-sessions' && renderEEGSessions()}
+              {activeTab === 'reports' && renderTechnicianReports()}
             </div>
           </>
         )}

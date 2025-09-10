@@ -1,457 +1,244 @@
 # Database Schema Documentation
 
-## Core Tables
+## Overview
+This database schema supports a medical EEG (Electroencephalogram) analysis system that manages hospitals, users (patients, doctors, admins), EEG sessions, analysis results, and reporting functionality.
 
-### Authentication & User Management
+## Core Entities
 
-#### `user_profiles`
-Primary user information table for all system users.
+### Hospitals
+**Table:** `hospitals`
+- **Purpose:** Stores hospital information and serves as the organizational unit for all users
+- **Key Fields:**
+  - `id` (UUID, PK): Unique hospital identifier
+  - `hospital_code` (VARCHAR, UNIQUE): Human-readable hospital code
+  - `name` (VARCHAR): Hospital name
+  - `address` (TEXT): Physical address
+  - `phone`, `email`: Contact information
+  - `license_number` (VARCHAR): Medical license number
+  - `status` (VARCHAR): active | inactive | suspended
 
-```sql
-CREATE TABLE public.user_profiles (
-  id uuid NOT NULL,
-  hospital_id uuid NOT NULL,
-  unique_identifier character varying NOT NULL UNIQUE,
-  full_name character varying NOT NULL,
-  email character varying NOT NULL UNIQUE,
-  phone character varying NOT NULL,
-  date_of_birth date,
-  address text,
-  role character varying NOT NULL CHECK (role::text = ANY (ARRAY['patient'::character varying, 'doctor'::character varying, 'admin'::character varying]::text[])),
-  account_status character varying DEFAULT 'pending'::character varying CHECK (account_status::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'suspended'::character varying, 'inactive'::character varying]::text[])),
-  phone_verified boolean DEFAULT false,
-  phone_otp character varying,
-  phone_otp_expires_at timestamp with time zone,
-  phone_otp_attempts integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  password_hash character varying,
-  auth_provider character varying DEFAULT 'google'::character varying,
-  email_verified boolean DEFAULT false,
-  email_verification_token character varying,
-  password_reset_token character varying,
-  password_reset_expires timestamp with time zone,
-  created_by_admin uuid,
-  CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT user_profiles_hospital_fkey FOREIGN KEY (hospital_id) REFERENCES public.hospitals(id),
-  CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
-);
-```
+### User Management
 
-#### `custom_auth_credentials`
-Stores authentication credentials and login tracking.
+#### User Profiles
+**Table:** `user_profiles`
+- **Purpose:** Central user table for all system users
+- **Key Fields:**
+  - `id` (UUID, PK): Links to Supabase auth.users
+  - `hospital_id` (UUID, FK): Associated hospital
+  - `unique_identifier` (VARCHAR, UNIQUE): System-generated unique ID
+  - `full_name`, `email`, `phone`: Personal information
+  - `role` (VARCHAR): patient | doctor | admin
+  - `account_status` (VARCHAR): pending | active | suspended | inactive
+  - `phone_verified` (BOOLEAN): Phone verification status
+  - `created_by_admin` (UUID, FK): Admin who created the account
 
-```sql
-CREATE TABLE public.custom_auth_credentials (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_profile_id uuid NOT NULL UNIQUE,
-  password_hash text NOT NULL,
-  temp_password boolean DEFAULT true,
-  password_changed_at timestamp with time zone,
-  last_login timestamp with time zone,
-  failed_login_attempts integer DEFAULT 0,
-  account_locked_until timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT custom_auth_credentials_pkey PRIMARY KEY (id),
-  CONSTRAINT custom_auth_credentials_user_profile_fkey FOREIGN KEY (user_profile_id) REFERENCES public.user_profiles(id)
-);
-```
+#### Authentication & Security
+**Table:** `custom_auth_credentials`
+- **Purpose:** Stores authentication credentials and login tracking
+- **Key Fields:**
+  - `user_profile_id` (UUID, FK): Links to user_profiles
+  - `password_hash` (TEXT): Encrypted password
+  - `temp_password` (BOOLEAN): Indicates temporary password
+  - `failed_login_attempts` (INTEGER): Security tracking
+  - `account_locked_until` (TIMESTAMP): Account lockout timestamp
 
-#### `password_reset_tokens`
-Manages password reset functionality.
-
-```sql
-CREATE TABLE public.password_reset_tokens (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_profile_id uuid NOT NULL,
-  token text NOT NULL UNIQUE,
-  expires_at timestamp with time zone NOT NULL,
-  used boolean DEFAULT false,
-  used_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT password_reset_tokens_pkey PRIMARY KEY (id),
-  CONSTRAINT password_reset_tokens_user_profile_fkey FOREIGN KEY (user_profile_id) REFERENCES public.user_profiles(id)
-);
-```
-
-### Hospital Management
-
-#### `hospitals`
-Core hospital information and configuration.
-
-```sql
-CREATE TABLE public.hospitals (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  hospital_code character varying NOT NULL UNIQUE,
-  name character varying NOT NULL,
-  address text NOT NULL,
-  phone character varying,
-  email character varying,
-  license_number character varying,
-  established_date date,
-  status character varying DEFAULT 'active'::character varying CHECK (status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying]::text[])),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT hospitals_pkey PRIMARY KEY (id)
-);
-```
-
-#### `hospital_id_sequences`
-Manages ID sequence generation for different roles within hospitals.
-
-```sql
-CREATE TABLE public.hospital_id_sequences (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  hospital_id uuid NOT NULL,
-  role character varying NOT NULL CHECK (role::text = ANY (ARRAY['patient'::character varying::text, 'doctor'::character varying::text, 'admin'::character varying::text])),
-  current_sequence integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT hospital_id_sequences_pkey PRIMARY KEY (id),
-  CONSTRAINT hospital_id_sequences_hospital_fkey FOREIGN KEY (hospital_id) REFERENCES public.hospitals(id)
-);
-```
+**Table:** `custom_auth_audit_log`
+- **Purpose:** Audit trail for authentication events
+- **Key Fields:**
+  - `user_profile_id` (UUID, FK): User performing action
+  - `action` (VARCHAR): Type of action performed
+  - `details` (JSONB): Additional action details
+  - `ip_address`, `user_agent`: Security tracking information
 
 ### Role-Specific Profiles
 
-#### `doctor_profiles`
-Extended profile information for doctors.
+#### Patient Profiles
+**Table:** `patient_profiles`
+- **Purpose:** Extended information for patients
+- **Key Fields:**
+  - `user_id` (UUID, PK, FK): Links to user_profiles
+  - `patient_id` (VARCHAR): Hospital-specific patient ID
+  - `blood_group_id` (INTEGER, FK): References blood_groups
+  - `emergency_contact_name`, `emergency_contact_phone`: Emergency contacts
+  - `medical_history`, `current_medications`, `allergies`: Medical information
+  - `assigned_doctor_id` (UUID, FK): Primary care doctor
+  - `verification_status` (VARCHAR): pending | verified | rejected
+  - `prescription_url` (TEXT): Link to prescription document
 
-```sql
-CREATE TABLE public.doctor_profiles (
-  user_id uuid NOT NULL,
-  medical_license character varying NOT NULL,
-  qualification_id integer,
-  specialization character varying,
-  experience_years integer,
-  consultation_fee numeric,
-  verification_status character varying DEFAULT 'pending'::character varying CHECK (verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])),
-  verified_by uuid,
-  verified_at timestamp with time zone,
-  rejection_reason text,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT doctor_profiles_pkey PRIMARY KEY (user_id),
-  CONSTRAINT doctor_profiles_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES public.user_profiles(id),
-  CONSTRAINT doctor_profiles_qualification_fkey FOREIGN KEY (qualification_id) REFERENCES public.qualifications(id),
-  CONSTRAINT doctor_profiles_user_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
-);
-```
+#### Doctor Profiles
+**Table:** `doctor_profiles`
+- **Purpose:** Extended information for medical doctors
+- **Key Fields:**
+  - `user_id` (UUID, PK, FK): Links to user_profiles
+  - `medical_license` (VARCHAR): Medical license number
+  - `qualification_id` (INTEGER, FK): References qualifications
+  - `specialization` (VARCHAR): Medical specialization
+  - `experience_years` (INTEGER): Years of practice
+  - `consultation_fee` (NUMERIC): Consultation charges
+  - `verification_status` (VARCHAR): pending | verified | rejected
+  - `verified_by` (UUID, FK): Admin who verified the doctor
 
-#### `patient_profiles`
-Extended profile information for patients.
+#### Admin Profiles
+**Table:** `admin_profiles`
+- **Purpose:** Administrative users with system permissions
+- **Key Fields:**
+  - `user_id` (UUID, PK, FK): Links to user_profiles
+  - `employee_id` (VARCHAR): Hospital employee ID
+  - `department` (VARCHAR): Administrative department
+  - `permissions` (JSONB): Role-based permissions object
 
-```sql
-CREATE TABLE public.patient_profiles (
-  user_id uuid NOT NULL,
-  patient_id character varying,
-  blood_group_id integer,
-  emergency_contact_name character varying,
-  emergency_contact_phone character varying,
-  medical_history text,
-  current_medications text,
-  allergies text,
-  assigned_doctor_id uuid,
-  verification_status character varying DEFAULT 'pending'::character varying CHECK (verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])),
-  verified_by uuid,
-  verified_at timestamp with time zone,
-  prescription_url text,
-  prescription_uploaded_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT patient_profiles_pkey PRIMARY KEY (user_id),
-  CONSTRAINT patient_profiles_user_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
-  CONSTRAINT patient_profiles_doctor_fkey FOREIGN KEY (assigned_doctor_id) REFERENCES public.doctor_profiles(user_id),
-  CONSTRAINT patient_profiles_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES public.user_profiles(id),
-  CONSTRAINT patient_profiles_blood_group_fkey FOREIGN KEY (blood_group_id) REFERENCES public.blood_groups(id)
-);
-```
+#### Radiologist Profiles
+**Table:** `radiologist_profiles`
+- **Purpose:** Specialized medical imaging professionals
+- **Key Fields:**
+  - `user_id` (UUID, FK): Links to auth.users (legacy table)
+  - `radiologist_license` (VARCHAR): Radiologist license
+  - `imaging_expertise` (TEXT): Areas of imaging expertise
+  - `experience_years` (INTEGER): Years of radiology experience
 
-#### `admin_profiles`
-Extended profile information for administrators.
+## EEG Analysis System
 
-```sql
-CREATE TABLE public.admin_profiles (
-  user_id uuid NOT NULL,
-  employee_id character varying,
-  department character varying,
-  permissions jsonb DEFAULT '{"manage_doctors": true, "manage_patients": true, "view_all_reports": true}'::jsonb,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT admin_profiles_pkey PRIMARY KEY (user_id),
-  CONSTRAINT admin_profiles_user_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
-);
-```
+### EEG Sessions
+**Table:** `eeg_sessions`
+- **Purpose:** Stores EEG recording session information
+- **Key Fields:**
+  - `id` (UUID, PK): Unique session identifier
+  - `session_code` (VARCHAR, UNIQUE): Human-readable session code
+  - `patient_id` (UUID, FK): Patient being analyzed
+  - `doctor_id` (UUID, FK): Doctor conducting session
+  - `hospital_id` (UUID, FK): Hospital where session occurred
+  - `filename` (VARCHAR): Original EEG data filename
+  - `eeg_data_url` (TEXT): Cloud storage URL for EEG data
+  - `session_duration` (INTEGER): Duration in minutes/seconds
+  - `electrodes_used` (JSONB): Array of electrode positions used
+  - `sampling_rate` (INTEGER): Data sampling frequency
+  - `analysis_type` (VARCHAR): binary | multiclass | regression
+  - `status` (VARCHAR): uploaded | processing | completed | failed
 
-### EEG Analysis System
+### Analysis Results
+**Table:** `eeg_analysis_results`
+- **Purpose:** Stores ML analysis results for EEG sessions
+- **Key Fields:**
+  - `id` (UUID, PK): Unique result identifier
+  - `session_id` (UUID, FK): Associated EEG session
+  - `prediction` (VARCHAR): Primary analysis result
+  - `confidence_score` (NUMERIC): Confidence level (0-1)
+  - `probabilities` (JSONB): Class probabilities object
+  - `stats_data` (JSONB): Statistical analysis data
+  - `similarity_results` (JSONB): Pattern similarity metrics
+  - `consistency_metrics` (JSONB): Analysis consistency data
+  - `trial_predictions` (JSONB): Individual trial results
+  - Plot URLs: `timeseries_plot_url`, `psd_plot_url`, `similarity_plot_url`
 
-#### `eeg_sessions`
-Core EEG session data and metadata.
+### Reports
+**Table:** `reports`
+- **Purpose:** Generated reports from analysis results
+- **Key Fields:**
+  - `id` (UUID, PK): Unique report identifier
+  - `session_id` (UUID, FK): Source EEG session
+  - `analysis_result_id` (UUID, FK): Source analysis results
+  - `report_type` (VARCHAR): patient | doctor | technical
+  - `report_url` (TEXT): Cloud storage URL for report PDF
+  - `generated_for_user_id` (UUID, FK): Target user for report
+  - `generated_by_doctor_id` (UUID, FK): Doctor who generated report
+  - `is_accessible` (BOOLEAN): Report access status
+  - `access_expires_at` (TIMESTAMP): Report expiration date
 
-```sql
-CREATE TABLE public.eeg_sessions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  session_code character varying NOT NULL UNIQUE,
-  patient_id uuid NOT NULL,
-  doctor_id uuid NOT NULL,
-  hospital_id uuid NOT NULL,
-  filename character varying NOT NULL,
-  eeg_data_url text NOT NULL,
-  session_date timestamp with time zone DEFAULT now(),
-  session_duration integer,
-  electrodes_used jsonb,
-  sampling_rate integer,
-  session_notes text,
-  analysis_type character varying DEFAULT 'binary'::character varying CHECK (analysis_type::text = ANY (ARRAY['binary'::character varying, 'multiclass'::character varying, 'regression'::character varying]::text[])),
-  status character varying DEFAULT 'uploaded'::character varying CHECK (status::text = ANY (ARRAY['uploaded'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT eeg_sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT eeg_sessions_patient_fkey FOREIGN KEY (patient_id) REFERENCES public.patient_profiles(user_id),
-  CONSTRAINT eeg_sessions_doctor_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor_profiles(user_id),
-  CONSTRAINT eeg_sessions_hospital_fkey FOREIGN KEY (hospital_id) REFERENCES public.hospitals(id)
-);
-```
+## Relationships & Assignments
 
-#### `eeg_analysis_results`
-Stores analysis results from EEG processing.
+### Doctor-Patient Relationships
+**Table:** `doctor_patient_relationships`
+- **Purpose:** Manages many-to-many relationships between doctors and patients
+- **Key Fields:**
+  - `doctor_id` (UUID, FK): Doctor in relationship
+  - `patient_id` (UUID, FK): Patient in relationship
+  - `hospital_id` (UUID, FK): Hospital context
+  - `relationship_status` (VARCHAR): active | inactive | terminated
+  - `assigned_by` (UUID, FK): Admin who created assignment
+  - `notes` (TEXT): Assignment notes
 
-```sql
-CREATE TABLE public.eeg_analysis_results (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL,
-  prediction character varying NOT NULL,
-  confidence_score numeric,
-  probabilities jsonb,
-  stats_data jsonb,
-  similarity_results jsonb,
-  consistency_metrics jsonb,
-  trial_predictions jsonb,
-  timeseries_plot_url text,
-  psd_plot_url text,
-  similarity_plot_url text,
-  analysis_completed_at timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT eeg_analysis_results_pkey PRIMARY KEY (id),
-  CONSTRAINT eeg_analysis_results_session_fkey FOREIGN KEY (session_id) REFERENCES public.eeg_sessions(id)
-);
-```
-
-#### `predictions` (Legacy Table)
-Legacy prediction storage table.
-
-```sql
-CREATE TABLE public.predictions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_id uuid,
-  filename text NOT NULL,
-  prediction text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  eeg_data_url text,
-  probabilities jsonb,
-  stats_data jsonb,
-  timeseries_plot_url text,
-  psd_plot_url text,
-  report_generated_at timestamp with time zone,
-  status text,
-  similarity_results jsonb,
-  similarity_plot_url text,
-  consistency_metrics jsonb,
-  trial_predictions jsonb,
-  patient_pdf_url text,
-  technical_pdf_url text,
-  clinician_pdf_url text,
-  analysis_type text DEFAULT 'binary'::text,
-  CONSTRAINT predictions_pkey PRIMARY KEY (id),
-  CONSTRAINT predictions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-```
-
-### Reporting System
-
-#### `reports`
-Generated reports for different user types.
-
-```sql
-CREATE TABLE public.reports (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL,
-  analysis_result_id uuid NOT NULL,
-  report_type character varying NOT NULL CHECK (report_type::text = ANY (ARRAY['patient'::character varying, 'doctor'::character varying, 'technical'::character varying]::text[])),
-  report_url text NOT NULL,
-  generated_for_user_id uuid NOT NULL,
-  generated_by_doctor_id uuid NOT NULL,
-  is_accessible boolean DEFAULT true,
-  access_expires_at timestamp with time zone,
-  generated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT reports_pkey PRIMARY KEY (id),
-  CONSTRAINT reports_session_fkey FOREIGN KEY (session_id) REFERENCES public.eeg_sessions(id),
-  CONSTRAINT reports_analysis_fkey FOREIGN KEY (analysis_result_id) REFERENCES public.eeg_analysis_results(id),
-  CONSTRAINT reports_generated_for_fkey FOREIGN KEY (generated_for_user_id) REFERENCES public.user_profiles(id),
-  CONSTRAINT reports_generated_by_fkey FOREIGN KEY (generated_by_doctor_id) REFERENCES public.doctor_profiles(user_id)
-);
-```
-
-### Relationship Management
-
-#### `doctor_patient_relationships`
-Manages doctor-patient assignments and relationships.
-
-```sql
-CREATE TABLE public.doctor_patient_relationships (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  doctor_id uuid NOT NULL,
-  patient_id uuid NOT NULL,
-  hospital_id uuid NOT NULL,
-  relationship_status character varying DEFAULT 'active'::character varying CHECK (relationship_status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'terminated'::character varying]::text[])),
-  assigned_by uuid,
-  assigned_at timestamp with time zone DEFAULT now(),
-  notes text,
-  CONSTRAINT doctor_patient_relationships_pkey PRIMARY KEY (id),
-  CONSTRAINT doctor_patient_relationships_doctor_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor_profiles(user_id),
-  CONSTRAINT doctor_patient_relationships_patient_fkey FOREIGN KEY (patient_id) REFERENCES public.patient_profiles(user_id),
-  CONSTRAINT doctor_patient_relationships_hospital_fkey FOREIGN KEY (hospital_id) REFERENCES public.hospitals(id),
-  CONSTRAINT doctor_patient_relationships_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.user_profiles(id)
-);
-```
+## Support Tables
 
 ### Reference Data
+**Table:** `blood_groups`
+- **Purpose:** Blood type reference data
+- **Fields:** `id` (PK), `blood_type` (UNIQUE)
 
-#### `qualifications`
-Medical qualifications and specializations.
+**Table:** `qualifications`
+- **Purpose:** Medical qualification reference data
+- **Fields:** `id` (PK), `qualification_name` (UNIQUE), `specialization`
 
-```sql
-CREATE TABLE public.qualifications (
-  id integer NOT NULL DEFAULT nextval('qualifications_id_seq'::regclass),
-  qualification_name character varying NOT NULL UNIQUE,
-  specialization character varying,
-  CONSTRAINT qualifications_pkey PRIMARY KEY (id)
-);
-```
+### System Administration
+**Table:** `hospital_id_sequences`
+- **Purpose:** Manages auto-incrementing ID sequences per hospital and role
+- **Key Fields:**
+  - `hospital_id` (UUID, FK): Target hospital
+  - `role` (VARCHAR): patient | doctor | admin
+  - `current_sequence` (INTEGER): Current sequence number
 
-#### `blood_groups`
-Blood type reference data.
+**Table:** `notifications`
+- **Purpose:** In-app notification system
+- **Key Fields:**
+  - `user_id` (UUID, FK): Notification recipient
+  - `title`, `message`: Notification content
+  - `type` (VARCHAR): report_ready | verification_update | system_alert | assignment
+  - `related_resource_type`, `related_resource_id`: Associated system entity
 
-```sql
-CREATE TABLE public.blood_groups (
-  id integer NOT NULL DEFAULT nextval('blood_groups_id_seq'::regclass),
-  blood_type character varying NOT NULL UNIQUE,
-  CONSTRAINT blood_groups_pkey PRIMARY KEY (id)
-);
-```
+### Security & Auditing
+**Table:** `user_access_logs`
+- **Purpose:** Tracks user actions for security and compliance
+- **Key Fields:**
+  - `user_id` (UUID, FK): User performing action
+  - `action` (VARCHAR): Action type
+  - `resource_type`, `resource_id`: Target resource
+  - `ip_address`, `user_agent`: Request metadata
+  - `success` (BOOLEAN), `error_message`: Result tracking
 
-### Notification System
+**Table:** `password_reset_tokens`
+- **Purpose:** Manages password reset functionality
+- **Key Fields:**
+  - `user_profile_id` (UUID, FK): User requesting reset
+  - `token` (TEXT, UNIQUE): Reset token
+  - `expires_at` (TIMESTAMP): Token expiration
+  - `used` (BOOLEAN): Token usage status
 
-#### `notifications`
-System notifications for users.
+## Legacy Tables
 
-```sql
-CREATE TABLE public.notifications (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_id uuid NOT NULL,
-  title character varying NOT NULL,
-  message text NOT NULL,
-  type character varying NOT NULL CHECK (type::text = ANY (ARRAY['report_ready'::character varying, 'verification_update'::character varying, 'system_alert'::character varying, 'assignment'::character varying]::text[])),
-  is_read boolean DEFAULT false,
-  related_resource_type character varying,
-  related_resource_id uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  read_at timestamp with time zone,
-  CONSTRAINT notifications_pkey PRIMARY KEY (id),
-  CONSTRAINT notifications_user_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
-);
-```
+### Profiles (Legacy)
+**Table:** `profiles`
+- **Purpose:** Legacy user profile table (being phased out)
+- **Note:** Links to auth.users, contains role selection functionality
 
-### Audit and Logging
+**Table:** `profile_details`
+- **Purpose:** Extended details for legacy profiles
+- **Note:** Contains clinic and certification information
 
-#### `custom_auth_audit_log`
-Authentication and authorization audit trail.
-
-```sql
-CREATE TABLE public.custom_auth_audit_log (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_profile_id uuid NOT NULL,
-  action character varying NOT NULL,
-  details jsonb,
-  ip_address inet,
-  user_agent text,
-  performed_by uuid,
-  timestamp timestamp with time zone DEFAULT now(),
-  CONSTRAINT custom_auth_audit_log_pkey PRIMARY KEY (id),
-  CONSTRAINT custom_auth_audit_log_user_profile_fkey FOREIGN KEY (user_profile_id) REFERENCES public.user_profiles(id),
-  CONSTRAINT custom_auth_audit_log_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES public.user_profiles(id)
-);
-```
-
-#### `user_access_logs`
-General user activity logging.
-
-```sql
-CREATE TABLE public.user_access_logs (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_id uuid NOT NULL,
-  action character varying NOT NULL,
-  resource_type character varying,
-  resource_id uuid,
-  ip_address inet,
-  user_agent text,
-  success boolean DEFAULT true,
-  error_message text,
-  timestamp timestamp with time zone DEFAULT now(),
-  CONSTRAINT user_access_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT user_access_logs_user_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
-);
-```
-
-### Legacy Profile System
-
-#### `profiles`
-Legacy profile table (appears to be from an older system version).
-
-```sql
-CREATE TABLE public.profiles (
-  id uuid NOT NULL,
-  full_name text,
-  email text,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-  role text CHECK (role = ANY (ARRAY['patient'::text, 'technician'::text, 'clinician'::text, 'pending_selection'::text])),
-  role_confirmed boolean NOT NULL DEFAULT false,
-  CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
-);
-```
-
-#### `profile_details`
-Extended details for legacy profiles.
-
-```sql
-CREATE TABLE public.profile_details (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  profile_id uuid NOT NULL UNIQUE,
-  clinic_name text,
-  specialization text,
-  license_number text,
-  hospital_affiliation text,
-  certification_id text,
-  date_of_birth date,
-  emergency_contact_name text,
-  emergency_contact_phone text,
-  CONSTRAINT profile_details_pkey PRIMARY KEY (id),
-  CONSTRAINT profile_details_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
-);
-```
+**Table:** `predictions`
+- **Purpose:** Legacy prediction storage
+- **Note:** Direct link to auth.users, contains analysis results and report URLs
 
 ## Key Relationships
 
-1. **User Hierarchy**: `user_profiles` → role-specific profiles (`doctor_profiles`, `patient_profiles`, `admin_profiles`)
-2. **Hospital Association**: All users are associated with a hospital through `user_profiles.hospital_id`
-3. **EEG Workflow**: `eeg_sessions` → `eeg_analysis_results` → `reports`
-4. **Doctor-Patient**: Managed through `doctor_patient_relationships` table
-5. **Audit Trail**: All user actions tracked in `custom_auth_audit_log` and `user_access_logs`
+1. **Hospital-Centric Design:** All users belong to a hospital
+2. **Role-Based Access:** Users have specific roles with corresponding profile tables
+3. **EEG Workflow:** Sessions → Analysis → Reports
+4. **Doctor-Patient Assignment:** Flexible many-to-many relationships
+5. **Audit Trail:** Comprehensive logging of authentication and access
 
-## Important Notes
+## Data Flow
 
-- All tables use UUID primary keys for better scalability
-- Comprehensive audit logging is implemented throughout
-- Role-based access control is enforced at the database level
-- The system supports multiple hospitals with isolated data
-- EEG analysis supports multiple analysis types (binary, multiclass, regression)
-- Report generation is role-specific with access controls
+1. **User Registration:** Hospital admin creates user profiles
+2. **Role Assignment:** Users get role-specific profiles (patient/doctor/admin)
+3. **EEG Session Creation:** Doctors create sessions for patients
+4. **Analysis Processing:** ML system processes EEG data and stores results
+5. **Report Generation:** System generates role-appropriate reports
+6. **Access Management:** Reports distributed based on permissions
+
+## Security Features
+
+- Phone and email verification
+- Account lockout after failed attempts
+- Audit logging for all authentication events
+- User access logging for compliance
+- Password reset token management
+- Role-based permissions system

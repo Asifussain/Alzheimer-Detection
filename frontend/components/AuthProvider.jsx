@@ -73,7 +73,8 @@ const generateHospitalBasedId = (hospitalCode, role, sequence) => {
   const rolePrefix = {
     'patient': 'PAT',
     'doctor': 'DOC', 
-    'admin': 'ADM'
+    'admin': 'ADM',
+    'radiologist': 'RAD'
   };
   
   const prefix = rolePrefix[role] || 'USR';
@@ -87,7 +88,6 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(undefined);
   const [hospitalData, setHospitalData] = useState(undefined);
   const [isLoading, setIsLoading] = useState(true);
-<<<<<<< HEAD
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [authType, setAuthType] = useState(null); // 'supabase' or 'email'
   const router = useRouter();
@@ -185,6 +185,11 @@ export const AuthProvider = ({ children }) => {
               employee_id,
               department,
               permissions
+            ),
+            radiologist_profiles!radiologist_profiles_user_fkey(
+              radiologist_license,
+              imaging_expertise,
+              experience_years
             )
           `)
           .eq('id', currentUser.id)
@@ -660,6 +665,13 @@ export const useAdminData = () => {
   // Handle both array and single object cases
   const adminProfiles = userProfile?.admin_profiles;
   return Array.isArray(adminProfiles) ? adminProfiles?.[0] : adminProfiles || null;
+};
+
+export const useRadiologistData = () => {
+  const { userProfile } = useAuth();
+  // Handle both array and single object cases
+  const radiologistProfiles = userProfile?.radiologist_profiles;
+  return Array.isArray(radiologistProfiles) ? radiologistProfiles?.[0] : radiologistProfiles || null;
 };
 
 export const useHospital = () => {

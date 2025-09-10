@@ -12,6 +12,7 @@ function PatientDashboard() {
   const hospitalData = useHospital();
   const [recentSessions, setRecentSessions] = useState([]);
   const [assignedDoctor, setAssignedDoctor] = useState(null);
+  const [patientReports, setPatientReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
 
@@ -72,6 +73,27 @@ function PatientDashboard() {
         if (!doctorError) {
           doctorInfo = doctorData;
         }
+      }
+
+      // Fetch patient reports
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          eeg_sessions!session_id(
+            session_code,
+            filename,
+            session_date
+          )
+        `)
+        .eq('report_type', 'patient')
+        .eq('generated_for_user_id', userProfile.id)
+        .eq('is_accessible', true)
+        .order('generated_at', { ascending: false })
+        .limit(10);
+
+      if (!reportsError) {
+        setPatientReports(reportsData || []);
       }
 
       setRecentSessions(sessionsData || []);
@@ -274,6 +296,51 @@ function PatientDashboard() {
             ) : (
               <p className={styles.noSessionsMessage}>
                 No EEG sessions found. Your doctor will upload and analyze your EEG data.
+              </p>
+            )}
+          </div>
+
+          {/* Patient Reports */}
+          <div className={styles.reportsCard}>
+            <h3>My EEG Reports</h3>
+            {patientReports.length > 0 ? (
+              <div className={styles.reportsList}>
+                {patientReports.map((report) => (
+                  <div key={report.id} className={styles.reportItem}>
+                    <div className={styles.reportHeader}>
+                      <h4>EEG Analysis Report</h4>
+                      <span className={styles.reportDate}>
+                        {formatDate(report.generated_at)}
+                      </span>
+                    </div>
+                    <div className={styles.reportDetails}>
+                      <p><strong>Session:</strong> {report.eeg_sessions?.session_code}</p>
+                      <p><strong>File:</strong> {report.eeg_sessions?.filename}</p>
+                      <p><strong>Session Date:</strong> {formatDate(report.eeg_sessions?.session_date)}</p>
+                      {report.access_expires_at && (
+                        <p><strong>Access Expires:</strong> {formatDate(report.access_expires_at)}</p>
+                      )}
+                    </div>
+                    <div className={styles.reportActions}>
+                      <button
+                        className={styles.downloadButton}
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = report.report_url;
+                          link.download = `patient-report-${report.eeg_sessions?.session_code || report.id}.pdf`;
+                          link.target = '_blank';
+                          link.click();
+                        }}
+                      >
+                        📄 Download Report
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.noReportsMessage}>
+                No reports available yet. Reports will appear here after your EEG analysis is completed.
               </p>
             )}
           </div>

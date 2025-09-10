@@ -1686,6 +1686,593 @@
   font-size: 1rem;
 }
 
+/* Radiologist-specific styles */
+.selectionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.selectionPanel {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.selectionPanel h3 {
+  color: #3b82f6;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.listItem {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.listItem:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.selectedItem {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+.itemInfo h4 {
+  color: #f1f5f9;
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.itemInfo p {
+  color: #94a3b8;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.itemMeta {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.actionSection {
+  text-align: center;
+  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 12px;
+  margin-top: 2rem;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.primaryButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.secondaryButton {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.secondaryButton:hover {
+  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+}
+
+.pageHeader {
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.8);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  margin-bottom: 2rem;
+}
+
+.pageHeader h1 {
+  color: #f1f5f9;
+  margin: 0.5rem 0;
+  font-size: 2rem;
+}
+
+.pageHeader p {
+  color: #94a3b8;
+  margin: 0.25rem 0;
+}
+
+.backButton {
+  background: rgba(71, 85, 105, 0.6);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.backButton:hover {
+  background: rgba(71, 85, 105, 0.8);
+  color: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+.contentSection {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.contentSection h2 {
+  color: #3b82f6;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.infoCard {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.infoCard h3 {
+  color: #3b82f6;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.infoCard p {
+  color: #cbd5e1;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.infoCard strong {
+  color: #f1f5f9;
+}
+
+.sessionsTable {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table th {
+  background: rgba(59, 130, 246, 0.2);
+  color: #f1f5f9;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.table td {
+  padding: 1rem;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+}
+
+.table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.mainContent {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.sectionHeader h2 {
+  color: #f1f5f9;
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.sectionHeader p {
+  color: #94a3b8;
+  margin: 0.25rem 0 0 0;
+  font-size: 1rem;
+}
+
+/* Form styles for create session */
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.fileInput {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 2px dashed rgba(59, 130, 246, 0.3) !important;
+  padding: 1rem !important;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.fileInput:hover {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  background: rgba(30, 41, 59, 1) !important;
+}
+
+.inputNote {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.electrodeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.electrodeButton {
+  padding: 0.75rem;
+  background: rgba(71, 85, 105, 0.4);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.electrodeButton:hover {
+  background: rgba(71, 85, 105, 0.6);
+  transform: translateY(-1px);
+}
+
+.electrodeButton.selected {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border-color: #3b82f6;
+}
+
+.formActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.errorState,
+.errorAlert {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  color: #fca5a5;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.successAlert {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  color: #86efac;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.errorState h2 {
+  color: #fca5a5;
+  margin-bottom: 1rem;
+}
+
+.errorState p {
+  color: #fca5a5;
+  margin-bottom: 1rem;
+}
+
+/* Session details specific styles */
+.notesSection {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.notesSection h3 {
+  color: #3b82f6;
+  margin-bottom: 0.5rem;
+}
+
+.analysisPrompt,
+.processingState {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.processingState h3 {
+  color: #f59e0b;
+  margin: 1rem 0;
+}
+
+.analysisResults {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  padding: 2rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.analysisResults h3 {
+  color: #22c55e;
+  margin-bottom: 1.5rem;
+}
+
+.resultsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.resultCard {
+  background: rgba(30, 41, 59, 0.8);
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.resultCard h4 {
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.predictionResult {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #22c55e;
+  margin: 0;
+}
+
+.confidenceScore {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #3b82f6;
+  margin: 0;
+}
+
+.probabilitiesSection {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+}
+
+.probabilitiesSection h4 {
+  color: #3b82f6;
+  margin-bottom: 1rem;
+}
+
+.probabilitiesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.probabilityItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+}
+
+.className {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.probabilityValue {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.reportsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.reportCard {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.reportCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.reportInfo h3 {
+  color: #f1f5f9;
+  margin-bottom: 1rem;
+}
+
+.reportInfo p {
+  color: #94a3b8;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.reportActions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.accessStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.accessible {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.restricted {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Status badges for sessions */
+.statusBadge.uploaded {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.statusBadge.processing {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.statusBadge.completed {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.statusBadge.failed {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Radiologist role chip */
+.roleChip.radiologist {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.roleTag.radiologist {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .dashboardContent {
@@ -1727,5 +2314,41 @@
   .verificationActions {
     justify-content: stretch;
     flex-direction: column;
+  }
+  
+  /* Responsive radiologist styles */
+  .selectionGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .electrodeGrid {
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  }
+  
+  .resultsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .reportsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .formActions {
+    flex-direction: column;
+  }
+  
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    justify-content: center;
   }
 }

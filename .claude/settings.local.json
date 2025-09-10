@@ -21,7 +21,16 @@
       "Bash(git pull:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\api\\admin/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\components\\admin/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\technician/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\doctor/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\doctor/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\patient/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app\\frontend\\pages\\patient/**)",
+      "Read(/C:\\Users\\sathw\\OneDrive\\Desktop\\alzheimer-detection-app/**)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
