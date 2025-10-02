@@ -129,7 +129,7 @@ export default async function handler(req, res) {
       let allUsersQuery = supabaseAdmin
         .from('user_profiles')
         .select('id, full_name, email, role, account_status, created_at, phone, unique_identifier');
-      
+
       if (hospitalId) {
         allUsersQuery = allUsersQuery.eq('hospital_id', hospitalId);
       }
@@ -146,7 +146,7 @@ export default async function handler(req, res) {
         .from('user_profiles')
         .select('*')
         .eq('account_status', 'pending');
-      
+
       if (hospitalId) {
         pendingUsersQuery = pendingUsersQuery.eq('hospital_id', hospitalId);
       }
@@ -158,13 +158,24 @@ export default async function handler(req, res) {
         console.error('Pending users fetch error:', pendingError);
       }
 
-      // Get active patients
+      // Get active patients with safer query
+      // Use ! hint to specify which foreign key relationship to use
       let patientsQuery = supabaseAdmin
         .from('user_profiles')
-        .select('*')
+        .select(`
+          *,
+          patient_profiles!patient_profiles_user_fkey(
+            patient_id,
+            blood_group_id,
+            verification_status,
+            assigned_doctor_id,
+            medical_history,
+            blood_groups(blood_type)
+          )
+        `)
         .eq('role', 'patient')
         .eq('account_status', 'active');
-      
+
       if (hospitalId) {
         patientsQuery = patientsQuery.eq('hospital_id', hospitalId);
       }
@@ -176,13 +187,59 @@ export default async function handler(req, res) {
         console.error('Patients fetch error:', patientsError);
       }
 
-      // Get active doctors
+      // Enhance patients with assigned doctor info (optimized)
+      if (patients && patients.length > 0) {
+        // Get all unique doctor IDs
+        const doctorIds = [...new Set(
+          patients
+            .map(p => p.patient_profiles?.[0]?.assigned_doctor_id)
+            .filter(Boolean)
+        )];
+
+        // Fetch all assigned doctors in one query
+        let assignedDoctors = {};
+        if (doctorIds.length > 0) {
+          const { data: doctors } = await supabaseAdmin
+            .from('user_profiles')
+            .select('id, full_name, email')
+            .in('id', doctorIds);
+
+          // Create a lookup map
+          if (doctors) {
+            assignedDoctors = doctors.reduce((acc, doctor) => {
+              acc[doctor.id] = doctor;
+              return acc;
+            }, {});
+          }
+        }
+
+        // Enhance patient data with assigned doctor info
+        for (let patient of patients) {
+          const doctorId = patient.patient_profiles?.[0]?.assigned_doctor_id;
+          if (doctorId && assignedDoctors[doctorId]) {
+            patient.patient_profiles[0].assigned_doctor = {
+              user_profiles: assignedDoctors[doctorId]
+            };
+          }
+        }
+      }
+
+      // Get active doctors with profile data
+      // Use ! hint to specify which foreign key relationship to use
       let doctorsQuery = supabaseAdmin
         .from('user_profiles')
-        .select('*')
+        .select(`
+          *,
+          doctor_profiles!doctor_profiles_user_fkey(
+            medical_license,
+            specialization,
+            experience_years,
+            verification_status
+          )
+        `)
         .eq('role', 'doctor')
         .eq('account_status', 'active');
-      
+
       if (hospitalId) {
         doctorsQuery = doctorsQuery.eq('hospital_id', hospitalId);
       }
@@ -309,10 +366,12 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Admin users API error:', error);
-    return res.status(500).json({ 
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({
       error: 'Internal server error',
       details: error.message,
-      suggestion: 'Check your Supabase configuration and database permissions'
+      suggestion: 'Check your Supabase configuration and database permissions',
+      timestamp: new Date().toISOString()
     });
   }
 }

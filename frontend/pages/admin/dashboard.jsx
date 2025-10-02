@@ -1,330 +1,201 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../components/AuthProvider';
 import withAuth from '../../components/withAuth';
 import Navbar from '../../components/Navbar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AddUserInterface from '../../components/admin/AddUserInterface';
-import EmailManagement from '../../components/admin/EmailManagement';
 import supabase from '../../lib/supabaseClient';
-import styles from '../../styles/DashboardLayout.module.css';
+import styles from '../../styles/AdminDashboard.module.css';
+
+// Custom Icons (SVG)
+const Icons = {
+  Dashboard: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="14" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/>
+    </svg>
+  ),
+  Users: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  UserPlus: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="8.5" cy="7" r="4"/>
+      <line x1="20" y1="8" x2="20" y2="14"/>
+      <line x1="23" y1="11" x2="17" y2="11"/>
+    </svg>
+  ),
+  CheckCircle: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+      <polyline points="22 4 12 14.01 9 11.01"/>
+    </svg>
+  ),
+  Heart: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  Stethoscope: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+      <circle cx="20" cy="10" r="2"/>
+    </svg>
+  ),
+  Activity: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+  ),
+  Menu: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  ),
+  ChevronLeft: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  ),
+  AlertCircle: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  ),
+};
 
 function AdminDashboard() {
   const { user, userProfile, hospitalData } = useAuth();
-  // CRITICAL FIX: Persist active tab to prevent losing state on refresh
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('admin_active_tab') || 'overview';
-    }
-    return 'overview';
-  });
+  const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
-    pendingPatients: 0,
-    pendingDoctors: 0,
-    pendingRadiologists: 0,
-    activeAdmins: 0,
+    pendingApprovals: 0,
     activePatients: 0,
     activeDoctors: 0,
     activeRadiologists: 0,
-    unassignedPatients: 0
+    unassignedPatients: 0,
   });
-  
-  // User management state
+
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allPatients, setAllPatients] = useState([]);
   const [allDoctors, setAllDoctors] = useState([]);
-  const [assignmentMode, setAssignmentMode] = useState(null);
+  const [allRadiologists, setAllRadiologists] = useState([]);
+
+  // Assignment modal states
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [selectedUserForApproval, setSelectedUserForApproval] = useState(null);
-  const [error, setError] = useState('');
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // CRITICAL FIX: Stable useEffect to prevent refresh issues
-  useEffect(() => {
-    let isMounted = true;
-    let timeoutId;
-    
-    const initializeDashboard = async () => {
-            console.log('User:', user ? 'Authenticated' : 'Not authenticated');
-      console.log('UserProfile:', userProfile ? `Role: ${userProfile.role}` : 'Not loaded');
-      
-      // Wait for both user and userProfile to be loaded
-      if (!user || !userProfile) {
-                return;
-      }
+  // Patient detail modal
+  const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
+  const [showPatientDetailModal, setShowPatientDetailModal] = useState(false);
 
-      if (userProfile.role !== 'admin') {
-                setError('Admin access required');
-        setIsLoading(false);
-        return;
-      }
+  // Approval modal
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
 
-      // Fetch hospital data if not already loaded
-      if (!hospitalData && userProfile.hospital_id) {
-                await fetchHospitalData();
-      }
+  const fetchDashboardData = useCallback(async () => {
+    // Get hospital_id with fallback
+    const hospitalId = userProfile?.hospital_id || hospitalData?.id;
 
-      // Add a small delay to ensure stable state before fetching data
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          fetchDashboardData();
-        }
-      }, 100);
-    };
+    console.log('Admin Dashboard - Starting data fetch', {
+      userProfile,
+      hospitalData,
+      hospitalId
+    });
 
-    initializeDashboard();
-
-    // Cleanup function to prevent memory leaks and unwanted calls
-    return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [user?.id, userProfile?.id, userProfile?.role]); // More stable dependencies
-
-  // CRITICAL FIX: Stable tab switching with persistence
-  const handleTabChange = (newTab) => {
-        setActiveTab(newTab);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('admin_active_tab', newTab);
-    }
-  };
-
-  // ENTERPRISE FIX: Add visibility change handler to prevent data loss
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-                // Save current state to sessionStorage when page becomes hidden
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('admin_active_tab', activeTab);
-          sessionStorage.setItem('admin_dashboard_last_active', Date.now().toString());
-        }
-      } else {
-                // Check if we need to refresh data when page becomes visible again
-        const lastActive = sessionStorage.getItem('admin_dashboard_last_active');
-        if (lastActive && Date.now() - parseInt(lastActive) > 300000) { // 5 minutes
-                    fetchDashboardData(true);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [activeTab]);
-
-  const fetchHospitalData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('hospitals')
-        .select('*')
-        .eq('id', userProfile.hospital_id)
-        .single();
-
-      if (error) {
-        setIsLoading(false);
-        return;
-      }
-
-      if (data) {
-        fetchDashboardData();
-      }
-    } catch (error) {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchDashboardData = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
-                  console.log('User:', user);
-
-      // Check if user profile is loaded
-      if (!userProfile) {
-                setIsLoading(false);
-        return;
-      }
-
-      if (userProfile.role !== 'admin') {
-                setError('Admin access required');
-        setIsLoading(false);
-        return;
-      }
-
-      // ENTERPRISE FIX: Add caching to improve performance
-      const cacheKey = `admin_dashboard_${userProfile?.hospital_id}`;
-      const cachedData = sessionStorage.getItem(cacheKey);
-      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-      
-      // Use cache if data is less than 30 seconds old and not forcing refresh
-      if (!forceRefresh && cachedData && cacheTimestamp) {
-        const age = Date.now() - parseInt(cacheTimestamp);
-        if (age < 30000) {
-                    const parsed = JSON.parse(cachedData);
-          setPendingUsers(parsed.pendingUsers || []);
-          setAllPatients(parsed.patients || []);
-          setAllDoctors(parsed.doctors || []);
-          setDashboardStats(parsed.stats || {});
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Get the current session token for API authentication
       const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                setError('Authentication required. Please log in again.');
+
+      console.log('Session status:', !!session?.access_token);
+
+      if (!session?.access_token) {
+        setError('Authentication required');
         setIsLoading(false);
         return;
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      console.log('Fetching from API...');
 
-      // Try APIs in order of preference
-      let response;
-      let apiUsed = 'unknown';
-      
-      try {
-        console.log('Trying simple API...');
-        response = await fetch('/api/admin/users-simple', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        });
-        apiUsed = 'simple';
-        console.log('Simple API response status:', response.status);
-      } catch (simpleError) {
-        console.warn('Simple API failed, trying complex API:', simpleError.message);
-        try {
-          response = await fetch('/api/admin/users', {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            signal: controller.signal
-          });
-          apiUsed = 'complex';
-          console.log('Complex API response status:', response.status);
-        } catch (complexError) {
-          console.warn('Complex API failed, trying demo API:', complexError.message);
-          response = await fetch('/api/admin/demo-data', {
-            signal: controller.signal
-          });
-          apiUsed = 'demo';
-          console.log('Demo API response status:', response.status);
+      const response = await fetch('/api/admin/users-simple', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         }
-      }
+      });
 
-      clearTimeout(timeoutId);
+      console.log('API Response status:', response.status);
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
-        }
-        
-        console.error('API Error Response:', errorData);
-        
-        if (response.status === 401) {
-          throw new Error('Authentication failed. Please log in again.');
-        } else if (response.status === 403) {
-          throw new Error('Access denied. Admin privileges required.');
-        } else if (response.status === 500 && errorData.message) {
-          throw new Error(errorData.message);
-        } else {
-          throw new Error(errorData.error || `Server error: ${response.status}`);
-        }
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const result = await response.json();
-            if (result.success && result.data) {
-        const { pendingUsers, patients, doctors, stats } = result.data;
-        
-                console.log('- Pending users:', pendingUsers?.length || 0);
-        console.log('- Patients:', patients?.length || 0); 
-        console.log('- Doctors:', doctors?.length || 0);
-        console.log('- Stats:', stats);
-        
+      console.log('API Result:', result);
+
+      if (result.success && result.data) {
+        const { pendingUsers, patients, doctors, radiologists, stats } = result.data;
+
+        console.log('Dashboard data received:', {
+          patientsCount: patients?.length,
+          doctorsCount: doctors?.length,
+          sampleDoctor: doctors?.[0],
+          samplePatient: patients?.[0]
+        });
+
         setPendingUsers(pendingUsers || []);
         setAllPatients(patients || []);
         setAllDoctors(doctors || []);
-        setDashboardStats(stats || {
-          totalUsers: 0,
-          pendingPatients: 0,
-          pendingDoctors: 0,
-          pendingRadiologists: 0,
-          activeAdmins: 0,
-          activePatients: 0,
-          activeDoctors: 0,
-          activeRadiologists: 0,
-          unassignedPatients: 0
+        setAllRadiologists(radiologists || []);
+
+        setDashboardStats({
+          totalUsers: stats?.totalUsers || 0,
+          pendingApprovals: (stats?.pendingPatients || 0) + (stats?.pendingDoctors || 0) + (stats?.pendingRadiologists || 0),
+          activePatients: stats?.activePatients || 0,
+          activeDoctors: stats?.activeDoctors || 0,
+          activeRadiologists: stats?.activeRadiologists || 0,
+          unassignedPatients: (patients || []).filter(p => !p.patient_profiles?.[0]?.assigned_doctor_id).length,
         });
-
-                // Only cache real data, not demo data
-        if (apiUsed !== 'demo') {
-          sessionStorage.setItem(cacheKey, JSON.stringify(result.data));
-          sessionStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
-        }
-        
-        // Show message if using demo data
-        if (apiUsed === 'demo') {
-          console.warn('Using demo data - check your database configuration');
-        }
-        
-      } else {
-        throw new Error(`Invalid API response format from ${apiUsed} API`);
       }
-
     } catch (error) {
-      console.error('Dashboard data fetch error:', error);
-      if (error.name === 'AbortError') {
-        console.warn('Request timed out');
-        setError('Request timed out. Please check your network connection.');
-      } else {
-        console.warn('Failed to load dashboard data:', error.message);
-        setError(`Failed to load dashboard data: ${error.message}`);
-      }
-      
-      // Set empty data to prevent crashes
-      setPendingUsers([]);
-      setAllPatients([]);
-      setAllDoctors([]);
-      setDashboardStats({
-        totalUsers: 0,
-        pendingPatients: 0,
-        pendingDoctors: 0,
-        pendingRadiologists: 0,
-        activeAdmins: 0,
-        activePatients: 0,
-        activeDoctors: 0,
-        activeRadiologists: 0,
-        unassignedPatients: 0
-      });
+      console.error('Failed to fetch dashboard data:', error);
+      setError('Failed to load dashboard data');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userProfile]);
 
-
-  const handleViewUserDetails = (user) => {
-    setSelectedUserForApproval(user);
-    setShowUserModal(true);
-  };
+  useEffect(() => {
+    if (user && userProfile && userProfile.role === 'admin') {
+      fetchDashboardData();
+    }
+  }, [user, userProfile, fetchDashboardData]);
 
   const handleApproveUser = async (userId, role) => {
     try {
-      setIsLoading(true);
-      
-      const userBefore = pendingUsers.find(u => u.id === userId);
-      
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const response = await fetch('/api/admin/approve', {
         method: 'POST',
         headers: {
@@ -334,745 +205,671 @@ function AdminDashboard() {
         body: JSON.stringify({ userId, role, action: 'approve' })
       });
 
-      const result = await response.json();
+      if (!response.ok) throw new Error('Approval failed');
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to approve user');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setPendingUsers(prev => prev.filter(u => u.id !== userId));
-      
-      setDashboardStats(prev => ({
-        ...prev,
-        pendingPatients: role === 'patient' ? prev.pendingPatients - 1 : prev.pendingPatients,
-        pendingDoctors: role === 'doctor' ? prev.pendingDoctors - 1 : prev.pendingDoctors,
-        activePatients: role === 'patient' ? prev.activePatients + 1 : prev.activePatients,
-        activeDoctors: role === 'doctor' ? prev.activeDoctors + 1 : prev.activeDoctors,
-      }));
-
-      setShowUserModal(false);
-      setSelectedUserForApproval(null);
-      
-      const cacheKey = `admin_dashboard_${userProfile?.hospital_id}`;
-      sessionStorage.removeItem(cacheKey);
-      sessionStorage.removeItem(`${cacheKey}_timestamp`);
-      
-      await fetchDashboardData(true);
-      
-      alert(`User ${userBefore?.full_name} approved successfully!`);
-      
+      setShowApprovalModal(false);
+      setSelectedUser(null);
+      fetchDashboardData();
     } catch (error) {
-      alert(`Error approving user: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Approval error:', error);
+      alert('Failed to approve user');
     }
   };
 
   const handleRejectUser = async (userId) => {
     try {
-      const user = pendingUsers.find(u => u.id === userId);
-      
-      if (!confirm(`Are you sure you want to reject ${user?.full_name || 'this user'}?`)) {
-        return;
-      }
-
-      setIsLoading(true);
-      
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const response = await fetch('/api/admin/approve', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ userId, role: user.role, action: 'reject' })
+        body: JSON.stringify({ userId, action: 'reject' })
+      });
+
+      if (!response.ok) throw new Error('Rejection failed');
+
+      setShowApprovalModal(false);
+      setSelectedUser(null);
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Rejection error:', error);
+      alert('Failed to reject user');
+    }
+  };
+
+  const handleAssignDoctor = async () => {
+    if (!selectedPatient || !selectedDoctor) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch('/api/admin/assign-doctor', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patient_id: selectedPatient.id,
+          doctor_id: selectedDoctor.id
+        })
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to reject user');
+        throw new Error(result.error || 'Failed to assign doctor');
       }
 
-      setPendingUsers(prev => prev.filter(u => u.id !== userId));
-      
-      setDashboardStats(prev => ({
-        ...prev,
-        pendingPatients: user.role === 'patient' ? prev.pendingPatients - 1 : prev.pendingPatients,
-        pendingDoctors: user.role === 'doctor' ? prev.pendingDoctors - 1 : prev.pendingDoctors,
-      }));
-
-      setShowUserModal(false);
-      setSelectedUserForApproval(null);
-      
-      const cacheKey = `admin_dashboard_${userProfile?.hospital_id}`;
-      sessionStorage.removeItem(cacheKey);
-      sessionStorage.removeItem(`${cacheKey}_timestamp`);
-      
-    } catch (error) {
-      alert('Error rejecting user. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAssignDoctor = async (patientId, doctorId) => {
-    try {
-      const { error } = await supabase
-        .from('patient_profiles')
-        .update({ 
-          assigned_doctor_id: doctorId,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', patientId);
-
-      if (error) throw error;
-      
-      fetchDashboardData();
-      setAssignmentMode(null);
+      alert(result.message || 'Doctor assigned successfully!');
+      setShowAssignModal(false);
       setSelectedPatient(null);
-      alert('Doctor assigned successfully!');
+      setSelectedDoctor(null);
+      fetchDashboardData();
     } catch (error) {
-      alert('Error assigning doctor. Please try again.');
+      console.error('Assignment error:', error);
+      alert(error.message || 'Failed to assign doctor');
     }
   };
 
-  // Handler for when a new user is created
-  const handleUserCreated = (newUserData) => {
-    // Clear cache and refresh data
-    const cacheKey = `admin_dashboard_${userProfile?.hospital_id}`;
-    sessionStorage.removeItem(cacheKey);
-    sessionStorage.removeItem(`${cacheKey}_timestamp`);
-    
-    // Refresh dashboard data
-    fetchDashboardData(true);
-  };
+  const filteredDoctors = allDoctors.filter(doc =>
+    doc.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.doctor_profiles?.[0]?.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-
-  const renderOverview = () => {
-    if (error) {
-      return (
-        <div className={styles.errorSection}>
-          <div className={styles.errorIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,2L13.09,8.26L22,9L17.5,13.74L18.18,22L12,17.77L5.82,22L6.5,13.74L2,9L10.91,8.26L12,2Z"/>
-            </svg>
-          </div>
-          <h3>Dashboard Error</h3>
-          <p>{error}</p>
-          <div className={styles.errorActions}>
-            <button onClick={() => {
-              setError('');
-              fetchDashboardData(true);
-            }} className={styles.retryButton}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{marginRight: '8px'}}>
-                <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
-              </svg>
-              Retry Loading Data
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-    <div className={styles.overviewGrid}>
-      <div 
-        className={styles.statCard}
-        onClick={() => handleTabChange('patients')}
-      >
-        <div className={styles.statIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-        </div>
-        <div className={styles.statContent}>
-          <h3>Total Users</h3>
-          <div className={styles.statNumber}>{dashboardStats.totalUsers || 0}</div>
-          <p className={styles.statBreakdown}>
-            {dashboardStats.activeAdmins || 0} admins, {dashboardStats.activePatients || 0} patients, {dashboardStats.activeDoctors || 0} doctors{dashboardStats.activeRadiologists ? `, ${dashboardStats.activeRadiologists} radiologists` : ''}
-          </p>
-        </div>
-      </div>
-
-      <div 
-        className={styles.statCard}
-        onClick={() => handleTabChange('approvals')}
-      >
-        <div className={styles.statIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C12.83,10.5 13.5,9.83 13.5,9V7.5C13.5,6.67 12.83,6 12,6C11.17,6 10.5,6.67 10.5,7.5V9C10.5,9.83 11.17,10.5 12,10.5Z"/>
-          </svg>
-        </div>
-        <div className={styles.statContent}>
-          <h3>Pending Reviews</h3>
-          <div className={styles.statNumber}>{(dashboardStats.pendingPatients || 0) + (dashboardStats.pendingDoctors || 0) + (dashboardStats.pendingRadiologists || 0)}</div>
-          <p className={styles.statBreakdown}>
-            {dashboardStats.pendingPatients || 0} patients, {dashboardStats.pendingDoctors || 0} doctors{dashboardStats.pendingRadiologists ? `, ${dashboardStats.pendingRadiologists} radiologists` : ''} awaiting approval
-          </p>
-        </div>
-      </div>
-
-      <div 
-        className={styles.statCard}
-        onClick={() => handleTabChange('patients')}
-      >
-        <div className={styles.statIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-        </div>
-        <div className={styles.statContent}>
-          <h3>Active Accounts</h3>
-          <div className={styles.statNumber}>{(dashboardStats.activeAdmins || 0) + (dashboardStats.activePatients || 0) + (dashboardStats.activeDoctors || 0) + (dashboardStats.activeRadiologists || 0)}</div>
-          <p className={styles.statBreakdown}>
-            Verified and operational user accounts
-          </p>
-        </div>
-      </div>
-
-      <div 
-        className={styles.statCard}
-        onClick={() => handleTabChange('assignments')}
-      >
-        <div className={styles.statIcon}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19,19H5V5H19M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M11,7H13V9H16V11H13V14H11V11H8V9H11V7Z"/>
-          </svg>
-        </div>
-        <div className={styles.statContent}>
-          <h3>Patient Assignments</h3>
-          <div className={styles.statNumber}>{dashboardStats.unassignedPatients || 0}</div>
-          <p className={styles.statBreakdown}>
-            Patients requiring doctor assignment
-          </p>
-        </div>
-      </div>
-    </div>
-    );
-  };
-
-  const renderPendingApprovals = () => {
-    if (error) {
-      return (
-        <div className={styles.errorSection}>
-          <div className={styles.errorIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,2L13.09,8.26L22,9L13.09,9.74L12,16L10.91,9.74L2,9L10.91,8.26L12,2M12,7A2,2 0 0,0 10,9A2,2 0 0,0 12,11A2,2 0 0,0 14,9A2,2 0 0,0 12,7Z"/>
-            </svg>
-          </div>
-          <h3>Cannot Load Pending Approvals</h3>
-          <p>{error}</p>
-          <button onClick={() => {
-            setError('');
-            fetchDashboardData(true);
-          }} className={styles.retryButton}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px' }}>
-              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-            </svg>
-            Retry Loading Data
-          </button>
-        </div>
-      );
-    }
-    
-    return (
-    <div className={styles.approvalSection}>
-      <div className={styles.sectionHeader}>
-        <h2>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-            <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
-          </svg>
-          User Approvals
-        </h2>
-        <div className={styles.statsChips}>
-          <span className={styles.chip}>
-            {pendingUsers.length} Pending
-          </span>
-          <button 
-            onClick={() => fetchDashboardData(true)}
-            className={styles.refreshButton}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-      
-      {pendingUsers.length === 0 ? (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>
-            {isLoading ? (
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-              </svg>
-            ) : (
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
-              </svg>
-            )}
-          </div>
-          <h3>{isLoading ? 'Loading...' : 'All caught up!'}</h3>
-          <p>
-            {isLoading ? 'Fetching pending approvals...' : 'No users waiting for approval'}
-          </p>
-          {!isLoading && (
-            <div className={styles.emptyStateActions}>
-              <button 
-                onClick={() => fetchDashboardData(true)}
-                className={styles.refreshDataButton}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Loading...' : 'Refresh Data'}
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className={styles.approvalList}>
-          {pendingUsers.map(user => (
-            <div key={user.id} className={styles.approvalCard}>
-              <div className={styles.userInfo}>
-                <div className={styles.avatar}>
-                  {user.full_name?.charAt(0)?.toUpperCase()}
-                </div>
-                <div className={styles.userDetails}>
-                  <div className={styles.nameRow}>
-                    <h3>{user.full_name}</h3>
-                    <span className={`${styles.roleChip} ${styles[user.role]}`}>
-                      {user.role}
-                    </span>
-                  </div>
-                  <div className={styles.contactRow}>
-                    <span className={styles.email}>{user.email}</span>
-                    <span className={styles.phone}>{user.phone}</span>
-                  </div>
-                  <div className={styles.idRow}>
-                    <span className={styles.userId}>{user.unique_identifier}</span>
-                    <span className={styles.joinDate}>
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className={styles.actionButtons}>
-                <button 
-                  onClick={() => handleViewUserDetails(user)}
-                  className={styles.viewButton}
-                >
-                  Review Application
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-    );
-  };
-
-  const renderPatientManagement = () => {
-    if (error) {
-      return (
-        <div className={styles.errorSection}>
-          <div className={styles.errorIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,2L13.09,8.26L22,9L13.09,9.74L12,16L10.91,9.74L2,9L10.91,8.26L12,2M12,7A2,2 0 0,0 10,9A2,2 0 0,0 12,11A2,2 0 0,0 14,9A2,2 0 0,0 12,7Z"/>
-            </svg>
-          </div>
-          <h3>Cannot Load Patient Data</h3>
-          <p>{error}</p>
-          <button onClick={() => {
-            setError('');
-            fetchDashboardData(true);
-          }} className={styles.retryButton}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px' }}>
-              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-            </svg>
-            Retry Loading Data
-          </button>
-        </div>
-      );
-    }
-    
-    return (
-    <div className={styles.patientManagement}>
-      <div className={styles.managementHeader}>
-        <h2>Patient Management</h2>
-        <div className={styles.patientStats}>
-          <span>Total: {allPatients.length}</span>
-          <span>Unassigned: {dashboardStats.unassignedPatients}</span>
-        </div>
-      </div>
-      
-      {assignmentMode && (
-        <div className={styles.assignmentModal}>
-          <div className={styles.modalContent}>
-            <h3>Assign Doctor to {selectedPatient?.full_name}</h3>
-            <div className={styles.doctorList}>
-              {allDoctors.map(doctor => (
-                <div key={doctor.id} className={styles.doctorOption} onClick={() => handleAssignDoctor(selectedPatient.id, doctor.id)}>
-                  <div className={styles.doctorInfo}>
-                    <h4>{doctor.full_name}</h4>
-                    <p>{doctor.doctor_profiles?.[0]?.specialization}</p>
-                    <p>{doctor.doctor_profiles?.[0]?.experience_years} years experience</p>
-                    <p>Current patients: {doctor.doctor_profiles?.[0]?.patient_count || 0}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => { setAssignmentMode(false); setSelectedPatient(null); }} className={styles.cancelBtn}>Cancel</button>
-          </div>
-        </div>
-      )}
-      
-      <div className={styles.patientGrid}>
-        {allPatients.map(patient => (
-          <div key={patient.id} className={styles.patientCard}>
-            <div className={styles.patientHeader}>
-              <h3>{patient.full_name}</h3>
-              <span className={styles.patientId}>{patient.unique_identifier}</span>
-            </div>
-            
-            <div className={styles.patientDetails}>
-              <p><strong>Phone:</strong> {patient.phone}</p>
-              <p><strong>Blood Group:</strong> {patient.patient_profiles?.[0]?.blood_groups?.blood_type || 'N/A'}</p>
-              <p><strong>Emergency Contact:</strong> {patient.patient_profiles?.[0]?.emergency_contact_name || 'N/A'}</p>
-              
-              {patient.patient_profiles?.[0]?.assigned_doctor ? (
-                <div className={styles.assignedDoctor}>
-                  <p><strong>Assigned Doctor:</strong></p>
-                  <p>{patient.patient_profiles[0].assigned_doctor?.user_profiles?.full_name || 'Loading...'}</p>
-                </div>
-              ) : (
-                <div className={styles.unassigned}>
-                  <p><strong>Status:</strong> Unassigned</p>
-                  <button 
-                    onClick={() => {
-                      setSelectedPatient(patient);
-                      setAssignmentMode(true);
-                    }}
-                    className={styles.assignBtn}
-                  >
-                    Assign Doctor
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-    );
-  };
-
-  const renderDoctorManagement = () => {
-    if (error) {
-      return (
-        <div className={styles.errorSection}>
-          <div className={styles.errorIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,2L13.09,8.26L22,9L13.09,9.74L12,16L10.91,9.74L2,9L10.91,8.26L12,2M12,7A2,2 0 0,0 10,9A2,2 0 0,0 12,11A2,2 0 0,0 14,9A2,2 0 0,0 12,7Z"/>
-            </svg>
-          </div>
-          <h3>Cannot Load Doctor Data</h3>
-          <p>{error}</p>
-          <button onClick={() => {
-            setError('');
-            fetchDashboardData(true);
-          }} className={styles.retryButton}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px' }}>
-              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-            </svg>
-            Retry Loading Data
-          </button>
-        </div>
-      );
-    }
-    
-    return (
-    <div className={styles.doctorManagement}>
-      <h2>Doctor Management</h2>
-      <div className={styles.doctorGrid}>
-        {allDoctors.map(doctor => (
-          <div key={doctor.id} className={styles.doctorCard}>
-            <div className={styles.doctorHeader}>
-              <h3>{doctor.full_name}</h3>
-              <span className={styles.doctorId}>{doctor.unique_identifier}</span>
-            </div>
-            
-            <div className={styles.doctorDetails}>
-              <p><strong>License:</strong> {doctor.doctor_profiles?.[0]?.medical_license}</p>
-              <p><strong>Specialization:</strong> {doctor.doctor_profiles?.[0]?.specialization}</p>
-              <p><strong>Experience:</strong> {doctor.doctor_profiles?.[0]?.experience_years} years</p>
-              <p><strong>Phone:</strong> {doctor.phone}</p>
-              <p><strong>Patient Count:</strong> {doctor.doctor_profiles?.[0]?.patient_count || 0}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-    );
-  };
+  const navigationItems = [
+    { id: 'overview', label: 'Dashboard', icon: Icons.Dashboard },
+    { id: 'add-user', label: 'Add User', icon: Icons.UserPlus },
+    { id: 'approvals', label: 'Approvals', icon: Icons.CheckCircle, badge: dashboardStats.pendingApprovals },
+    { id: 'patients', label: 'Patients', icon: Icons.Heart, badge: dashboardStats.activePatients },
+    { id: 'doctors', label: 'Doctors', icon: Icons.Stethoscope, badge: dashboardStats.activeDoctors },
+    { id: 'radiologists', label: 'Radiologists', icon: Icons.Activity, badge: dashboardStats.activeRadiologists },
+  ];
 
   if (isLoading && !userProfile) {
     return (
       <div className={styles.loadingContainer}>
         <LoadingSpinner />
-        <p>Loading admin dashboard...</p>
-      </div>
-    );
-  }
-  
-  if (!userProfile) {
-    return (
-      <div className={styles.loadingContainer}>
-        <p>Unable to load user profile. Please try refreshing the page.</p>
+        <p>Loading dashboard...</p>
       </div>
     );
   }
 
-  const renderUserApprovalModal = () => {
-    if (!showUserModal || !selectedUserForApproval) return null;
-
-    const user = selectedUserForApproval;
-
+  if (error && !isLoading) {
     return (
-      <div className={styles.modalOverlay}>
-        <div className={styles.modalContent}>
-          <div className={styles.modalHeader}>
-            <h2>User Application Review</h2>
-            <button 
-              onClick={() => setShowUserModal(false)}
-              className={styles.closeButton}
-            >
-              ×
-            </button>
-          </div>
-
-          <div className={styles.modalBody}>
-            {/* User Overview */}
-            <div className={styles.userOverview}>
-              <div className={styles.userAvatar}>
-                {user.full_name?.charAt(0)?.toUpperCase()}
-              </div>
-              <div className={styles.userBasicInfo}>
-                <h3>{user.full_name}</h3>
-                <span className={`${styles.roleChip} ${styles[user.role]}`}>
-                  {user.role.toUpperCase()}
-                </span>
-                <p className={styles.applicationDate}>
-                  Applied: {new Date(user.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Detailed Information */}
-            <div className={styles.detailSections}>
-              <div className={styles.detailSection}>
-                <h4>Contact Information</h4>
-                <div className={styles.detailGrid}>
-                  <div className={styles.detailItem}>
-                    <label>Email:</label>
-                    <span>{user.email}</span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <label>Phone:</label>
-                    <span>{user.phone}</span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <label>Address:</label>
-                    <span>{user.address}</span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <label>ID:</label>
-                    <span className={styles.uniqueId}>{user.unique_identifier}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Role-specific information */}
-              {user.role === 'patient' && user.patient_profiles?.[0] && (
-                <div className={styles.detailSection}>
-                  <h4>Patient Information</h4>
-                  <div className={styles.detailGrid}>
-                    <div className={styles.detailItem}>
-                      <label>Blood Group:</label>
-                      <span>{user.patient_profiles[0].blood_groups?.blood_type || 'Not specified'}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <label>Emergency Contact:</label>
-                      <span>{user.patient_profiles[0].emergency_contact_name || 'Not specified'}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <label>Emergency Phone:</label>
-                      <span>{user.patient_profiles[0].emergency_contact_phone || 'Not specified'}</span>
-                    </div>
-                    {user.patient_profiles[0].medical_history && (
-                      <div className={styles.detailItem}>
-                        <label>Medical History:</label>
-                        <span>{user.patient_profiles[0].medical_history}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {user.role === 'doctor' && user.doctor_profiles?.[0] && (
-                <div className={styles.detailSection}>
-                  <h4>Doctor Information</h4>
-                  <div className={styles.detailGrid}>
-                    <div className={styles.detailItem}>
-                      <label>Medical License:</label>
-                      <span>{user.doctor_profiles[0].medical_license}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <label>Specialization:</label>
-                      <span>{user.doctor_profiles[0].specialization}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <label>Experience:</label>
-                      <span>{user.doctor_profiles[0].experience_years} years</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <label>Consultation Fee:</label>
-                      <span>${user.doctor_profiles[0].consultation_fee || 'Not specified'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className={styles.modalActions}>
-            <button 
-              onClick={() => handleApproveUser(user.id, user.role)}
-              disabled={isLoading}
-              className={styles.approveButton}
-            >
-              {isLoading ? 'Processing...' : 'Approve Application'}
-            </button>
-            <button 
-              onClick={() => handleRejectUser(user.id)}
-              disabled={isLoading}
-              className={styles.rejectButton}
-            >
-              {isLoading ? 'Processing...' : 'Reject Application'}
-            </button>
-            <button 
-              onClick={() => setShowUserModal(false)}
-              className={styles.cancelButton}
-            >
-              Cancel
+      <>
+        <Navbar />
+        <div className={styles.dashboardContainer}>
+          <div className={styles.errorState}>
+            <h2>Error Loading Dashboard</h2>
+            <p>{error}</p>
+            <button onClick={() => {
+              setError('');
+              fetchDashboardData();
+            }} className={styles.primaryButton}>
+              Retry
             </button>
           </div>
         </div>
-      </div>
+      </>
     );
-  };
+  }
 
   return (
     <>
       <Navbar />
-      {renderUserApprovalModal()}
+
       <div className={styles.dashboardContainer}>
-        <div className={styles.dashboardHeader}>
-          <div className={styles.welcomeSection}>
-            <h1>Admin Dashboard</h1>
-            <p>Welcome, {userProfile?.full_name}</p>
-            <p>Managing {hospitalData?.name || 'Hospital'}</p>
+        {/* Sidebar Navigation */}
+        <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.collapsed : ''}`}>
+          <div className={styles.sidebarHeader}>
+            {!sidebarCollapsed && (
+              <div className={styles.hospitalInfo}>
+                <h3>{hospitalData?.name || 'Hospital'}</h3>
+                <p>{userProfile?.full_name}</p>
+              </div>
+            )}
+            <button
+              className={styles.toggleBtn}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              aria-label="Toggle sidebar"
+            >
+              {sidebarCollapsed ? <Icons.Menu /> : <Icons.ChevronLeft />}
+            </button>
           </div>
-        </div>
 
-        <div className={styles.tabNavigation}>
-          <button 
-            className={activeTab === 'overview' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('overview')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M9,17H15V15H9V17M9,13H15V11H9V13M9,9H15V7H9V9M3,3V21H21V3H3M5,19V5H19V19H5Z"/>
-            </svg>
-            Overview
-          </button>
-          <button 
-            className={activeTab === 'add-user' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('add-user')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M15,14C12.33,14 7,15.33 7,18V20H23V18C23,15.33 17.67,14 15,14M6,10V7H4V10H1V12H4V15H6V12H9V10M15,12A4,4 0 0,0 19,8A4,4 0 0,0 15,4A4,4 0 0,0 11,8A4,4 0 0,0 15,12Z"/>
-            </svg>
-            Add User
-          </button>
-          <button 
-            className={activeTab === 'approvals' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('approvals')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C12.83,10.5 13.5,9.83 13.5,9V7.5C13.5,6.67 12.83,6 12,6C11.17,6 10.5,6.67 10.5,7.5V9C10.5,9.83 11.17,10.5 12,10.5Z"/>
-            </svg>
-            Pending Approvals ({dashboardStats.pendingPatients + dashboardStats.pendingDoctors})
-          </button>
-          <button 
-            className={activeTab === 'patients' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('patients')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            Patients ({dashboardStats.activePatients})
-          </button>
-          <button 
-            className={activeTab === 'doctors' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('doctors')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,18V20H5V18L7,16V14H9V15.5H15V14H17V16L19,18Z"/>
-            </svg>
-            Doctors ({dashboardStats.activeDoctors})
-          </button>
-          <button 
-            className={activeTab === 'emails' ? styles.activeTab : styles.tab}
-            onClick={() => handleTabChange('emails')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
-            </svg>
-            Email Management
-          </button>
-        </div>
+          <nav className={styles.navigation}>
+            {navigationItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`${styles.navItem} ${activeTab === item.id ? styles.active : ''}`}
+                title={sidebarCollapsed ? item.label : ''}
+              >
+                <item.icon />
+                {!sidebarCollapsed && <span>{item.label}</span>}
+                {!sidebarCollapsed && item.badge > 0 && (
+                  <span className={styles.badge}>{item.badge}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        <div className={styles.tabContent}>
-          {/* ENTERPRISE FIX: Keep components mounted to preserve state */}
-          <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
-            {renderOverview()}
-          </div>
-          
-          <div style={{ display: activeTab === 'add-user' ? 'block' : 'none' }}>
-            <AddUserInterface onUserCreated={handleUserCreated} />
-          </div>
-          
-          <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
-            {renderPendingApprovals()}
-          </div>
-          
-          <div style={{ display: activeTab === 'patients' ? 'block' : 'none' }}>
-            {renderPatientManagement()}
-          </div>
-          
-          <div style={{ display: activeTab === 'doctors' ? 'block' : 'none' }}>
-            {renderDoctorManagement()}
-          </div>
-          
-          <div style={{ display: activeTab === 'emails' ? 'block' : 'none' }}>
-            <EmailManagement />
-          </div>
-        </div>
+        {/* Main Content */}
+        <main className={styles.mainContent}>
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className={styles.overviewSection}>
+              <h1 className={styles.pageTitle}>Dashboard Overview</h1>
+
+              <div className={styles.statsGrid}>
+                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
+                  <Icons.Users />
+                  <div>
+                    <h3>Total Users</h3>
+                    <p className={styles.statNumber}>{dashboardStats.totalUsers}</p>
+                  </div>
+                </div>
+
+                <div className={styles.statCard} onClick={() => setActiveTab('approvals')}>
+                  <Icons.AlertCircle />
+                  <div>
+                    <h3>Pending Approvals</h3>
+                    <p className={styles.statNumber}>{dashboardStats.pendingApprovals}</p>
+                  </div>
+                </div>
+
+                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
+                  <Icons.Heart />
+                  <div>
+                    <h3>Active Patients</h3>
+                    <p className={styles.statNumber}>{dashboardStats.activePatients}</p>
+                  </div>
+                </div>
+
+                <div className={styles.statCard}>
+                  <Icons.Stethoscope />
+                  <div>
+                    <h3>Active Doctors</h3>
+                    <p className={styles.statNumber}>{dashboardStats.activeDoctors}</p>
+                  </div>
+                </div>
+
+                <div className={styles.statCard}>
+                  <Icons.Activity />
+                  <div>
+                    <h3>Radiologists</h3>
+                    <p className={styles.statNumber}>{dashboardStats.activeRadiologists}</p>
+                  </div>
+                </div>
+
+                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
+                  <Icons.AlertCircle />
+                  <div>
+                    <h3>Unassigned Patients</h3>
+                    <p className={styles.statNumber}>{dashboardStats.unassignedPatients}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add User Tab */}
+          {activeTab === 'add-user' && (
+            <div className={styles.section}>
+              <h1 className={styles.pageTitle}>Add New User</h1>
+              <AddUserInterface onUserCreated={fetchDashboardData} />
+            </div>
+          )}
+
+          {/* Approvals Tab */}
+          {activeTab === 'approvals' && (
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h1 className={styles.pageTitle}>Pending Approvals</h1>
+                <button onClick={fetchDashboardData} className={styles.refreshBtn}>
+                  Refresh
+                </button>
+              </div>
+
+              {pendingUsers.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.CheckCircle />
+                  <p>No pending approvals</p>
+                </div>
+              ) : (
+                <div className={styles.cardGrid}>
+                  {pendingUsers.map(user => (
+                    <div key={user.id} className={styles.userCard}>
+                      <div className={styles.userCardHeader}>
+                        <div className={styles.avatar}>{user.full_name?.[0]?.toUpperCase()}</div>
+                        <div>
+                          <h3>{user.full_name}</h3>
+                          <span className={`${styles.roleTag} ${styles[user.role]}`}>{user.role}</span>
+                        </div>
+                      </div>
+
+                      <div className={styles.userInfo}>
+                        <p><strong>Email:</strong> {user.email}</p>
+                        <p><strong>Phone:</strong> {user.phone}</p>
+                        <p><strong>ID:</strong> {user.unique_identifier}</p>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowApprovalModal(true);
+                        }}
+                        className={styles.primaryBtn}
+                      >
+                        Review Application
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Patients Tab - Redesigned with Assigned/Unassigned sections */}
+          {activeTab === 'patients' && (
+            <div className={styles.section}>
+              <h1 className={styles.pageTitle}>Patient Management</h1>
+
+              {!allPatients || allPatients.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.Heart />
+                  <p>No patients found</p>
+                  <button onClick={() => setActiveTab('add-user')} className={styles.primaryBtn} style={{width: 'auto', marginTop: '1rem'}}>
+                    Add Patient
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Unassigned Patients Section */}
+                  <div className={styles.patientSection}>
+                    <div className={styles.sectionHeader}>
+                      <h2 className={styles.sectionTitle}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="12" y1="8" x2="12" y2="12"/>
+                          <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        Unassigned Patients ({allPatients.filter(p => {
+                          const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                          return !profile?.assigned_doctor_id;
+                        }).length})
+                      </h2>
+                    </div>
+                    <div className={styles.cardGrid}>
+                      {allPatients
+                        .filter(patient => {
+                          const profile = Array.isArray(patient.patient_profiles)
+                            ? patient.patient_profiles[0]
+                            : patient.patient_profiles;
+                          return !profile?.assigned_doctor_id;
+                        })
+                        .map(patient => {
+                          const profile = Array.isArray(patient.patient_profiles)
+                            ? patient.patient_profiles[0]
+                            : patient.patient_profiles;
+
+                          return (
+                            <div key={patient.id} className={styles.patientCard}>
+                              <div
+                                className={styles.cardHeader}
+                                onClick={() => {
+                                  setSelectedPatientDetail({ ...patient, profile });
+                                  setShowPatientDetailModal(true);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <h3>{patient.full_name}</h3>
+                                <span className={styles.patientId}>{patient.unique_identifier}</span>
+                              </div>
+
+                              <div className={styles.cardBody}>
+                                <p><strong>Phone:</strong> {patient.phone}</p>
+                                <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
+                                <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
+
+                                <button
+                                  onClick={() => {
+                                    setSelectedPatient(patient);
+                                    setShowAssignModal(true);
+                                  }}
+                                  className={styles.assignBtn}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="8.5" cy="7" r="4"/>
+                                    <line x1="20" y1="8" x2="20" y2="14"/>
+                                    <line x1="23" y1="11" x2="17" y2="11"/>
+                                  </svg>
+                                  Assign Doctor
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    {allPatients.filter(p => {
+                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                      return !profile?.assigned_doctor_id;
+                    }).length === 0 && (
+                      <div className={styles.emptySubsection}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <p>All patients have been assigned to doctors</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Assigned Patients Section */}
+                  <div className={styles.patientSection}>
+                    <div className={styles.sectionHeader}>
+                      <h2 className={styles.sectionTitle}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Assigned Patients ({allPatients.filter(p => {
+                          const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                          return profile?.assigned_doctor_id;
+                        }).length})
+                      </h2>
+                    </div>
+                    <div className={styles.cardGrid}>
+                      {allPatients
+                        .filter(patient => {
+                          const profile = Array.isArray(patient.patient_profiles)
+                            ? patient.patient_profiles[0]
+                            : patient.patient_profiles;
+                          return profile?.assigned_doctor_id;
+                        })
+                        .map(patient => {
+                          const profile = Array.isArray(patient.patient_profiles)
+                            ? patient.patient_profiles[0]
+                            : patient.patient_profiles;
+
+                          // Look up assigned doctor from allDoctors array
+                          const assignedDoctorId = profile?.assigned_doctor_id;
+                          const assignedDoctor = assignedDoctorId
+                            ? allDoctors.find(d => d.id === assignedDoctorId)
+                            : (profile?.assigned_doctor?.user_profiles || null);
+
+                          return (
+                            <div key={patient.id} className={styles.patientCard}>
+                              <div
+                                className={styles.cardHeader}
+                                onClick={() => {
+                                  setSelectedPatientDetail({ ...patient, profile, assignedDoctor });
+                                  setShowPatientDetailModal(true);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <h3>{patient.full_name}</h3>
+                                <span className={styles.patientId}>{patient.unique_identifier}</span>
+                              </div>
+
+                              <div className={styles.cardBody}>
+                                <p><strong>Phone:</strong> {patient.phone}</p>
+                                <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
+                                <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
+
+                                <div className={styles.assignedInfo}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+                                    <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+                                    <circle cx="20" cy="10" r="2"/>
+                                  </svg>
+                                  <div>
+                                    <strong>Assigned Doctor</strong>
+                                    <p>{assignedDoctor?.full_name || 'Unknown'}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    {allPatients.filter(p => {
+                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                      return profile?.assigned_doctor_id;
+                    }).length === 0 && (
+                      <div className={styles.emptySubsection}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="12" y1="8" x2="12" y2="12"/>
+                          <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <p>No patients have been assigned yet</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Doctors Tab */}
+          {activeTab === 'doctors' && (
+            <div className={styles.section}>
+              <h1 className={styles.pageTitle}>Doctor Management</h1>
+
+              {!allDoctors || allDoctors.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.Stethoscope />
+                  <p>No doctors found</p>
+                  <button onClick={() => setActiveTab('add-user')} className={styles.primaryBtn} style={{width: 'auto', marginTop: '1rem'}}>
+                    Add Doctor
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.cardGrid}>
+                  {allDoctors.map(doctor => {
+                    // Handle both array and single object for doctor_profiles
+                    const profile = Array.isArray(doctor.doctor_profiles)
+                      ? doctor.doctor_profiles[0]
+                      : doctor.doctor_profiles;
+
+                    return (
+                      <div key={doctor.id} className={styles.doctorCard}>
+                        <div className={styles.cardHeader}>
+                          <h3>{doctor.full_name || 'Unknown'}</h3>
+                          <span className={styles.doctorId}>{doctor.unique_identifier || 'N/A'}</span>
+                        </div>
+
+                        <div className={styles.cardBody}>
+                          <p><strong>Email:</strong> {doctor.email || 'N/A'}</p>
+                          <p><strong>Phone:</strong> {doctor.phone || 'N/A'}</p>
+                          <p><strong>License:</strong> {profile?.medical_license || 'N/A'}</p>
+                          <p><strong>Specialization:</strong> {profile?.specialization || 'General'}</p>
+                          <p><strong>Experience:</strong> {profile?.experience_years || 0} years</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Radiologists Tab */}
+          {activeTab === 'radiologists' && (
+            <div className={styles.section}>
+              <h1 className={styles.pageTitle}>Radiologist Management</h1>
+
+              {allRadiologists.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.Activity />
+                  <p>No radiologists found</p>
+                </div>
+              ) : (
+                <div className={styles.cardGrid}>
+                  {allRadiologists.map(radiologist => (
+                    <div key={radiologist.id} className={styles.radiologistCard}>
+                      <div className={styles.cardHeader}>
+                        <h3>{radiologist.full_name}</h3>
+                        <span className={styles.radiologistId}>{radiologist.unique_identifier}</span>
+                      </div>
+
+                      <div className={styles.cardBody}>
+                        <p><strong>Email:</strong> {radiologist.email}</p>
+                        <p><strong>Phone:</strong> {radiologist.phone}</p>
+                        <p><strong>Status:</strong> {radiologist.account_status}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
       </div>
+
+      {/* Assignment Modal */}
+      {showAssignModal && selectedPatient && (
+        <div className={styles.modal} onClick={() => setShowAssignModal(false)}>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Assign Doctor to {selectedPatient.full_name}</h2>
+              <button onClick={() => setShowAssignModal(false)} className={styles.closeBtn}>×</button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search doctors..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className={styles.searchInput}
+            />
+
+            <div className={styles.doctorList}>
+              {filteredDoctors.map(doctor => (
+                <div
+                  key={doctor.id}
+                  onClick={() => setSelectedDoctor(doctor)}
+                  className={`${styles.doctorOption} ${selectedDoctor?.id === doctor.id ? styles.selected : ''}`}
+                >
+                  <h4>{doctor.full_name}</h4>
+                  <p>{doctor.doctor_profiles?.[0]?.specialization || 'General Medicine'}</p>
+                  <span>{doctor.doctor_profiles?.[0]?.experience_years || 0} years exp</span>
+                </div>
+              ))}
+            </div>
+
+            {selectedDoctor && (
+              <button onClick={handleAssignDoctor} className={styles.primaryBtn}>
+                Assign {selectedDoctor.full_name}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Patient Detail Modal */}
+      {showPatientDetailModal && selectedPatientDetail && (
+        <div className={styles.modal} onClick={() => setShowPatientDetailModal(false)}>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Patient Details</h2>
+              <button onClick={() => setShowPatientDetailModal(false)} className={styles.closeBtn}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.userDetails}>
+                <div className={styles.avatarLarge}>
+                  {selectedPatientDetail.full_name?.[0]?.toUpperCase()}
+                </div>
+                <h3>{selectedPatientDetail.full_name}</h3>
+                <span className={styles.roleTag}>Patient</span>
+              </div>
+
+              <div className={styles.detailsGrid}>
+                <div><strong>Patient ID:</strong> {selectedPatientDetail.unique_identifier}</div>
+                <div><strong>Email:</strong> {selectedPatientDetail.email || 'N/A'}</div>
+                <div><strong>Phone:</strong> {selectedPatientDetail.phone}</div>
+                <div><strong>Date of Birth:</strong> {selectedPatientDetail.date_of_birth ? new Date(selectedPatientDetail.date_of_birth).toLocaleDateString() : 'N/A'}</div>
+                <div><strong>Age:</strong> {selectedPatientDetail.date_of_birth ? new Date().getFullYear() - new Date(selectedPatientDetail.date_of_birth).getFullYear() : 'N/A'} years</div>
+                <div><strong>Blood Group:</strong> {selectedPatientDetail.profile?.blood_groups?.blood_type || 'N/A'}</div>
+                <div><strong>Address:</strong> {selectedPatientDetail.address || 'N/A'}</div>
+                <div><strong>Account Status:</strong> {selectedPatientDetail.account_status}</div>
+                {selectedPatientDetail.assignedDoctor && (
+                  <div style={{gridColumn: '1 / -1'}}>
+                    <strong>Assigned Doctor:</strong> {selectedPatientDetail.assignedDoctor.full_name}
+                    <br />
+                    <small>{selectedPatientDetail.assignedDoctor.email}</small>
+                  </div>
+                )}
+                {selectedPatientDetail.profile?.medical_history && (
+                  <div style={{gridColumn: '1 / -1'}}>
+                    <strong>Medical History:</strong>
+                    <p style={{marginTop: '0.5rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px'}}>
+                      {selectedPatientDetail.profile.medical_history}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => setShowPatientDetailModal(false)}
+                className={styles.primaryBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && selectedUser && (
+        <div className={styles.modal} onClick={() => setShowApprovalModal(false)}>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Review Application</h2>
+              <button onClick={() => setShowApprovalModal(false)} className={styles.closeBtn}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.userDetails}>
+                <div className={styles.avatarLarge}>{selectedUser.full_name?.[0]?.toUpperCase()}</div>
+                <h3>{selectedUser.full_name}</h3>
+                <span className={`${styles.roleTag} ${styles[selectedUser.role]}`}>{selectedUser.role}</span>
+              </div>
+
+              <div className={styles.detailsGrid}>
+                <div><strong>Email:</strong> {selectedUser.email}</div>
+                <div><strong>Phone:</strong> {selectedUser.phone}</div>
+                <div><strong>Address:</strong> {selectedUser.address}</div>
+                <div><strong>ID:</strong> {selectedUser.unique_identifier}</div>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => handleApproveUser(selectedUser.id, selectedUser.role)}
+                className={styles.approveBtn}
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => handleRejectUser(selectedUser.id)}
+                className={styles.rejectBtn}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

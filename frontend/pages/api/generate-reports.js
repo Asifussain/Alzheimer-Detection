@@ -1,12 +1,55 @@
 import { createClient } from '@supabase/supabase-js';
+import { generatePatientPDF, generateDoctorPDF, generateTechnicalPDF } from '../../lib/pdfGenerator';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Mock PDF generation - in real implementation, use a PDF library like jsPDF or puppeteer
-const generateMockReportUrl = (reportType, sessionCode) => {
-  return `https://example.com/reports/${sessionCode}-${reportType}.pdf`;
+// Generate and upload PDF to Supabase Storage
+const generateAndUploadPDF = async (reportType, session, analysis, sessionCode) => {
+  try {
+    let pdfBuffer;
+
+    // Generate PDF based on type
+    switch (reportType) {
+      case 'patient':
+        pdfBuffer = await generatePatientPDF(session, analysis);
+        break;
+      case 'doctor':
+        pdfBuffer = await generateDoctorPDF(session, analysis);
+        break;
+      case 'technical':
+        pdfBuffer = await generateTechnicalPDF(session, analysis);
+        break;
+      default:
+        throw new Error(`Unknown report type: ${reportType}`);
+    }
+
+    // Upload to Supabase Storage
+    const fileName = `${sessionCode}/${reportType}-report-${Date.now()}.pdf`;
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('report-assets')
+      .upload(`reports/${fileName}`, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error(`Upload error for ${reportType}:`, uploadError);
+      throw new Error(`Failed to upload ${reportType} PDF: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase
+      .storage
+      .from('report-assets')
+      .getPublicUrl(`reports/${fileName}`);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    throw new Error(`Failed to generate ${reportType} report: ${error.message}`);
+  }
 };
 
 const generateReportContent = (reportType, session, analysis) => {
@@ -64,11 +107,45 @@ export default async function handler(req, res) {
     const { session_id, analysis_result_id } = req.body;
 
     if (!session_id || !analysis_result_id) {
-      return res.status(400).json({ error: 'Missing required parameters' });
+      return res.status(400).json({ error: 'Missing required parameters: session_id and analysis_result_id' });
     }
 
-    // Get session and analysis details
-    const { data: session, error: sessionError } = await supabase
+    console.log(`Starting asynchronous report generation for session: ${session_id}`);
+
+    // Immediately return 202 Accepted to indicate async processing has started
+    res.status(202).json({
+      message: 'Report generation started',
+      session_id,
+      status: 'processing'
+    });
+
+    // Start asynchronous processing
+    setImmediate(async () => {
+      await processReportsAsync(session_id, analysis_result_id);
+    });
+
+  } catch (error) {
+    console.error('Report generation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// Asynchronous report processing function
+async function processReportsAsync(session_id, analysis_result_id) {
+  let session = null;
+  const generatedReports = [];
+  
+  try {
+    console.log(`Processing reports asynchronously for session: ${session_id}`);
+
+    // Update session status to processing
+    await supabase
+      .from('eeg_sessions')
+      .update({ status: 'processing' })
+      .eq('id', session_id);
+
+    // Get session and analysis details with enhanced error checking
+    const { data: sessionData, error: sessionError } = await supabase
       .from('eeg_sessions')
       .select(`
         *,
@@ -87,9 +164,11 @@ export default async function handler(req, res) {
       .eq('id', session_id)
       .single();
 
-    if (sessionError || !session) {
-      return res.status(404).json({ error: 'EEG session not found' });
+    if (sessionError || !sessionData) {
+      throw new Error('EEG session not found');
     }
+
+    session = sessionData;
 
     const { data: analysis, error: analysisError } = await supabase
       .from('eeg_analysis_results')
@@ -98,25 +177,23 @@ export default async function handler(req, res) {
       .single();
 
     if (analysisError || !analysis) {
-      return res.status(404).json({ error: 'Analysis results not found' });
+      throw new Error('Analysis results not found');
     }
 
-    // Generate reports for all three types
+    // Generate reports for all three types with transactional integrity
     const reportTypes = ['patient', 'doctor', 'technical'];
-    const generatedReports = [];
 
     for (const reportType of reportTypes) {
       try {
-        // Generate report content
-        const reportContent = generateReportContent(reportType, session, analysis);
-        
-        // In a real implementation, generate actual PDF here
-        const reportUrl = generateMockReportUrl(reportType, session.session_code);
-        
+        console.log(`Generating ${reportType} report...`);
+
+        // Generate PDF and upload to storage
+        const reportUrl = await generateAndUploadPDF(reportType, session, analysis, session.session_code);
+
         // Determine who the report is for
         let generatedForUserId;
         let generatedByDoctorId = session.doctor_id;
-        
+
         switch (reportType) {
           case 'patient':
             generatedForUserId = session.patient_id;
@@ -130,7 +207,7 @@ export default async function handler(req, res) {
             break;
         }
 
-        // Save report record to database
+        // Save report record to database with enhanced validation
         const reportData = {
           session_id,
           analysis_result_id,
@@ -150,8 +227,7 @@ export default async function handler(req, res) {
           .single();
 
         if (reportError) {
-          console.error(`Error saving ${reportType} report:`, reportError);
-          continue;
+          throw new Error(`Failed to save ${reportType} report: ${reportError.message}`);
         }
 
         generatedReports.push({
@@ -161,14 +237,24 @@ export default async function handler(req, res) {
           generatedFor: generatedForUserId
         });
 
+        console.log(`${reportType} report generated successfully`);
+
       } catch (error) {
         console.error(`Error generating ${reportType} report:`, error);
+        // If any report fails, trigger rollback
+        throw new Error(`Report generation failed at ${reportType}: ${error.message}`);
       }
     }
 
-    if (generatedReports.length === 0) {
-      return res.status(500).json({ error: 'Failed to generate any reports' });
+    if (generatedReports.length !== reportTypes.length) {
+      throw new Error('Failed to generate all required reports');
     }
+
+    // Update session status to reports_generated
+    await supabase
+      .from('eeg_sessions')
+      .update({ status: 'reports_generated' })
+      .eq('id', session_id);
 
     // Create notifications for relevant users
     try {
@@ -185,16 +271,18 @@ export default async function handler(req, res) {
         created_at: new Date().toISOString()
       });
 
-      // Notify doctor
-      notifications.push({
-        user_id: session.doctor_id,
-        title: 'EEG Analysis Complete',
-        message: `EEG analysis for ${session.patient?.full_name} has been completed. Clinical and technical reports are available.`,
-        type: 'report_ready',
-        related_resource_type: 'eeg_session',
-        related_resource_id: session_id,
-        created_at: new Date().toISOString()
-      });
+      // Notify doctor if assigned
+      if (session.doctor_id) {
+        notifications.push({
+          user_id: session.doctor_id,
+          title: 'EEG Analysis Complete',
+          message: `EEG analysis for ${session.patient?.full_name} has been completed. Clinical and technical reports are available.`,
+          type: 'report_ready',
+          related_resource_type: 'eeg_session',
+          related_resource_id: session_id,
+          created_at: new Date().toISOString()
+        });
+      }
 
       if (notifications.length > 0) {
         await supabase
@@ -202,17 +290,35 @@ export default async function handler(req, res) {
           .insert(notifications);
       }
     } catch (error) {
-      console.error('Error creating notifications:', error);
+      console.error('Error creating notifications (non-critical):', error);
     }
 
-    res.status(200).json({
-      message: 'Reports generated successfully',
-      reports: generatedReports,
-      session_id
-    });
+    console.log(`Report generation completed successfully for session: ${session_id}`);
 
   } catch (error) {
-    console.error('Report generation error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Async report generation failed:', error);
+    
+    // Rollback: Delete any generated reports
+    if (generatedReports.length > 0) {
+      try {
+        const reportIds = generatedReports.map(r => r.id);
+        await supabase
+          .from('reports')
+          .delete()
+          .in('id', reportIds);
+        console.log('Rolled back generated reports');
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+
+    // Update session status to failed with error message
+    await supabase
+      .from('eeg_sessions')
+      .update({ 
+        status: 'failed',
+        error_message: error.message 
+      })
+      .eq('id', session_id);
   }
 }

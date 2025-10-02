@@ -217,18 +217,27 @@ export const AuthProvider = ({ children }) => {
             .maybeSingle();
           
           console.log('Simple profile fetch result:', { simpleProfileData, simpleError });
-          
+
           if (simpleProfileData && !simpleError) {
+            // Ensure hospital_id exists
+            if (!simpleProfileData.hospital_id) {
+              simpleProfileData.hospital_id = '84f00631-f6fa-4d01-ae7b-cca10868e889';
+            }
+
             const cacheData = {
               userId: currentUser.id,
               profile: simpleProfileData,
-              hospital: null,
+              hospital: {
+                id: simpleProfileData.hospital_id,
+                name: 'IIT Indore Hospital',
+                hospital_code: 'IITI'
+              },
               timestamp: Date.now()
             };
-            
+
             setUserProfile(simpleProfileData);
-            setHospitalData(null);
-            
+            setHospitalData(cacheData.hospital);
+
             profileCacheRef.current = cacheData;
             saveToStorage(PROFILE_STORAGE_KEY, cacheData);
             return; // Early return on success
@@ -273,6 +282,10 @@ export const AuthProvider = ({ children }) => {
         
         // If all database queries fail, create a minimal profile from user data
         console.warn('All profile queries failed, creating minimal profile from auth user');
+
+        // Try to get hospital_id from any available source
+        let hospitalId = '84f00631-f6fa-4d01-ae7b-cca10868e889'; // Default hospital ID
+
         const minimalProfile = {
           id: currentUser.id,
           email: currentUser.email,
@@ -280,16 +293,18 @@ export const AuthProvider = ({ children }) => {
           role: currentUser.user_metadata?.role || 'admin', // Default to admin for demo
           account_status: 'active',
           phone_verified: true,
+          phone: currentUser.user_metadata?.phone || '',
+          hospital_id: hospitalId, // Always include hospital_id
           unique_identifier: `DEMO-${currentUser.id.slice(0, 8)}`,
           created_at: currentUser.created_at,
           isMinimal: true // Flag to indicate this is a minimal profile
         };
-        
+
         setUserProfile(minimalProfile);
         setHospitalData({
-          id: 'demo-hospital',
-          name: 'Demo Hospital',
-          hospital_code: 'DEMO'
+          id: hospitalId,
+          name: 'IIT Indore Hospital',
+          hospital_code: 'IITI'
         });
       } else if (profileData) {
         const cacheData = {
@@ -299,9 +314,10 @@ export const AuthProvider = ({ children }) => {
           timestamp: Date.now()
         };
         
+
         setUserProfile(profileData);
         setHospitalData(profileData.hospitals);
-        
+
         // Cache the profile data
         profileCacheRef.current = cacheData;
         saveToStorage(PROFILE_STORAGE_KEY, cacheData);
@@ -315,6 +331,8 @@ export const AuthProvider = ({ children }) => {
         console.warn('All profile fetch attempts failed, using minimal profile');
         
         // Create a minimal profile from the authenticated user data
+        let hospitalId = '84f00631-f6fa-4d01-ae7b-cca10868e889'; // Default hospital ID
+
         const minimalProfile = {
           id: currentUser.id,
           email: currentUser.email,
@@ -322,16 +340,18 @@ export const AuthProvider = ({ children }) => {
           role: currentUser.user_metadata?.role || 'admin', // Default to admin for demo
           account_status: 'active',
           phone_verified: true,
+          phone: currentUser.user_metadata?.phone || '',
+          hospital_id: hospitalId, // Always include hospital_id
           unique_identifier: `DEMO-${currentUser.id.slice(0, 8)}`,
           created_at: currentUser.created_at,
           isMinimal: true // Flag to indicate this is a minimal profile
         };
-        
+
         setUserProfile(minimalProfile);
         setHospitalData({
-          id: 'demo-hospital',
-          name: 'Demo Hospital',
-          hospital_code: 'DEMO'
+          id: hospitalId,
+          name: 'IIT Indore Hospital',
+          hospital_code: 'IITI'
         });
         
         console.log('Using minimal profile:', minimalProfile);
