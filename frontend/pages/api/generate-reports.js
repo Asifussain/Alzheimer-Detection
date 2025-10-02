@@ -1,52 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import { generatePatientPDF, generateDoctorPDF, generateTechnicalPDF } from '../../lib/pdfGenerator';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Generate and upload PDF to Supabase Storage
+// Generate mock report URL (PDF generation removed)
 const generateAndUploadPDF = async (reportType, session, analysis, sessionCode) => {
   try {
-    let pdfBuffer;
-
-    // Generate PDF based on type
-    switch (reportType) {
-      case 'patient':
-        pdfBuffer = await generatePatientPDF(session, analysis);
-        break;
-      case 'doctor':
-        pdfBuffer = await generateDoctorPDF(session, analysis);
-        break;
-      case 'technical':
-        pdfBuffer = await generateTechnicalPDF(session, analysis);
-        break;
-      default:
-        throw new Error(`Unknown report type: ${reportType}`);
-    }
-
-    // Upload to Supabase Storage
+    // Return a placeholder URL for now
     const fileName = `${sessionCode}/${reportType}-report-${Date.now()}.pdf`;
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('report-assets')
-      .upload(`reports/${fileName}`, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error(`Upload error for ${reportType}:`, uploadError);
-      throw new Error(`Failed to upload ${reportType} PDF: ${uploadError.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase
-      .storage
-      .from('report-assets')
-      .getPublicUrl(`reports/${fileName}`);
-
-    return urlData.publicUrl;
+    return `/api/reports/${fileName}`;
   } catch (error) {
     throw new Error(`Failed to generate ${reportType} report: ${error.message}`);
   }
