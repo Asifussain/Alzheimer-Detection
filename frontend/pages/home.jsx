@@ -585,92 +585,208 @@ export default function Home() {
                 className={styles.heroSubtitle}
               />
               
-              <div className={styles.missionSection}>
-                <h2 className={styles.sectionTitle}>Our Motive</h2>
-                <ShinyText 
-                  text="Empowering healthcare professionals and patients with cutting-edge artificial intelligence to detect early signs of Alzheimer's disease through advanced EEG signal analysis and comprehensive neurological assessment."
-                  speed={5}
-                  className={styles.missionText}
-                />
-              </div>
+              <motion.div
+                className={styles.missionSection}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              >
+                <div className={styles.missionIconWrapper}>
+                  <motion.div
+                    className={styles.missionIcon}
+                    animate={{
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.05, 1]
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M9.5 2A2.5 2.5 0 0 0 7 4.5v15A2.5 2.5 0 0 0 9.5 22a2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 9.5 2z"/>
+                      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 14.5 2z"/>
+                      <path d="M4.5 7A2.5 2.5 0 0 0 2 9.5v5A2.5 2.5 0 0 0 4.5 17 2.5 2.5 0 0 0 7 14.5v-5A2.5 2.5 0 0 0 4.5 7z"/>
+                      <path d="M19.5 7A2.5 2.5 0 0 0 17 9.5v5a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5v-5A2.5 2.5 0 0 0 19.5 7z"/>
+                    </svg>
+                  </motion.div>
+                </div>
+
+                <h2 className={styles.sectionTitle}>
+                  <span className={styles.sectionTitleMain}>Transforming Brain Health Through AI Innovation</span>
+                </h2>
+
+                <div className={styles.missionContent}>
+                  <p className={styles.missionText}>
+                    We empower healthcare professionals and patients with cutting-edge artificial intelligence to detect early signs of Alzheimer's disease through advanced EEG signal analysis.
+                  </p>
+
+                  <div className={styles.missionHighlights}>
+                    <motion.div
+                      className={styles.highlight}
+                      whileHover={{ scale: 1.03 }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                      </svg>
+                      <div>
+                        <h4>Early Detection</h4>
+                        <p>Identify cognitive decline before symptoms emerge</p>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      className={styles.highlight}
+                      whileHover={{ scale: 1.03 }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="6"/>
+                        <circle cx="12" cy="12" r="2"/>
+                      </svg>
+                      <div>
+                        <h4>Clinical Precision</h4>
+                        <p>AI-powered analysis with medical-grade accuracy</p>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      className={styles.highlight}
+                      whileHover={{ scale: 1.03 }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                      </svg>
+                      <div>
+                        <h4>Actionable Insights</h4>
+                        <p>Comprehensive reports for informed decisions</p>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
 
           {/* Interactive Timeline */}
           <InteractiveTimeline />
 
-          <div className={styles.ctaAndInfo}>
-            <div className={styles.infoGrid}>
-              <motion.div 
-                className={styles.infoCard}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.6 }}
-              >
-                <div className={styles.cardIcon}>🧠</div>
-                <h3>Alzheimer's Disease</h3>
-                <p>A progressive neurodegenerative disorder affecting memory, thinking, and behavior. Early detection is crucial for better treatment outcomes.</p>
-              </motion.div>
-              
-              <motion.div 
-                className={styles.infoCard}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.6 }}
-              >
-                <div className={styles.cardIcon}>⚡</div>
-                <h3>EEG Analysis</h3>
-                <p>Electroencephalography captures brain electrical activity, revealing patterns that may indicate early neurological changes.</p>
-              </motion.div>
-              
-              <motion.div 
-                className={styles.infoCard}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7, duration: 0.6 }}
-              >
-                <div className={styles.cardIcon}>🤖</div>
-                <h3>Machine Learning</h3>
-                <p>Our advanced deep learning models analyze EEG patterns with clinical-grade accuracy and precision.</p>
-              </motion.div>
-              
-              <motion.div 
-                className={styles.infoCard}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
-              >
-                <div className={styles.cardIcon}>🔬</div>
-                <h3>Cognitive Decline</h3>
-                <p>Early identification of cognitive impairment enables timely intervention and personalized treatment strategies.</p>
-              </motion.div>
-            </div>
+          {/* Feature Showcase Section */}
+          <div className={styles.featureShowcase}>
+            <motion.div
+              className={styles.showcaseHeader}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+            >
+              <h2>Powered by Advanced Technology</h2>
+              <p>Comprehensive neurological analysis at your fingertips</p>
+            </motion.div>
 
-            <div className={styles.ctaSection}>
-              <motion.button 
-                onClick={handleAnalyse} 
-                className={styles.analyzeButton}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9, duration: 0.6 }}
+            <div className={styles.featuresGrid}>
+              <motion.div
+                className={styles.featureCard}
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
+                whileHover={{ y: -8 }}
               >
-                <span className={styles.buttonText}>Start Analysis</span>
-                <div className={styles.buttonGlow}></div>
-              </motion.button>
-              
-              <motion.div 
-                className={styles.userInfo}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1, duration: 0.6 }}
+                <div className={styles.featureIconBox} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <path d="M12 2v20M2 12h20"/>
+                    <circle cx="12" cy="12" r="10"/>
+                  </svg>
+                </div>
+                <div className={styles.featureContent}>
+                  <h3>Deep Learning Models</h3>
+                  <p>State-of-the-art neural networks trained on thousands of EEG recordings for unparalleled accuracy</p>
+                  <div className={styles.featureBadge}>95% Accuracy</div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                className={styles.featureCard}
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+                whileHover={{ y: -8 }}
               >
-                <p>Welcome back, <span className={styles.userName}>{userProfile?.full_name || user?.email}</span></p>
-                <p className={styles.roleText}>Role: {userProfile?.role?.charAt(0).toUpperCase() + userProfile?.role?.slice(1)}</p>
+                <div className={styles.featureIconBox} style={{ background: 'linear-gradient(135deg, #06d6a0 0%, #118ab2 100%)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                </div>
+                <div className={styles.featureContent}>
+                  <h3>Real-time EEG Analysis</h3>
+                  <p>Advanced signal processing extracts meaningful patterns from complex brain wave data instantly</p>
+                  <div className={styles.featureBadge}>Live Processing</div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                className={styles.featureCard}
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.7, duration: 0.6 }}
+                whileHover={{ y: -8 }}
+              >
+                <div className={styles.featureIconBox} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                </div>
+                <div className={styles.featureContent}>
+                  <h3>Comprehensive Reports</h3>
+                  <p>Detailed clinical documentation with visualizations tailored for patients and medical professionals</p>
+                  <div className={styles.featureBadge}>Multi-format</div>
+                </div>
               </motion.div>
             </div>
           </div>
+
+          {/* CTA Section */}
+          <motion.div
+            className={styles.ctaContainer}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+          >
+            <div className={styles.ctaContent}>
+              <h2>Ready to Begin Your Analysis?</h2>
+              <p>Join thousands of healthcare professionals using AI4NEURO</p>
+
+              <motion.button
+                onClick={handleAnalyse}
+                className={styles.analyzeButton}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className={styles.buttonText}>Start Analysis Now</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </motion.button>
+
+              <div className={styles.userWelcome}>
+                <div className={styles.userAvatar}>
+                  {userProfile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className={styles.userDetails}>
+                  <p className={styles.userName}>{userProfile?.full_name || user?.email}</p>
+                  <p className={styles.userRole}>
+                    {userProfile?.role?.charAt(0).toUpperCase() + userProfile?.role?.slice(1) || 'User'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
 
           <motion.div 
             className={styles.stats}

@@ -168,7 +168,7 @@ function Profile() {
             <h1>My Profile</h1>
             <p>Manage your personal information and account settings</p>
           </div>
-          <button 
+          <button
             className={styles.backButton}
             onClick={goToDashboard}
           >

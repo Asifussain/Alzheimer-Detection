@@ -133,7 +133,14 @@ def predict_route():
     supabase = get_supabase_client()
     file = request.files.get('file')
     user_id = request.form.get('user_id')
+    patient_id = request.form.get('patient_id')
+    doctor_id = request.form.get('doctor_id')
+    hospital_id = request.form.get('hospital_id')
+    radiologist_id = request.form.get('radiologist_id')  # Optional
+    uploaded_by_role = request.form.get('uploaded_by_role')
     channel_index_str = request.form.get('channel_index', '0')
+    if not patient_id or not doctor_id or not hospital_id:
+        return jsonify({'error': 'patient_id, doctor_id, and hospital_id required'}), 400
     try:
         channel_index_for_plot = int(channel_index_str)
     except (ValueError, TypeError):
@@ -156,9 +163,19 @@ def predict_route():
         os.remove(temp_filepath)
         # Insert initial DB record
         initial_db_record = {
-            "id": prediction_id, "user_id": user_id, "filename": filename,
-            "status": "Pending", "prediction": "Processing...",
-            "eeg_data_url": raw_eeg_storage_path
+            "id": prediction_id,
+            "user_id": user_id,
+            "filename": filename,
+            "status": "Pending",
+            "prediction": "Processing...",
+            "eeg_data_url": raw_eeg_storage_path,
+            # NEW: Metadata for role-based filtering
+            "patient_id": patient_id,
+            "doctor_id": doctor_id,
+            "hospital_id": hospital_id,
+            "radiologist_id": radiologist_id if radiologist_id else None,
+            "technician_id": user_id,
+            "uploaded_by_role": uploaded_by_role if uploaded_by_role else "technician"
         }
         insert_res = supabase.table('predictions').insert(initial_db_record).execute()
         if hasattr(insert_res, 'error') and insert_res.error:

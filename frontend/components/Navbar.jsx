@@ -90,10 +90,19 @@ export default function Navbar() {
                 </Link>
               </li>
             )}
-            
+
+            {/* Reports link */}
+            {profile?.role && profile?.account_status === 'active' && (
+              <li>
+                <Link href="/reports" onClick={closeMobileMenu}>
+                  Reports
+                </Link>
+              </li>
+            )}
+
             {/* About link */}
             <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
-            
+
             {/* Contact link */}
             <li><Link href="/contact" onClick={closeMobileMenu}>Contact</Link></li>
           </>
@@ -122,6 +131,9 @@ export default function Navbar() {
               </div>
               <Link href="/profile" className={styles.dropdownLink}>
                 Profile
+              </Link>
+              <Link href="/appearance" className={styles.dropdownLink}>
+                Appearance
               </Link>
               <Link href="/change-password" className={styles.dropdownLink}>
                 Change Password

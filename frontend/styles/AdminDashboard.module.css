@@ -6,7 +6,7 @@
   display: flex;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  padding-top: 80px;
+  padding-top: 6.5rem;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -213,15 +213,18 @@
 /* Main Content */
 .mainContent {
   flex: 1;
-  margin-left: 280px;
+  margin-left: var(--sidebar-width, 280px);
   padding: 2rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 100%;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
-.sidebar.collapsed ~ .mainContent {
-  margin-left: 80px;
+.mainContent > * {
+  width: 100%;
+  max-width: 1400px;
 }
 
 .pageTitle {
@@ -826,17 +829,19 @@
   }
 }
 
+@media (min-width: 768px) {
+  .dashboardContainer:has(.sidebar.collapsed) .mainContent {
+    margin-left: 80px;
+  }
+}
+
 @media (max-width: 768px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
   .mainContent {
     margin-left: 0;
+  }
+
+  .mainContent > * {
+    max-width: 100%;
     padding: 1.5rem 1rem;
   }
 
@@ -981,4 +986,186 @@
 
 .cardHeader.clickable:hover h3 {
   color: #3b82f6;
+}
+
+/* Large Modal for Detail Views */
+.modalContentLarge {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Assigned Doctor Section in Patient Modal */
+.assignedDoctorSection {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.assignedDoctorSection h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #10b981;
+  margin: 0 0 1rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doctorInfo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.doctorInfo p {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.doctorInfo strong {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+/* Reports Section in Modals */
+.reportsSection {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.reportsSection h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3b82f6;
+  margin: 0 0 1rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.reportsListModal {
+  display: grid;
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.reportsListModal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reportsListModal::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 3px;
+}
+
+.reportsListModal::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 3px;
+}
+
+.reportsListModal::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+/* Report Item in Modal */
+.reportItemModal {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: all 0.2s;
+}
+
+.reportItemModal:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(30, 41, 59, 0.8);
+  transform: translateX(4px);
+}
+
+.reportHeaderModal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.reportHeaderModal h5 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.reportItemModal p {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.5rem 0;
+}
+
+.reportItemModal strong {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+/* View Report Button in Modal */
+.viewReportBtnSmall {
+  background: linear-gradient(135deg, #3b82f6, #0891b2);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.75rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.viewReportBtnSmall:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Responsive for Large Modals */
+@media (max-width: 768px) {
+  .modalContentLarge {
+    max-width: 100%;
+    max-height: 95vh;
+  }
+
+  .doctorInfo {
+    grid-template-columns: 1fr;
+  }
+
+  .reportsListModal {
+    max-height: 300px;
+  }
 }

@@ -163,6 +163,7 @@ export const AuthProvider = ({ children }) => {
             patient_profiles!patient_profiles_user_fkey(
               patient_id,
               blood_group_id,
+              assigned_doctor_id,
               emergency_contact_name,
               emergency_contact_phone,
               medical_history,

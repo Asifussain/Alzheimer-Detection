@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../components/AuthProvider';
 import withAuth from '../../components/withAuth';
 import Navbar from '../../components/Navbar';
+import UnifiedSidebar from '../../components/UnifiedSidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AddUserInterface from '../../components/admin/AddUserInterface';
 import supabase from '../../lib/supabaseClient';
@@ -80,7 +81,6 @@ const Icons = {
 function AdminDashboard() {
   const { user, userProfile, hospitalData } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -104,9 +104,30 @@ function AdminDashboard() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Search and filter states for each tab
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
+  const [radiologistSearchTerm, setRadiologistSearchTerm] = useState('');
+  const [patientFilter, setPatientFilter] = useState('all'); // all, assigned, unassigned
+  const [doctorFilter, setDoctorFilter] = useState('all'); // all, with-patients, no-patients
+
   // Patient detail modal
   const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
   const [showPatientDetailModal, setShowPatientDetailModal] = useState(false);
+  const [patientReports, setPatientReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  // Doctor detail modal
+  const [selectedDoctorDetail, setSelectedDoctorDetail] = useState(null);
+  const [showDoctorDetailModal, setShowDoctorDetailModal] = useState(false);
+  const [doctorPatients, setDoctorPatients] = useState([]);
+  const [loadingDoctorPatients, setLoadingDoctorPatients] = useState(false);
+
+  // Radiologist detail modal
+  const [selectedRadiologistDetail, setSelectedRadiologistDetail] = useState(null);
+  const [showRadiologistDetailModal, setShowRadiologistDetailModal] = useState(false);
+  const [radiologistActivities, setRadiologistActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   // Approval modal
   const [selectedUser, setSelectedUser] = useState(null);
@@ -275,18 +296,119 @@ function AdminDashboard() {
     }
   };
 
+  const fetchPatientReports = async (patientId) => {
+    try {
+      setLoadingReports(true);
+      const { data, error } = await supabase
+        .from('predictions')
+        .select('*')
+        .or(`patient_id.eq.${patientId},user_id.eq.${patientId}`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPatientReports(data || []);
+    } catch (error) {
+      console.error('Error fetching patient reports:', error);
+      setPatientReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const fetchDoctorPatients = async (doctorId) => {
+    try {
+      setLoadingDoctorPatients(true);
+      const assignedPatients = allPatients.filter(patient => {
+        const profile = Array.isArray(patient.patient_profiles)
+          ? patient.patient_profiles[0]
+          : patient.patient_profiles;
+        return profile?.assigned_doctor_id === doctorId;
+      });
+      setDoctorPatients(assignedPatients);
+    } catch (error) {
+      console.error('Error fetching doctor patients:', error);
+      setDoctorPatients([]);
+    } finally {
+      setLoadingDoctorPatients(false);
+    }
+  };
+
+  const fetchRadiologistActivities = async (radiologistId) => {
+    try {
+      setLoadingActivities(true);
+      const { data, error } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('radiologist_id', radiologistId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setRadiologistActivities(data || []);
+    } catch (error) {
+      console.error('Error fetching radiologist activities:', error);
+      setRadiologistActivities([]);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
   const filteredDoctors = allDoctors.filter(doc =>
     doc.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.doctor_profiles?.[0]?.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Filter patients based on search and filter
+  const filteredPatients = allPatients.filter(patient => {
+    const profile = Array.isArray(patient.patient_profiles) ? patient.patient_profiles[0] : patient.patient_profiles;
+    const matchesSearch = patient.full_name?.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+      patient.unique_identifier?.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+      patient.phone?.includes(patientSearchTerm);
+
+    if (patientFilter === 'assigned') {
+      return matchesSearch && profile?.assigned_doctor_id;
+    } else if (patientFilter === 'unassigned') {
+      return matchesSearch && !profile?.assigned_doctor_id;
+    }
+    return matchesSearch;
+  });
+
+  // Filter doctors based on search and filter
+  const filteredDoctorsList = allDoctors.filter(doctor => {
+    const profile = Array.isArray(doctor.doctor_profiles) ? doctor.doctor_profiles[0] : doctor.doctor_profiles;
+    const matchesSearch = doctor.full_name?.toLowerCase().includes(doctorSearchTerm.toLowerCase()) ||
+      doctor.unique_identifier?.toLowerCase().includes(doctorSearchTerm.toLowerCase()) ||
+      profile?.specialization?.toLowerCase().includes(doctorSearchTerm.toLowerCase());
+
+    if (doctorFilter === 'with-patients') {
+      const hasPatients = allPatients.some(p => {
+        const pProfile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+        return pProfile?.assigned_doctor_id === doctor.id;
+      });
+      return matchesSearch && hasPatients;
+    } else if (doctorFilter === 'no-patients') {
+      const hasPatients = allPatients.some(p => {
+        const pProfile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+        return pProfile?.assigned_doctor_id === doctor.id;
+      });
+      return matchesSearch && !hasPatients;
+    }
+    return matchesSearch;
+  });
+
+  // Filter radiologists based on search
+  const filteredRadiologists = allRadiologists.filter(radiologist => {
+    return radiologist.full_name?.toLowerCase().includes(radiologistSearchTerm.toLowerCase()) ||
+      radiologist.unique_identifier?.toLowerCase().includes(radiologistSearchTerm.toLowerCase()) ||
+      radiologist.email?.toLowerCase().includes(radiologistSearchTerm.toLowerCase());
+  });
+
   const navigationItems = [
-    { id: 'overview', label: 'Dashboard', icon: Icons.Dashboard },
-    { id: 'add-user', label: 'Add User', icon: Icons.UserPlus },
-    { id: 'approvals', label: 'Approvals', icon: Icons.CheckCircle, badge: dashboardStats.pendingApprovals },
-    { id: 'patients', label: 'Patients', icon: Icons.Heart, badge: dashboardStats.activePatients },
-    { id: 'doctors', label: 'Doctors', icon: Icons.Stethoscope, badge: dashboardStats.activeDoctors },
-    { id: 'radiologists', label: 'Radiologists', icon: Icons.Activity, badge: dashboardStats.activeRadiologists },
+    { id: 'overview', label: 'Dashboard', icon: 'Dashboard' },
+    { id: 'add-user', label: 'Add User', icon: 'UserPlus' },
+    { id: 'patients', label: 'Patients', icon: 'Heart', badgeKey: 'activePatients' },
+    { id: 'doctors', label: 'Doctors', icon: 'Stethoscope', badgeKey: 'activeDoctors' },
+    { id: 'radiologists', label: 'Radiologists', icon: 'Activity', badgeKey: 'activeRadiologists' },
   ];
 
   if (isLoading && !userProfile) {
@@ -323,41 +445,15 @@ function AdminDashboard() {
       <Navbar />
 
       <div className={styles.dashboardContainer}>
-        {/* Sidebar Navigation */}
-        <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.collapsed : ''}`}>
-          <div className={styles.sidebarHeader}>
-            {!sidebarCollapsed && (
-              <div className={styles.hospitalInfo}>
-                <h3>{hospitalData?.name || 'Hospital'}</h3>
-                <p>{userProfile?.full_name}</p>
-              </div>
-            )}
-            <button
-              className={styles.toggleBtn}
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              aria-label="Toggle sidebar"
-            >
-              {sidebarCollapsed ? <Icons.Menu /> : <Icons.ChevronLeft />}
-            </button>
-          </div>
-
-          <nav className={styles.navigation}>
-            {navigationItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`${styles.navItem} ${activeTab === item.id ? styles.active : ''}`}
-                title={sidebarCollapsed ? item.label : ''}
-              >
-                <item.icon />
-                {!sidebarCollapsed && <span>{item.label}</span>}
-                {!sidebarCollapsed && item.badge > 0 && (
-                  <span className={styles.badge}>{item.badge}</span>
-                )}
-              </button>
-            ))}
-          </nav>
-        </aside>
+        <UnifiedSidebar
+          user={user}
+          userProfile={userProfile}
+          hospitalData={hospitalData}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          navigationItems={navigationItems}
+          stats={dashboardStats}
+        />
 
         {/* Main Content */}
         <main className={styles.mainContent}>
@@ -375,14 +471,6 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('approvals')}>
-                  <Icons.AlertCircle />
-                  <div>
-                    <h3>Pending Approvals</h3>
-                    <p className={styles.statNumber}>{dashboardStats.pendingApprovals}</p>
-                  </div>
-                </div>
-
                 <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
                   <Icons.Heart />
                   <div>
@@ -391,7 +479,7 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => setActiveTab('doctors')}>
                   <Icons.Stethoscope />
                   <div>
                     <h3>Active Doctors</h3>
@@ -399,7 +487,7 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => setActiveTab('radiologists')}>
                   <Icons.Activity />
                   <div>
                     <h3>Radiologists</h3>
@@ -426,59 +514,53 @@ function AdminDashboard() {
             </div>
           )}
 
-          {/* Approvals Tab */}
-          {activeTab === 'approvals' && (
-            <div className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <h1 className={styles.pageTitle}>Pending Approvals</h1>
-                <button onClick={fetchDashboardData} className={styles.refreshBtn}>
-                  Refresh
-                </button>
-              </div>
-
-              {pendingUsers.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Icons.CheckCircle />
-                  <p>No pending approvals</p>
-                </div>
-              ) : (
-                <div className={styles.cardGrid}>
-                  {pendingUsers.map(user => (
-                    <div key={user.id} className={styles.userCard}>
-                      <div className={styles.userCardHeader}>
-                        <div className={styles.avatar}>{user.full_name?.[0]?.toUpperCase()}</div>
-                        <div>
-                          <h3>{user.full_name}</h3>
-                          <span className={`${styles.roleTag} ${styles[user.role]}`}>{user.role}</span>
-                        </div>
-                      </div>
-
-                      <div className={styles.userInfo}>
-                        <p><strong>Email:</strong> {user.email}</p>
-                        <p><strong>Phone:</strong> {user.phone}</p>
-                        <p><strong>ID:</strong> {user.unique_identifier}</p>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowApprovalModal(true);
-                        }}
-                        className={styles.primaryBtn}
-                      >
-                        Review Application
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Patients Tab - Redesigned with Assigned/Unassigned sections */}
+          {/* Patients Tab - Redesigned with Search and Filters */}
           {activeTab === 'patients' && (
             <div className={styles.section}>
               <h1 className={styles.pageTitle}>Patient Management</h1>
+
+              {/* Search and Filter Bar */}
+              <div className={styles.filterBar}>
+                <div className={styles.searchBox}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search by name, ID, or phone..."
+                    value={patientSearchTerm}
+                    onChange={(e) => setPatientSearchTerm(e.target.value)}
+                    className={styles.searchInputBar}
+                  />
+                </div>
+                <div className={styles.filterButtons}>
+                  <button
+                    className={`${styles.filterBtn} ${patientFilter === 'all' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setPatientFilter('all')}
+                  >
+                    All Patients ({allPatients.length})
+                  </button>
+                  <button
+                    className={`${styles.filterBtn} ${patientFilter === 'unassigned' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setPatientFilter('unassigned')}
+                  >
+                    Unassigned ({allPatients.filter(p => {
+                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                      return !profile?.assigned_doctor_id;
+                    }).length})
+                  </button>
+                  <button
+                    className={`${styles.filterBtn} ${patientFilter === 'assigned' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setPatientFilter('assigned')}
+                  >
+                    Assigned ({allPatients.filter(p => {
+                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+                      return profile?.assigned_doctor_id;
+                    }).length})
+                  </button>
+                </div>
+              </div>
 
               {!allPatients || allPatients.length === 0 ? (
                 <div className={styles.emptyState}>
@@ -488,31 +570,15 @@ function AdminDashboard() {
                     Add Patient
                   </button>
                 </div>
+              ) : filteredPatients.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.Heart />
+                  <p>No patients match your search</p>
+                </div>
               ) : (
                 <>
-                  {/* Unassigned Patients Section */}
-                  <div className={styles.patientSection}>
-                    <div className={styles.sectionHeader}>
-                      <h2 className={styles.sectionTitle}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <line x1="12" y1="8" x2="12" y2="12"/>
-                          <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                        Unassigned Patients ({allPatients.filter(p => {
-                          const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                          return !profile?.assigned_doctor_id;
-                        }).length})
-                      </h2>
-                    </div>
-                    <div className={styles.cardGrid}>
-                      {allPatients
-                        .filter(patient => {
-                          const profile = Array.isArray(patient.patient_profiles)
-                            ? patient.patient_profiles[0]
-                            : patient.patient_profiles;
-                          return !profile?.assigned_doctor_id;
-                        })
+                  <div className={styles.cardGrid}>
+                      {filteredPatients
                         .map(patient => {
                           const profile = Array.isArray(patient.patient_profiles)
                             ? patient.patient_profiles[0]
@@ -525,6 +591,7 @@ function AdminDashboard() {
                                 onClick={() => {
                                   setSelectedPatientDetail({ ...patient, profile });
                                   setShowPatientDetailModal(true);
+                                  fetchPatientReports(patient.id);
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
@@ -537,120 +604,42 @@ function AdminDashboard() {
                                 <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
                                 <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
 
-                                <button
-                                  onClick={() => {
-                                    setSelectedPatient(patient);
-                                    setShowAssignModal(true);
-                                  }}
-                                  className={styles.assignBtn}
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                    <circle cx="8.5" cy="7" r="4"/>
-                                    <line x1="20" y1="8" x2="20" y2="14"/>
-                                    <line x1="23" y1="11" x2="17" y2="11"/>
-                                  </svg>
-                                  Assign Doctor
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                    {allPatients.filter(p => {
-                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                      return !profile?.assigned_doctor_id;
-                    }).length === 0 && (
-                      <div className={styles.emptySubsection}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        <p>All patients have been assigned to doctors</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Assigned Patients Section */}
-                  <div className={styles.patientSection}>
-                    <div className={styles.sectionHeader}>
-                      <h2 className={styles.sectionTitle}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        Assigned Patients ({allPatients.filter(p => {
-                          const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                          return profile?.assigned_doctor_id;
-                        }).length})
-                      </h2>
-                    </div>
-                    <div className={styles.cardGrid}>
-                      {allPatients
-                        .filter(patient => {
-                          const profile = Array.isArray(patient.patient_profiles)
-                            ? patient.patient_profiles[0]
-                            : patient.patient_profiles;
-                          return profile?.assigned_doctor_id;
-                        })
-                        .map(patient => {
-                          const profile = Array.isArray(patient.patient_profiles)
-                            ? patient.patient_profiles[0]
-                            : patient.patient_profiles;
-
-                          // Look up assigned doctor from allDoctors array
-                          const assignedDoctorId = profile?.assigned_doctor_id;
-                          const assignedDoctor = assignedDoctorId
-                            ? allDoctors.find(d => d.id === assignedDoctorId)
-                            : (profile?.assigned_doctor?.user_profiles || null);
-
-                          return (
-                            <div key={patient.id} className={styles.patientCard}>
-                              <div
-                                className={styles.cardHeader}
-                                onClick={() => {
-                                  setSelectedPatientDetail({ ...patient, profile, assignedDoctor });
-                                  setShowPatientDetailModal(true);
-                                }}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <h3>{patient.full_name}</h3>
-                                <span className={styles.patientId}>{patient.unique_identifier}</span>
-                              </div>
-
-                              <div className={styles.cardBody}>
-                                <p><strong>Phone:</strong> {patient.phone}</p>
-                                <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
-                                <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
-
-                                <div className={styles.assignedInfo}>
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-                                    <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
-                                    <circle cx="20" cy="10" r="2"/>
-                                  </svg>
-                                  <div>
-                                    <strong>Assigned Doctor</strong>
-                                    <p>{assignedDoctor?.full_name || 'Unknown'}</p>
+                                {/* Check if patient has assigned doctor */}
+                                {profile?.assigned_doctor_id ? (
+                                  <div className={styles.assignedInfo}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+                                      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+                                      <circle cx="20" cy="10" r="2"/>
+                                    </svg>
+                                    <div>
+                                      <strong>Assigned Doctor</strong>
+                                      <p>{allDoctors.find(d => d.id === profile.assigned_doctor_id)?.full_name || 'Unknown'}</p>
+                                    </div>
                                   </div>
-                                </div>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPatient(patient);
+                                      setShowAssignModal(true);
+                                    }}
+                                    className={styles.assignBtn}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                      <circle cx="8.5" cy="7" r="4"/>
+                                      <line x1="20" y1="8" x2="20" y2="14"/>
+                                      <line x1="23" y1="11" x2="17" y2="11"/>
+                                    </svg>
+                                    Assign Doctor
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
                         })}
                     </div>
-                    {allPatients.filter(p => {
-                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                      return profile?.assigned_doctor_id;
-                    }).length === 0 && (
-                      <div className={styles.emptySubsection}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <line x1="12" y1="8" x2="12" y2="12"/>
-                          <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                        <p>No patients have been assigned yet</p>
-                      </div>
-                    )}
-                  </div>
                 </>
               )}
             </div>
@@ -661,6 +650,43 @@ function AdminDashboard() {
             <div className={styles.section}>
               <h1 className={styles.pageTitle}>Doctor Management</h1>
 
+              {/* Search and Filter Bar */}
+              <div className={styles.filterBar}>
+                <div className={styles.searchBox}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search by name, ID, or specialization..."
+                    value={doctorSearchTerm}
+                    onChange={(e) => setDoctorSearchTerm(e.target.value)}
+                    className={styles.searchInputBar}
+                  />
+                </div>
+                <div className={styles.filterButtons}>
+                  <button
+                    className={`${styles.filterBtn} ${doctorFilter === 'all' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setDoctorFilter('all')}
+                  >
+                    All Doctors ({allDoctors.length})
+                  </button>
+                  <button
+                    className={`${styles.filterBtn} ${doctorFilter === 'with-patients' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setDoctorFilter('with-patients')}
+                  >
+                    With Patients
+                  </button>
+                  <button
+                    className={`${styles.filterBtn} ${doctorFilter === 'no-patients' ? styles.filterBtnActive : ''}`}
+                    onClick={() => setDoctorFilter('no-patients')}
+                  >
+                    No Patients
+                  </button>
+                </div>
+              </div>
+
               {!allDoctors || allDoctors.length === 0 ? (
                 <div className={styles.emptyState}>
                   <Icons.Stethoscope />
@@ -669,9 +695,14 @@ function AdminDashboard() {
                     Add Doctor
                   </button>
                 </div>
+              ) : filteredDoctorsList.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Icons.Stethoscope />
+                  <p>No doctors match your search</p>
+                </div>
               ) : (
                 <div className={styles.cardGrid}>
-                  {allDoctors.map(doctor => {
+                  {filteredDoctorsList.map(doctor => {
                     // Handle both array and single object for doctor_profiles
                     const profile = Array.isArray(doctor.doctor_profiles)
                       ? doctor.doctor_profiles[0]
@@ -679,7 +710,15 @@ function AdminDashboard() {
 
                     return (
                       <div key={doctor.id} className={styles.doctorCard}>
-                        <div className={styles.cardHeader}>
+                        <div
+                          className={styles.cardHeader}
+                          onClick={() => {
+                            setSelectedDoctorDetail({ ...doctor, profile });
+                            setShowDoctorDetailModal(true);
+                            fetchDoctorPatients(doctor.id);
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <h3>{doctor.full_name || 'Unknown'}</h3>
                           <span className={styles.doctorId}>{doctor.unique_identifier || 'N/A'}</span>
                         </div>
@@ -713,7 +752,15 @@ function AdminDashboard() {
                 <div className={styles.cardGrid}>
                   {allRadiologists.map(radiologist => (
                     <div key={radiologist.id} className={styles.radiologistCard}>
-                      <div className={styles.cardHeader}>
+                      <div
+                        className={styles.cardHeader}
+                        onClick={() => {
+                          setSelectedRadiologistDetail(radiologist);
+                          setShowRadiologistDetailModal(true);
+                          fetchRadiologistActivities(radiologist.id);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <h3>{radiologist.full_name}</h3>
                         <span className={styles.radiologistId}>{radiologist.unique_identifier}</span>
                       </div>
@@ -772,13 +819,19 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* Patient Detail Modal */}
+      {/* Patient Detail Modal with Reports */}
       {showPatientDetailModal && selectedPatientDetail && (
-        <div className={styles.modal} onClick={() => setShowPatientDetailModal(false)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+        <div className={styles.modal} onClick={() => {
+          setShowPatientDetailModal(false);
+          setPatientReports([]);
+        }}>
+          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h2>Patient Details</h2>
-              <button onClick={() => setShowPatientDetailModal(false)} className={styles.closeBtn}>×</button>
+              <button onClick={() => {
+                setShowPatientDetailModal(false);
+                setPatientReports([]);
+              }} className={styles.closeBtn}>×</button>
             </div>
 
             <div className={styles.modalBody}>
@@ -794,32 +847,216 @@ function AdminDashboard() {
                 <div><strong>Patient ID:</strong> {selectedPatientDetail.unique_identifier}</div>
                 <div><strong>Email:</strong> {selectedPatientDetail.email || 'N/A'}</div>
                 <div><strong>Phone:</strong> {selectedPatientDetail.phone}</div>
-                <div><strong>Date of Birth:</strong> {selectedPatientDetail.date_of_birth ? new Date(selectedPatientDetail.date_of_birth).toLocaleDateString() : 'N/A'}</div>
                 <div><strong>Age:</strong> {selectedPatientDetail.date_of_birth ? new Date().getFullYear() - new Date(selectedPatientDetail.date_of_birth).getFullYear() : 'N/A'} years</div>
                 <div><strong>Blood Group:</strong> {selectedPatientDetail.profile?.blood_groups?.blood_type || 'N/A'}</div>
-                <div><strong>Address:</strong> {selectedPatientDetail.address || 'N/A'}</div>
                 <div><strong>Account Status:</strong> {selectedPatientDetail.account_status}</div>
-                {selectedPatientDetail.assignedDoctor && (
-                  <div style={{gridColumn: '1 / -1'}}>
-                    <strong>Assigned Doctor:</strong> {selectedPatientDetail.assignedDoctor.full_name}
-                    <br />
-                    <small>{selectedPatientDetail.assignedDoctor.email}</small>
+              </div>
+
+              {selectedPatientDetail.assignedDoctor && (
+                <div className={styles.assignedDoctorSection}>
+                  <h4>Assigned Doctor</h4>
+                  <div className={styles.doctorInfo}>
+                    <p><strong>Name:</strong> {selectedPatientDetail.assignedDoctor.full_name}</p>
+                    <p><strong>Email:</strong> {selectedPatientDetail.assignedDoctor.email}</p>
+                    <p><strong>Phone:</strong> {selectedPatientDetail.assignedDoctor.phone || 'N/A'}</p>
                   </div>
-                )}
-                {selectedPatientDetail.profile?.medical_history && (
-                  <div style={{gridColumn: '1 / -1'}}>
-                    <strong>Medical History:</strong>
-                    <p style={{marginTop: '0.5rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px'}}>
-                      {selectedPatientDetail.profile.medical_history}
-                    </p>
+                </div>
+              )}
+
+              <div className={styles.reportsSection}>
+                <h4>Patient Reports ({patientReports.length})</h4>
+                {loadingReports ? (
+                  <p>Loading reports...</p>
+                ) : patientReports.length > 0 ? (
+                  <div className={styles.reportsListModal}>
+                    {patientReports.map(report => (
+                      <div key={report.id} className={styles.reportItemModal}>
+                        <div className={styles.reportHeaderModal}>
+                          <h5>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h5>
+                          <span className={styles.statusBadge}>{report.status}</span>
+                        </div>
+                        <p><strong>Date:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
+                        <p><strong>Filename:</strong> {report.filename}</p>
+                        {report.prediction && (
+                          <p><strong>Result:</strong> <span style={{color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{report.prediction}</span></p>
+                        )}
+                        {report.patient_pdf_url && (
+                          <button
+                            onClick={() => window.open(report.patient_pdf_url, '_blank')}
+                            className={styles.viewReportBtnSmall}
+                          >
+                            View Report
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p style={{color: '#666'}}>No reports available</p>
                 )}
               </div>
             </div>
 
             <div className={styles.modalActions}>
               <button
-                onClick={() => setShowPatientDetailModal(false)}
+                onClick={() => {
+                  setShowPatientDetailModal(false);
+                  setPatientReports([]);
+                }}
+                className={styles.primaryBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Doctor Detail Modal with Assigned Patients */}
+      {showDoctorDetailModal && selectedDoctorDetail && (
+        <div className={styles.modal} onClick={() => {
+          setShowDoctorDetailModal(false);
+          setDoctorPatients([]);
+        }}>
+          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Doctor Details</h2>
+              <button onClick={() => {
+                setShowDoctorDetailModal(false);
+                setDoctorPatients([]);
+              }} className={styles.closeBtn}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.userDetails}>
+                <div className={styles.avatarLarge}>
+                  {selectedDoctorDetail.full_name?.[0]?.toUpperCase()}
+                </div>
+                <h3>{selectedDoctorDetail.full_name}</h3>
+                <span className={styles.roleTag}>Doctor</span>
+              </div>
+
+              <div className={styles.detailsGrid}>
+                <div><strong>Doctor ID:</strong> {selectedDoctorDetail.unique_identifier}</div>
+                <div><strong>Email:</strong> {selectedDoctorDetail.email || 'N/A'}</div>
+                <div><strong>Phone:</strong> {selectedDoctorDetail.phone || 'N/A'}</div>
+                <div><strong>Medical License:</strong> {selectedDoctorDetail.profile?.medical_license || 'N/A'}</div>
+                <div><strong>Specialization:</strong> {selectedDoctorDetail.profile?.specialization || 'General'}</div>
+                <div><strong>Experience:</strong> {selectedDoctorDetail.profile?.experience_years || 0} years</div>
+              </div>
+
+              <div className={styles.reportsSection}>
+                <h4>Assigned Patients ({doctorPatients.length})</h4>
+                {loadingDoctorPatients ? (
+                  <p>Loading patients...</p>
+                ) : doctorPatients.length > 0 ? (
+                  <div className={styles.reportsListModal}>
+                    {doctorPatients.map(patient => {
+                      const profile = Array.isArray(patient.patient_profiles)
+                        ? patient.patient_profiles[0]
+                        : patient.patient_profiles;
+
+                      return (
+                        <div key={patient.id} className={styles.reportItemModal}>
+                          <div className={styles.reportHeaderModal}>
+                            <h5>{patient.full_name}</h5>
+                            <span className={styles.statusBadge}>{patient.account_status}</span>
+                          </div>
+                          <p><strong>Patient ID:</strong> {patient.unique_identifier}</p>
+                          <p><strong>Phone:</strong> {patient.phone}</p>
+                          <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
+                          <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p style={{color: '#666'}}>No patients assigned yet</p>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => {
+                  setShowDoctorDetailModal(false);
+                  setDoctorPatients([]);
+                }}
+                className={styles.primaryBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Radiologist Detail Modal with Activities */}
+      {showRadiologistDetailModal && selectedRadiologistDetail && (
+        <div className={styles.modal} onClick={() => {
+          setShowRadiologistDetailModal(false);
+          setRadiologistActivities([]);
+        }}>
+          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Radiologist Details</h2>
+              <button onClick={() => {
+                setShowRadiologistDetailModal(false);
+                setRadiologistActivities([]);
+              }} className={styles.closeBtn}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.userDetails}>
+                <div className={styles.avatarLarge}>
+                  {selectedRadiologistDetail.full_name?.[0]?.toUpperCase()}
+                </div>
+                <h3>{selectedRadiologistDetail.full_name}</h3>
+                <span className={styles.roleTag}>Radiologist</span>
+              </div>
+
+              <div className={styles.detailsGrid}>
+                <div><strong>Radiologist ID:</strong> {selectedRadiologistDetail.unique_identifier}</div>
+                <div><strong>Email:</strong> {selectedRadiologistDetail.email}</div>
+                <div><strong>Phone:</strong> {selectedRadiologistDetail.phone}</div>
+                <div><strong>Account Status:</strong> {selectedRadiologistDetail.account_status}</div>
+              </div>
+
+              <div className={styles.reportsSection}>
+                <h4>Recent Activities & Analysis ({radiologistActivities.length})</h4>
+                {loadingActivities ? (
+                  <p>Loading activities...</p>
+                ) : radiologistActivities.length > 0 ? (
+                  <div className={styles.reportsListModal}>
+                    {radiologistActivities.map(activity => (
+                      <div key={activity.id} className={styles.reportItemModal}>
+                        <div className={styles.reportHeaderModal}>
+                          <h5>{activity.session_code || `Session-${activity.id.substring(0, 8)}`}</h5>
+                          <span className={styles.statusBadge}>{activity.status}</span>
+                        </div>
+                        <p><strong>Date:</strong> {new Date(activity.created_at).toLocaleDateString()} {new Date(activity.created_at).toLocaleTimeString()}</p>
+                        <p><strong>File:</strong> {activity.filename}</p>
+                        {activity.prediction && (
+                          <p><strong>Analysis Result:</strong> <span style={{color: activity.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{activity.prediction}</span></p>
+                        )}
+                        {activity.confidence && (
+                          <p><strong>Confidence:</strong> {(activity.confidence * 100).toFixed(1)}%</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{color: '#666'}}>No recent activities found</p>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => {
+                  setShowRadiologistDetailModal(false);
+                  setRadiologistActivities([]);
+                }}
                 className={styles.primaryBtn}
               >
                 Close

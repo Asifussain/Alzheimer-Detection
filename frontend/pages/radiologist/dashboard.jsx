@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../components/AuthProvider';
 import withAuth from '../../components/withAuth';
 import Navbar from '../../components/Navbar';
+import UnifiedSidebar from '../../components/UnifiedSidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import supabase from '../../lib/supabaseClient';
 import styles from '../../styles/RadiologistDashboard.module.css';
@@ -65,7 +66,6 @@ function RadiologistDashboard() {
   const fileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [allPredictions, setAllPredictions] = useState([]);
@@ -252,6 +252,17 @@ function RadiologistDashboard() {
       return;
     }
 
+    // Validate required selections
+    if (!selectedPatient || !selectedDoctor) {
+      alert('Please select both doctor and patient before uploading');
+      return;
+    }
+
+    if (!userProfile?.hospital_id) {
+      alert('Hospital information missing. Please refresh and try again.');
+      return;
+    }
+
     try {
       setIsUploading(true);
       setUploadProgress(10);
@@ -266,6 +277,25 @@ function RadiologistDashboard() {
       formData.append('file', uploadData.file);
       formData.append('user_id', user.id);
       formData.append('channel_index', uploadData.channelIndex.toString());
+
+      // NEW: Required metadata for role-based filtering
+      // Use the correct user_id fields from the selected doctor and patient
+      const patientUserId = selectedPatient.id || selectedPatient.user_id;
+      const doctorUserId = selectedDoctor.id || selectedDoctor.user_id;
+
+      console.log('📝 Uploading with metadata:', {
+        patient_id: patientUserId,
+        patient_name: selectedPatient.full_name,
+        doctor_id: doctorUserId,
+        doctor_name: selectedDoctor.full_name,
+        hospital_id: userProfile.hospital_id,
+        hospital_name: hospitalData?.name
+      });
+
+      formData.append('patient_id', patientUserId);
+      formData.append('doctor_id', doctorUserId);
+      formData.append('hospital_id', userProfile.hospital_id);
+      formData.append('uploaded_by_role', userProfile.role);
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5001';
       const predictResponse = await fetch(`${backendUrl}/api/predict`, {
@@ -393,75 +423,36 @@ function RadiologistDashboard() {
     );
   }
 
+  const navigationItems = [
+    { id: 'overview', label: 'Overview', icon: 'Dashboard' },
+    { id: 'allPredictions', label: 'All Predictions', icon: 'FileText', badgeKey: 'predictions' },
+    { id: 'doctors', label: 'Doctors', icon: 'Stethoscope' },
+    { id: 'patients', label: 'Patients', icon: 'Users', disabled: !selectedDoctor, badgeKey: 'patients' },
+    { id: 'sessions', label: 'EEG Sessions', icon: 'Activity', disabled: !selectedPatient, badgeKey: 'sessions' },
+  ];
+
+  const stats = {
+    predictions: allPredictions.length,
+    patients: patients.length,
+    sessions: sessions.length,
+  };
+
   return (
     <>
       <Navbar />
       <div className={styles.dashboardContainer}>
-        {/* Sidebar */}
-        <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.collapsed : ''}`}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.hospitalInfo}>
-              <h3>{hospitalData?.name || 'Hospital Dashboard'}</h3>
-              <p>Radiologist Portal</p>
-            </div>
-            <button
-              className={styles.toggleBtn}
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              {sidebarCollapsed ? <Icons.Menu /> : <Icons.ChevronLeft />}
-            </button>
-          </div>
-
-          <nav className={styles.navigation}>
-            <button
-              className={`${styles.navItem} ${activeTab === 'overview' ? styles.active : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              <Icons.Dashboard />
-              <span>Overview</span>
-            </button>
-
-            <button
-              className={`${styles.navItem} ${activeTab === 'allPredictions' ? styles.active : ''}`}
-              onClick={() => setActiveTab('allPredictions')}
-            >
-              <Icons.FileText />
-              <span>All Predictions</span>
-              <span className={styles.badge}>{allPredictions.length}</span>
-            </button>
-
-            <button
-              className={`${styles.navItem} ${activeTab === 'doctors' ? styles.active : ''}`}
-              onClick={() => setActiveTab('doctors')}
-            >
-              <Icons.Stethoscope />
-              <span>Doctors</span>
-            </button>
-
-            <button
-              className={`${styles.navItem} ${activeTab === 'patients' ? styles.active : ''}`}
-              onClick={() => setActiveTab('patients')}
-              disabled={!selectedDoctor}
-            >
-              <Icons.Activity />
-              <span>Patients</span>
-              {selectedDoctor && <span className={styles.badge}>{patients.length}</span>}
-            </button>
-
-            <button
-              className={`${styles.navItem} ${activeTab === 'sessions' ? styles.active : ''}`}
-              onClick={() => setActiveTab('sessions')}
-              disabled={!selectedPatient}
-            >
-              <Icons.FileText />
-              <span>EEG Sessions</span>
-              {selectedPatient && <span className={styles.badge}>{sessions.length}</span>}
-            </button>
-          </nav>
-        </aside>
+        <UnifiedSidebar
+          user={user}
+          userProfile={userProfile}
+          hospitalData={hospitalData}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          navigationItems={navigationItems}
+          stats={stats}
+        />
 
         {/* Main Content */}
-        <main className={`${styles.mainContent} ${sidebarCollapsed ? styles.expanded : ''}`}>
+        <main className={styles.mainContent}>
           {error && (
             <div className={styles.errorSection}>
               <p>{error}</p>

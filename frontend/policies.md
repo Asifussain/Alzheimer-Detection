@@ -73,8 +73,9 @@
 
 | Policy Name | Command | Applied To | Description |
 |------------|---------|------------|-------------|
-| Admins can manage relationships | ALL | public | Allows admins to perform all operations on doctor-patient relationships |
-| Users can view their relationships | SELECT | public | Allows users to view their doctor-patient relationships |
+| Authenticated users can insert relationships | INSERT | public | Allows authenticated users to create doctor-patient relationships |
+| Authenticated users can view relationships | SELECT | public | Allows authenticated users to view doctor-patient relationships |
+| Service role full access on relationships | ALL | public | Grants service role complete access to manage relationships |
 
 ---
 
@@ -84,6 +85,7 @@
 
 | Policy Name | Command | Applied To | Description |
 |------------|---------|------------|-------------|
+| Authenticated users can view doctor profiles | SELECT | public | Allows authenticated users to view all doctor profiles |
 | Users can insert own doctor profile | INSERT | public | Allows users to create their own doctor profile |
 | Users can update own doctor profile | UPDATE | public | Allows users to update their own doctor profile |
 | Users can view own doctor profile | SELECT | public | Allows users to view their own doctor profile |
@@ -157,6 +159,7 @@
 
 | Policy Name | Command | Applied To | Description |
 |------------|---------|------------|-------------|
+| Authenticated users can view patient profiles | SELECT | public | Allows authenticated users to view all patient profiles |
 | Doctors can view assigned patients | SELECT | public | Allows doctors to view profiles of their assigned patients |
 | Users can insert own patient profile | INSERT | public | Allows users to create their own patient profile |
 | Users can update own patient profile | UPDATE | public | Allows users to update their own patient profile |
@@ -170,7 +173,13 @@
 
 | Policy Name | Command | Applied To | Description |
 |------------|---------|------------|-------------|
+| Admins can view hospital reports | SELECT | authenticated | Allows admins to view prediction reports for their hospital |
+| Authenticated users can create predictions | INSERT | authenticated | Allows authenticated users to create predictions |
+| Doctors can view patient reports | SELECT | authenticated | Allows doctors to view prediction reports for their patients |
+| Patients can view own reports | SELECT | authenticated | Allows patients to view their own prediction reports |
+| Radiologists can view hospital reports | SELECT | authenticated | Allows radiologists to view prediction reports for their hospital |
 | Users can access their own predictions | ALL | public | Allows users to perform all operations on their own predictions |
+| Users can update own predictions | UPDATE | authenticated | Allows users to update their own predictions |
 
 ---
 
@@ -218,6 +227,7 @@
 | Admins can create radiologist profiles | INSERT | public | Allows admins to create radiologist profiles |
 | Admins can read all radiologist profiles | SELECT | public | Allows admins to view all radiologist profiles |
 | Admins can update radiologist profiles | UPDATE | public | Allows admins to update radiologist profiles |
+| Authenticated users can view radiologist profiles | SELECT | public | Allows authenticated users to view radiologist profiles |
 | Radiologists can read own profile | SELECT | public | Allows radiologists to view their own profile |
 | Radiologists can update own profile | UPDATE | public | Allows radiologists to update their own profile |
 
@@ -250,11 +260,9 @@
 
 | Policy Name | Command | Applied To | Description |
 |------------|---------|------------|-------------|
-| Allow admin to view users in their own hospital | SELECT | public | Allows admins to view user profiles within their hospital |
-| Enable insert for authenticated users | INSERT | public | Allows authenticated users to insert user profiles |
-| Enable select for authenticated users | SELECT | public | Allows authenticated users to select user profiles |
-| Enable update for authenticated users | UPDATE | public | Allows authenticated users to update user profiles |
-| Users can insert own profile | INSERT | public | Allows users to insert their own profile |
+| Authenticated users can insert profiles | INSERT | public | Allows authenticated users to insert user profiles |
+| Authenticated users can view profiles | SELECT | public | Allows authenticated users to view user profiles |
+| Service role full access | ALL | public | Grants service role complete access to user profiles |
 | Users can update own profile | UPDATE | public | Allows users to update their own profile |
 | Users can view own profile | SELECT | public | Allows users to view their own profile |
 
@@ -265,11 +273,46 @@
 - **Total Tables:** 21
 - **Tables with RLS Enabled:** 21
 - **Tables without Policies:** 1 (password_reset_tokens)
+- **Total Policies:** 72
+
+### Key Changes from Previous Version
+
+#### Doctor Patient Relationships
+- ✨ Added: "Authenticated users can insert relationships"
+- ✨ Added: "Service role full access on relationships"
+- ❌ Removed: "Admins can manage relationships"
+
+#### Doctor Profiles
+- ✨ Added: "Authenticated users can view doctor profiles"
+
+#### Patient Profiles
+- ✨ Added: "Authenticated users can view patient profiles"
+
+#### Predictions
+- ✨ Added: "Admins can view hospital reports"
+- ✨ Added: "Authenticated users can create predictions"
+- ✨ Added: "Doctors can view patient reports"
+- ✨ Added: "Patients can view own reports"
+- ✨ Added: "Radiologists can view hospital reports"
+- ✨ Added: "Users can update own predictions"
+
+#### Radiologist Profiles
+- ✨ Added: "Authenticated users can view radiologist profiles"
+
+#### User Profiles
+- ✨ Added: "Authenticated users can insert profiles"
+- ✨ Added: "Authenticated users can view profiles"
+- ✨ Added: "Service role full access"
+- ❌ Removed: "Allow admin to view users in their own hospital"
+- ❌ Removed: "Enable insert for authenticated users"
+- ❌ Removed: "Enable select for authenticated users"
+- ❌ Removed: "Enable update for authenticated users"
+- ❌ Removed: "Users can insert own profile"
 
 ### Security Notes
 
-1. All tables have RLS enabled, which is a security best practice
-2. The `password_reset_tokens` table needs policies to be functional
-3. Most policies follow a pattern of allowing users to manage their own data
-4. Admin and system-level operations are granted specific permissions
-5. Role-based access is implemented for doctors, patients, radiologists, and admins
+1. **Enhanced Role-Based Access:** More granular permissions for admins, doctors, patients, and radiologists, especially in the predictions table
+2. **Service Role Access:** Service role now has full access to doctor-patient relationships and user profiles for backend operations
+3. **Broader Profile Visibility:** Authenticated users can now view doctor, patient, and radiologist profiles (previously more restricted)
+4. **Password Reset Tokens:** Still needs policies to be functional
+5. **Improved Predictions Access:** Multiple role-specific policies provide fine-grained control over who can view and create predictions

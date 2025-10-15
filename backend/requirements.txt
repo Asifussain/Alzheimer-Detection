@@ -19,6 +19,8 @@ matplotlib==3.7.0
 scipy
 dtaidistance
 torch==2.1.0
+reformer-pytorch==1.4.4
+einops==0.8.1
 
 # Utilities
 fpdf2==2.7.9

@@ -3,7 +3,7 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   color: #f1f5f9;
-  padding: 7rem 0 2rem 0;
+  padding: 8rem 0 2rem 0;
   position: relative;
   overflow: hidden;
 }
@@ -45,21 +45,38 @@
 }
 
 .profileHeader {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem 2rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto 2.5rem auto;
+  padding: 2.5rem 2.5rem;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 2rem;
   position: relative;
   z-index: 2;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 214, 160, 0.1));
-  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  border-radius: 0 0 24px 24px;
-  margin-bottom: 3rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.profileHeader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(6, 214, 160, 0.05));
+  border-radius: 20px;
+  z-index: -1;
+}
+
+.profileHeader:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 15px 50px rgba(59, 130, 246, 0.2);
 }
 
 .headerContent {
@@ -67,44 +84,43 @@
 }
 
 .headerContent h1 {
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #f1f5f9, #3b82f6, #06d6a0);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: textShimmer 3s infinite;
-}
-
-@keyframes textShimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  letter-spacing: -0.5px;
 }
 
 .headerContent p {
-  color: #94a3b8;
-  font-size: 1.2rem;
+  color: #cbd5e1;
+  font-size: 1rem;
   font-weight: 500;
   margin: 0;
+  opacity: 0.9;
 }
 
 .backButton {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(71, 85, 105, 0.6);
-  border: 1px solid rgba(71, 85, 105, 0.5);
+  padding: 0.875rem 1.75rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.15));
+  border: 1px solid rgba(59, 130, 246, 0.4);
   border-radius: 12px;
-  color: #cbd5e1;
+  color: #f1f5f9;
   font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.3s ease;
   text-decoration: none;
   backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .backButton::before {
@@ -114,16 +130,15 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.6s;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), transparent);
+  transition: left 0.5s;
 }
 
 .backButton:hover {
-  background: rgba(59, 130, 246, 0.8);
-  color: #f1f5f9;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.3));
   border-color: rgba(59, 130, 246, 0.6);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+  transform: translateX(-3px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
 }
 
 .backButton:hover::before {
@@ -706,13 +721,14 @@
 /* Responsive Design */
 @media (max-width: 1200px) {
   .profileContainer {
-    padding: 6rem 1rem 2rem 1rem;
+    padding: 7rem 1rem 2rem 1rem;
   }
-  
+
   .profileHeader {
-    padding: 0 1.5rem 2rem 1.5rem;
+    padding: 2rem 1.5rem;
+    margin: 0 1rem 2rem 1rem;
   }
-  
+
   .profileCard {
     margin: 0 1rem;
   }
@@ -720,86 +736,97 @@
 
 @media (max-width: 768px) {
   .profileContainer {
-    padding: 5rem 0.5rem 1rem 0.5rem;
+    padding: 6.5rem 0.5rem 1rem 0.5rem;
   }
-  
+
   .profileHeader {
     flex-direction: column;
-    gap: 1.5rem;
-    padding: 0 1rem 2rem 1rem;
+    gap: 1.25rem;
+    padding: 1.75rem 1.25rem;
+    margin: 0 0.5rem 1.5rem 0.5rem;
     text-align: center;
   }
-  
+
   .headerContent h1 {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
-  
+
+  .headerContent p {
+    font-size: 0.9rem;
+  }
+
+  .backButton {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+  }
+
   .profileInfo {
     flex-direction: column;
     text-align: center;
     padding: 2rem 1.5rem;
     gap: 1.5rem;
   }
-  
+
   .avatarSection {
     flex-direction: column;
     text-align: center;
     gap: 1.5rem;
   }
-  
+
   .avatar {
     width: 100px;
     height: 100px;
     margin: 0 auto;
   }
-  
+
   .actionButtons {
     flex-direction: row;
     justify-content: center;
     gap: 1rem;
   }
-  
+
   .detailItem {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
     text-align: left;
   }
-  
+
   .detailLabel {
     min-width: auto;
     font-size: 0.85rem;
   }
-  
+
   .detailValue {
     text-align: left;
     font-size: 1.1rem;
     font-weight: 600;
   }
-  
+
   .formActions {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .cancelButton,
   .saveButton {
     width: 100%;
     justify-content: center;
   }
-  
+
   .passwordButton,
   .editButton {
     font-size: 0.9rem;
     padding: 0.7rem 1.2rem;
     justify-content: center;
   }
-  
+
   .profileDetails,
   .profileForm {
     padding: 2rem 1.5rem;
   }
-  
+
   .successMessage,
   .errorMessage {
     margin: 1rem;
@@ -808,79 +835,85 @@
 
 @media (max-width: 480px) {
   .profileContainer {
-    padding: 4.5rem 0.25rem 1rem 0.25rem;
+    padding: 6rem 0.25rem 1rem 0.25rem;
   }
-  
+
   .profileHeader {
-    padding: 0 0.75rem 1.5rem 0.75rem;
+    padding: 1.5rem 1rem;
+    margin: 0 0.25rem 1.25rem 0.25rem;
   }
-  
+
   .headerContent h1 {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
-  
+
   .headerContent p {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
-  
+
+  .backButton {
+    padding: 0.7rem 1.25rem;
+    font-size: 0.875rem;
+  }
+
   .profileInfo {
     padding: 1.5rem 1rem;
   }
-  
+
   .avatar {
     width: 80px;
     height: 80px;
   }
-  
+
   .avatarPlaceholder {
     font-size: 2rem;
   }
-  
+
   .userInfo h2 {
     font-size: 1.5rem;
   }
-  
+
   .actionButtons {
     flex-direction: column;
     gap: 0.75rem;
   }
-  
+
   .passwordButton,
   .editButton {
     padding: 0.8rem;
     font-size: 0.85rem;
   }
-  
+
   .profileDetails,
   .profileForm {
     padding: 1.5rem 1rem;
   }
-  
+
   .formGroup {
     margin-bottom: 1.5rem;
   }
-  
+
   .formGroup input,
   .formGroup textarea {
     padding: 1rem;
     font-size: 0.95rem;
   }
-  
+
   .cancelButton,
   .saveButton {
     padding: 1rem;
     font-size: 0.9rem;
   }
-  
+
   .detailItem {
     padding: 1.2rem 1rem;
   }
-  
+
   .roleBadge {
     padding: 0.5rem 0.8rem;
     font-size: 0.8rem;
   }
-  
+
   .statusBadge {
     padding: 0.3rem 0.7rem;
     font-size: 0.75rem;

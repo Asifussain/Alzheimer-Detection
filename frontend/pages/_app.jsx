@@ -1,11 +1,14 @@
 import { AuthProvider } from '../components/AuthProvider';
+import ThemeProvider from '../components/ThemeProvider';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
   return (
-    <AuthProvider>
-      <Component {...pageProps} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Component {...pageProps} />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

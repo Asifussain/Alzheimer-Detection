@@ -84,21 +84,26 @@ export default function ReportViewer({ predictionId }) {
 
   if (userRole === 'patient') {
     displayPdfUrl = patient_pdf_url;
-    downloadFilename = `AI_EEG_Patient_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Patient Report (PDF)';
-  } else if (userRole === 'technician') {
+    downloadFilename = `Patient_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Patient Report';
+  } else if (userRole === 'technician' || userRole === 'radiologist') {
     displayPdfUrl = technical_pdf_url;
-    downloadFilename = `Technical_EEG_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Technical Report (PDF)';
-  } else if (userRole === 'clinician') {
+    downloadFilename = `Technical_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Technical Report';
+  } else if (userRole === 'clinician' || userRole === 'doctor') {
     displayPdfUrl = clinician_pdf_url;
-    downloadFilename = `Clinician_EEG_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Clinician Report (PDF)';
+    downloadFilename = `Clinical_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Clinical Report';
+  } else if (userRole === 'admin') {
+    // Admins can see all three reports - default to technical
+    displayPdfUrl = technical_pdf_url;
+    downloadFilename = `Full_Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Full Report';
   } else {
     displayPdfUrl = technical_pdf_url;
-    downloadFilename = `EEG_Report_${filename || predictionId}.pdf`;
-    reportTypeString = 'Report (PDF)';
-    console.warn(`ReportViewer: Unknown user role ${userRole}, defaulting PDF.`);
+    downloadFilename = `Report_${filename || predictionId}.pdf`;
+    reportTypeString = 'Report';
+    console.warn(`ReportViewer: Unknown user role ${userRole}, defaulting to technical PDF.`);
   }
 
   if (!displayPdfUrl) {

@@ -16,11 +16,11 @@
   top: 1.2rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
+  z-index: 9999;
   width: fit-content;
   max-width: 90vw;
   min-width: 800px;
-  box-shadow: 
+  box-shadow:
     var(--shadow-lg),
     0 0 25px rgba(var(--accent-neural-blue-rgb), 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);

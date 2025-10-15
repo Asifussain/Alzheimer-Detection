@@ -207,8 +207,25 @@ CREATE TABLE public.predictions (
   technical_pdf_url text,
   clinician_pdf_url text,
   analysis_type text DEFAULT 'binary'::text,
+  patient_id uuid,
+  patient_name text,
+  doctor_id uuid,
+  doctor_name text,
+  radiologist_id uuid,
+  radiologist_name text,
+  hospital_id uuid,
+  hospital_name text,
+  technician_id uuid,
+  technician_name text,
+  session_code text,
+  uploaded_by_role text CHECK (uploaded_by_role = ANY (ARRAY['patient'::text, 'doctor'::text, 'admin'::text, 'radiologist'::text, 'technician'::text])),
   CONSTRAINT predictions_pkey PRIMARY KEY (id),
-  CONSTRAINT predictions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT predictions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT predictions_technician_id_fkey FOREIGN KEY (technician_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT predictions_hospital_id_fkey FOREIGN KEY (hospital_id) REFERENCES public.hospitals(id),
+  CONSTRAINT predictions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patient_profiles(user_id),
+  CONSTRAINT predictions_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor_profiles(user_id),
+  CONSTRAINT predictions_radiologist_id_fkey FOREIGN KEY (radiologist_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.profile_details (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

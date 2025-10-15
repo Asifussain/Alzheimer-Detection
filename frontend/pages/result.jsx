@@ -45,10 +45,18 @@ const ResultPage = () => {
     const getRoleBasedReport = () => {
         if (!profile || !predictionData) return null;
         switch (profile.role) {
-            case 'technician': return { url: predictionData.technical_pdf_url, label: 'Download Technical Report (PDF)' };
-            case 'clinician': return { url: predictionData.clinician_pdf_url, label: 'Download Clinician Report (PDF)' };
-            case 'patient': return { url: predictionData.patient_pdf_url, label: 'Download Patient Report (PDF)' };
-            default: return null;
+            case 'patient':
+                return { url: predictionData.patient_pdf_url, label: 'Download Patient Report' };
+            case 'doctor':
+            case 'clinician':
+                return { url: predictionData.technical_pdf_url, label: 'Download Technical Report' }; // Doctors see radiologist/technician reports
+            case 'technician':
+            case 'radiologist':
+                return { url: predictionData.technical_pdf_url, label: 'Download Technical Report' };
+            case 'admin':
+                return { url: predictionData.technical_pdf_url, label: 'Download Full Report' };
+            default:
+                return null;
         }
     };
 
@@ -92,8 +100,16 @@ const ResultPage = () => {
     return (
         <PageLayout>
             <div className={styles.contentWrapper}>
+                <button onClick={() => router.back()} className={styles.backButton}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    Back
+                </button>
                 <header className={styles.header}>
-                    <h1 className={styles.title}>Comprehensive Analysis Report</h1>
+                    <div>
+                        <h1 className={styles.title}>Comprehensive Analysis Report</h1>
+                    </div>
                     {renderReportButton()}
                 </header>
 
