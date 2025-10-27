@@ -191,21 +191,19 @@ function AdminDashboard() {
   const [patientFilter, setPatientFilter] = useState('all'); // all, assigned, unassigned
   const [doctorFilter, setDoctorFilter] = useState('all'); // all, with-patients, no-patients
 
-  // Patient detail modal
+  // Detail view states (replacing modals with full-page views)
+  const [detailView, setDetailView] = useState(null); // 'patient' | 'doctor' | 'radiologist' | 'report' | null
   const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
-  const [showPatientDetailModal, setShowPatientDetailModal] = useState(false);
   const [patientReports, setPatientReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
-  // Doctor detail modal
+  // Doctor detail view
   const [selectedDoctorDetail, setSelectedDoctorDetail] = useState(null);
-  const [showDoctorDetailModal, setShowDoctorDetailModal] = useState(false);
   const [doctorPatients, setDoctorPatients] = useState([]);
   const [loadingDoctorPatients, setLoadingDoctorPatients] = useState(false);
 
-  // Radiologist detail modal
+  // Radiologist detail view
   const [selectedRadiologistDetail, setSelectedRadiologistDetail] = useState(null);
-  const [showRadiologistDetailModal, setShowRadiologistDetailModal] = useState(false);
   const [radiologistActivities, setRadiologistActivities] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
 
@@ -280,9 +278,25 @@ function AdminDashboard() {
   // Initialize cache from sessionStorage on mount
   useEffect(() => {
     const cachedFlag = sessionStorage.getItem('admin_dashboard_fetched');
-    if (cachedFlag === 'true') {
-      dataFetchedRef.current.dashboard = true;
-      console.log('📦 Restored cache flag from sessionStorage');
+    const cachedData = sessionStorage.getItem('admin_dashboard_data');
+
+    if (cachedFlag === 'true' && cachedData) {
+      try {
+        const data = JSON.parse(cachedData);
+        dataFetchedRef.current.dashboard = true;
+
+        // Restore data from cache
+        if (data.patients) setAllPatients(data.patients);
+        if (data.doctors) setAllDoctors(data.doctors);
+        if (data.radiologists) setAllRadiologists(data.radiologists);
+        if (data.pendingUsers) setPendingUsers(data.pendingUsers);
+        if (data.stats) setDashboardStats(data.stats);
+
+        setIsLoading(false);
+        console.log('📦 Restored data from sessionStorage - NO RELOAD!');
+      } catch (e) {
+        console.error('Failed to restore cache:', e);
+      }
     }
   }, []);
 
@@ -362,6 +376,25 @@ function AdminDashboard() {
 
         // Mark as fetched to prevent re-fetching
         dataFetchedRef.current.dashboard = true;
+        sessionStorage.setItem('admin_dashboard_fetched', 'true');
+
+        // Cache data for instant restore
+        const cacheData = {
+          patients: patients || [],
+          doctors: doctors || [],
+          radiologists: radiologists || [],
+          pendingUsers: pendingUsers || [],
+          stats: {
+            totalUsers: stats?.totalUsers || 0,
+            pendingApprovals: (stats?.pendingPatients || 0) + (stats?.pendingDoctors || 0) + (stats?.pendingRadiologists || 0),
+            activePatients: stats?.activePatients || 0,
+            activeDoctors: stats?.activeDoctors || 0,
+            activeRadiologists: stats?.activeRadiologists || 0,
+            unassignedPatients: (patients || []).filter(p => !p.patient_profiles?.[0]?.assigned_doctor_id).length,
+          }
+        };
+        sessionStorage.setItem('admin_dashboard_data', JSON.stringify(cacheData));
+        console.log('💾 Saved data to sessionStorage - ready for instant restore!');
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -538,12 +571,69 @@ function AdminDashboard() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setAllReports(data || []);
+
+      console.log('📊 Fetched reports:', data?.length);
+
+      // Enrich reports with user names
+      const enrichedReports = [];
+
+      if (data && data.length > 0) {
+        // Get all unique user IDs
+        const patientIds = [...new Set(data.map(r => r.patient_id).filter(Boolean))];
+        const doctorIds = [...new Set(data.map(r => r.doctor_id).filter(Boolean))];
+        const radiologistIds = [...new Set(data.map(r => r.radiologist_id).filter(Boolean))];
+        const hospitalIds = [...new Set(data.map(r => r.hospital_id).filter(Boolean))];
+
+        // Fetch all users in parallel
+        const usersMap = {};
+        const hospitalsMap = {};
+
+        if (patientIds.length > 0 || doctorIds.length > 0 || radiologistIds.length > 0) {
+          const allUserIds = [...new Set([...patientIds, ...doctorIds, ...radiologistIds])];
+          const { data: users } = await supabase
+            .from('user_profiles')
+            .select('id, full_name')
+            .in('id', allUserIds);
+
+          if (users) {
+            users.forEach(user => {
+              usersMap[user.id] = user.full_name;
+            });
+          }
+        }
+
+        if (hospitalIds.length > 0) {
+          const { data: hospitals } = await supabase
+            .from('hospitals')
+            .select('id, name')
+            .in('id', hospitalIds);
+
+          if (hospitals) {
+            hospitals.forEach(hospital => {
+              hospitalsMap[hospital.id] = hospital.name;
+            });
+          }
+        }
+
+        // Transform reports with names
+        data.forEach(report => {
+          enrichedReports.push({
+            ...report,
+            patient_name: usersMap[report.patient_id] || null,
+            doctor_name: usersMap[report.doctor_id] || null,
+            radiologist_name: usersMap[report.radiologist_id] || null,
+            hospital_name: hospitalsMap[report.hospital_id] || null
+          });
+        });
+      }
+
+      console.log('✅ Enriched reports with names:', enrichedReports.length);
+      setAllReports(enrichedReports);
 
       // Calculate detection stats
-      if (data && data.length > 0) {
-        const alzCount = data.filter(r => r.prediction?.toLowerCase().includes('alz')).length;
-        const normalCount = data.filter(r => r.prediction?.toLowerCase().includes('normal')).length;
+      if (enrichedReports && enrichedReports.length > 0) {
+        const alzCount = enrichedReports.filter(r => r.prediction?.toLowerCase().includes('alz')).length;
+        const normalCount = enrichedReports.filter(r => r.prediction?.toLowerCase().includes('normal')).length;
         setDetectionStats({ alzheimers: alzCount, normal: normalCount });
       }
 
@@ -580,15 +670,40 @@ function AdminDashboard() {
       const { data: predictions, error } = await query;
       if (error) throw error;
 
+      // Enrich predictions with user names
+      const usersMap = {};
+      if (predictions && predictions.length > 0) {
+        const userIds = [...new Set([
+          ...predictions.map(p => p.patient_id),
+          ...predictions.map(p => p.radiologist_id)
+        ].filter(Boolean))];
+
+        if (userIds.length > 0) {
+          const { data: users } = await supabase
+            .from('user_profiles')
+            .select('id, full_name')
+            .in('id', userIds);
+
+          if (users) {
+            users.forEach(user => {
+              usersMap[user.id] = user.full_name;
+            });
+          }
+        }
+      }
+
       // Create activity feed
       const activities = [];
 
       if (predictions) {
         predictions.forEach(pred => {
+          const radiologistName = usersMap[pred.radiologist_id] || 'Radiologist';
+          const patientName = usersMap[pred.patient_id] || 'patient';
+
           activities.push({
             id: `pred-${pred.id}`,
             type: 'report',
-            message: `${pred.radiologist_name || 'Radiologist'} analyzed report for ${pred.patient_name || 'patient'}`,
+            message: `${radiologistName} analyzed report for ${patientName}`,
             timestamp: pred.created_at,
             status: pred.prediction?.toLowerCase().includes('alz') ? 'alzheimers' : 'normal',
             icon: 'FileText'
@@ -679,9 +794,9 @@ function AdminDashboard() {
     setReportsTrend(last7Days);
   };
 
-  // Fetch reports when reports tab is active
+  // Fetch reports when reports tab is active (only once)
   useEffect(() => {
-    if (activeTab === 'reports' && allReports.length === 0 && userProfile) {
+    if (activeTab === 'reports' && !dataFetchedRef.current.reports && userProfile) {
       fetchAllReports();
     }
   }, [activeTab, userProfile]);
@@ -689,12 +804,14 @@ function AdminDashboard() {
   // Fetch analytics data when overview tab is active
   useEffect(() => {
     if (activeTab === 'overview' && userProfile) {
-      if (allReports.length === 0) {
+      if (!dataFetchedRef.current.reports) {
         fetchAllReports();
       }
-      fetchRecentActivities();
+      if (!dataFetchedRef.current.activities) {
+        fetchRecentActivities();
+      }
     }
-  }, [activeTab, userProfile, allPatients, allDoctors]);
+  }, [activeTab, userProfile]);
 
   // Calculate trends when reports change
   useEffect(() => {
@@ -1040,11 +1157,11 @@ function AdminDashboard() {
 
   const navigationItems = [
     { id: 'overview', label: 'Dashboard', icon: 'Dashboard' },
-    { id: 'add-user', label: 'Add User', icon: 'UserPlus' },
     { id: 'patients', label: 'Patients', icon: 'Heart', badgeKey: 'activePatients' },
     { id: 'doctors', label: 'Doctors', icon: 'Stethoscope', badgeKey: 'activeDoctors' },
     { id: 'radiologists', label: 'Radiologists', icon: 'Activity', badgeKey: 'activeRadiologists' },
     { id: 'reports', label: 'Reports', icon: 'FileText' },
+    { id: 'add-user', label: 'Add User', icon: 'UserPlus' },
   ];
 
   if (isLoading && !userProfile) {
@@ -1427,6 +1544,98 @@ function AdminDashboard() {
           {/* Patients Tab */}
           {activeTab === 'patients' && (
             <div className={styles.section}>
+              {detailView === 'patient' && selectedPatientDetail ? (
+                // Patient Detail View
+                <div>
+                  <div className={styles.detailHeader}>
+                    <button onClick={() => setDetailView(null)} className={styles.backButton}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                      Back to Patients
+                    </button>
+                    <h1 className={styles.pageTitle}>Patient Details</h1>
+                  </div>
+
+                  <div className={styles.detailContent}>
+                    <div className={styles.userDetails}>
+                      <div className={styles.avatarLarge}>
+                        {selectedPatientDetail.full_name?.[0]?.toUpperCase()}
+                      </div>
+                      <h3>{selectedPatientDetail.full_name}</h3>
+                      <span className={styles.roleTag}>Patient</span>
+                    </div>
+
+                    <div className={styles.detailsGrid}>
+                      <div><strong>Patient ID:</strong> {selectedPatientDetail.unique_identifier}</div>
+                      <div><strong>Email:</strong> {selectedPatientDetail.email || 'N/A'}</div>
+                      <div><strong>Phone:</strong> {selectedPatientDetail.phone}</div>
+                      <div><strong>Age:</strong> {selectedPatientDetail.date_of_birth ? new Date().getFullYear() - new Date(selectedPatientDetail.date_of_birth).getFullYear() : 'N/A'} years</div>
+                      <div><strong>Blood Group:</strong> {selectedPatientDetail.profile?.blood_groups?.blood_type || 'N/A'}</div>
+                      <div><strong>Account Status:</strong> {selectedPatientDetail.account_status}</div>
+                    </div>
+
+                    <div className={styles.assignedDoctorSection}>
+                      <h4>Assigned Doctor</h4>
+                      {selectedPatientDetail.profile?.assigned_doctor?.user_profiles ? (
+                        <div className={styles.doctorInfo}>
+                          <p><strong>Name:</strong> {selectedPatientDetail.profile.assigned_doctor.user_profiles.full_name}</p>
+                          <p><strong>Email:</strong> {selectedPatientDetail.profile.assigned_doctor.user_profiles.email}</p>
+                        </div>
+                      ) : (
+                        <p style={{color: '#666', fontStyle: 'italic'}}>No doctor assigned yet</p>
+                      )}
+                    </div>
+
+                    <div className={styles.reportsSection}>
+                      <h4>Patient Reports ({patientReports.length})</h4>
+                      {loadingReports ? (
+                        <p>Loading reports...</p>
+                      ) : patientReports.length > 0 ? (
+                        <div className={styles.reportsListModal}>
+                          {patientReports.map(report => (
+                            <div key={report.id} className={styles.reportItemModal}>
+                              <div className={styles.reportHeaderModal}>
+                                <h5>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h5>
+                                <span className={styles.statusBadge}>{report.status}</span>
+                              </div>
+                              <p><strong>Date:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
+                              <p><strong>Filename:</strong> {report.filename}</p>
+                              {report.prediction && (
+                                <p><strong>Result:</strong> <span style={{color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{report.prediction}</span></p>
+                              )}
+                              {report.patient_pdf_url && (
+                                <button
+                                  onClick={() => window.open(report.patient_pdf_url, '_blank')}
+                                  className={styles.viewReportBtnSmall}
+                                >
+                                  View Report
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>No reports found for this patient.</p>
+                      )}
+                    </div>
+
+                    {!selectedPatientDetail.profile?.assigned_doctor_id && (
+                      <button
+                        onClick={() => {
+                          setSelectedPatient(selectedPatientDetail);
+                          setShowAssignModal(true);
+                        }}
+                        className={styles.assignBtn}
+                      >
+                        <Icons.UserPlus />
+                        Assign Doctor
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className={styles.sectionHeaderWithToggle}>
                 <h1 className={styles.pageTitle}>Patient Management</h1>
                 <div className={styles.viewToggle}>
@@ -1530,7 +1739,7 @@ function AdminDashboard() {
                         const age = patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A';
 
                         return (
-                          <div key={patient.id} className={styles.patientCard} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setShowPatientDetailModal(true); fetchPatientReports(patient.id); }} style={{ cursor: 'pointer' }}>
+                          <div key={patient.id} className={styles.patientCard} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); }} style={{ cursor: 'pointer' }}>
                             <div className={styles.cardHeader}>
                               <h3>{patient.full_name}</h3>
                               <span className={styles.patientId}>{patient.unique_identifier}</span>
@@ -1569,7 +1778,7 @@ function AdminDashboard() {
                         }
 
                         return (
-                          <div key={patient.id} className={styles.compactItem} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setShowPatientDetailModal(true); fetchPatientReports(patient.id); }}>
+                          <div key={patient.id} className={styles.compactItem} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); }}>
                             <div className={styles.compactLeft}>
                               <h4>{patient.full_name}</h4>
                               <span className={styles.compactMeta}>
@@ -1598,12 +1807,78 @@ function AdminDashboard() {
                   <p>No patients found</p>
                 </div>
               )}
+            </>
+              )}
             </div>
           )}
 
           {/* Doctors Tab */}
           {activeTab === 'doctors' && (
             <div className={styles.section}>
+              {detailView === 'doctor' && selectedDoctorDetail ? (
+                // Doctor Detail View
+                <div>
+                  <div className={styles.detailHeader}>
+                    <button onClick={() => setDetailView(null)} className={styles.backButton}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                      Back to Doctors
+                    </button>
+                    <h1 className={styles.pageTitle}>Doctor Details</h1>
+                  </div>
+
+                  <div className={styles.detailContent}>
+                    <div className={styles.userDetails}>
+                      <div className={styles.avatarLarge}>
+                        {selectedDoctorDetail.full_name?.[0]?.toUpperCase()}
+                      </div>
+                      <h3>{selectedDoctorDetail.full_name}</h3>
+                      <span className={styles.roleTag}>Doctor</span>
+                    </div>
+
+                    <div className={styles.detailsGrid}>
+                      <div><strong>Doctor ID:</strong> {selectedDoctorDetail.unique_identifier}</div>
+                      <div><strong>Email:</strong> {selectedDoctorDetail.email || 'N/A'}</div>
+                      <div><strong>Phone:</strong> {selectedDoctorDetail.phone || 'N/A'}</div>
+                      <div><strong>Medical License:</strong> {selectedDoctorDetail.profile?.medical_license || 'N/A'}</div>
+                      <div><strong>Specialization:</strong> {selectedDoctorDetail.profile?.specialization || 'General'}</div>
+                      <div><strong>Experience:</strong> {selectedDoctorDetail.profile?.experience_years || 0} years</div>
+                    </div>
+
+                    <div className={styles.reportsSection}>
+                      <h4>Assigned Patients ({doctorPatients.length})</h4>
+                      {loadingDoctorPatients ? (
+                        <p>Loading patients...</p>
+                      ) : doctorPatients.length > 0 ? (
+                        <div className={styles.reportsListModal}>
+                          {doctorPatients.map(patient => {
+                            const profile = Array.isArray(patient.patient_profiles)
+                              ? patient.patient_profiles[0]
+                              : patient.patient_profiles;
+
+                            return (
+                              <div key={patient.id} className={styles.reportItemModal}>
+                                <div className={styles.reportHeaderModal}>
+                                  <h5>{patient.full_name}</h5>
+                                  <span className={styles.statusBadge}>{patient.account_status}</span>
+                                </div>
+                                <p><strong>Patient ID:</strong> {patient.unique_identifier}</p>
+                                <p><strong>Phone:</strong> {patient.phone}</p>
+                                <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
+                                <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{color: '#666'}}>No patients assigned yet</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className={styles.sectionHeaderWithToggle}>
                 <h1 className={styles.pageTitle}>Doctor Management</h1>
                 <div className={styles.viewToggle}>
@@ -1707,7 +1982,7 @@ function AdminDashboard() {
                         const patientCount = getDoctorPatientCount(doctor.id);
 
                         return (
-                          <div key={doctor.id} className={styles.doctorCard} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setShowDoctorDetailModal(true); fetchDoctorPatients(doctor.id); }} style={{ cursor: 'pointer' }}>
+                          <div key={doctor.id} className={styles.doctorCard} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setDetailView('doctor'); fetchDoctorPatients(doctor.id); }} style={{ cursor: 'pointer' }}>
                             <div className={styles.cardHeader}>
                               <h3>{doctor.full_name}</h3>
                               <span className={styles.doctorId}>{doctor.unique_identifier}</span>
@@ -1730,7 +2005,7 @@ function AdminDashboard() {
                         const patientCount = getDoctorPatientCount(doctor.id);
 
                         return (
-                          <div key={doctor.id} className={styles.compactItem} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setShowDoctorDetailModal(true); fetchDoctorPatients(doctor.id); }}>
+                          <div key={doctor.id} className={styles.compactItem} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setDetailView('doctor'); fetchDoctorPatients(doctor.id); }}>
                             <div className={styles.compactLeft}>
                               <h4>Dr. {doctor.full_name}</h4>
                               <span className={styles.compactMeta}>
@@ -1755,12 +2030,74 @@ function AdminDashboard() {
                   <p>No doctors found</p>
                 </div>
               )}
+            </>
+            )}
             </div>
           )}
 
           {/* Radiologists Tab */}
           {activeTab === 'radiologists' && (
             <div className={styles.section}>
+              {detailView === 'radiologist' && selectedRadiologistDetail ? (
+                // Radiologist Detail View
+                <div>
+                  <div className={styles.detailHeader}>
+                    <button onClick={() => setDetailView(null)} className={styles.backButton}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                      Back to Radiologists
+                    </button>
+                    <h1 className={styles.pageTitle}>Radiologist Details</h1>
+                  </div>
+
+                  <div className={styles.detailContent}>
+                    <div className={styles.userDetails}>
+                      <div className={styles.avatarLarge}>
+                        {selectedRadiologistDetail.full_name?.[0]?.toUpperCase()}
+                      </div>
+                      <h3>{selectedRadiologistDetail.full_name}</h3>
+                      <span className={styles.roleTag}>Radiologist</span>
+                    </div>
+
+                    <div className={styles.detailsGrid}>
+                      <div><strong>Radiologist ID:</strong> {selectedRadiologistDetail.unique_identifier}</div>
+                      <div><strong>Email:</strong> {selectedRadiologistDetail.email}</div>
+                      <div><strong>Phone:</strong> {selectedRadiologistDetail.phone}</div>
+                      <div><strong>Account Status:</strong> {selectedRadiologistDetail.account_status}</div>
+                    </div>
+
+                    <div className={styles.reportsSection}>
+                      <h4>Recent Activities & Analysis ({radiologistActivities.length})</h4>
+                      {loadingActivities ? (
+                        <p>Loading activities...</p>
+                      ) : radiologistActivities.length > 0 ? (
+                        <div className={styles.reportsListModal}>
+                          {radiologistActivities.map(activity => (
+                            <div key={activity.id} className={styles.reportItemModal}>
+                              <div className={styles.reportHeaderModal}>
+                                <h5>{activity.session_code || `Session-${activity.id.substring(0, 8)}`}</h5>
+                                <span className={styles.statusBadge}>{activity.status}</span>
+                              </div>
+                              <p><strong>Date:</strong> {new Date(activity.created_at).toLocaleDateString()} {new Date(activity.created_at).toLocaleTimeString()}</p>
+                              <p><strong>File:</strong> {activity.filename}</p>
+                              {activity.prediction && (
+                                <p><strong>Analysis Result:</strong> <span style={{color: activity.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{activity.prediction}</span></p>
+                              )}
+                              {activity.confidence && (
+                                <p><strong>Confidence:</strong> {(activity.confidence * 100).toFixed(1)}%</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{color: '#666'}}>No recent activities found</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className={styles.sectionHeaderWithToggle}>
                 <h1 className={styles.pageTitle}>Radiologist Management</h1>
                 <div className={styles.viewToggle}>
@@ -1853,7 +2190,7 @@ function AdminDashboard() {
                   {radiologistsViewMode === 'detailed' ? (
                     <div className={styles.cardGrid}>
                       {filteredRadiologistsData.map(radiologist => (
-                        <div key={radiologist.id} className={styles.radiologistCard} onClick={() => { setSelectedRadiologistDetail(radiologist); setShowRadiologistDetailModal(true); fetchRadiologistActivities(radiologist.id); }} style={{ cursor: 'pointer' }}>
+                        <div key={radiologist.id} className={styles.radiologistCard} onClick={() => { setSelectedRadiologistDetail(radiologist); setDetailView('radiologist'); fetchRadiologistActivities(radiologist.id); }} style={{ cursor: 'pointer' }}>
                           <div className={styles.cardHeader}>
                             <h3>{radiologist.full_name}</h3>
                             <span className={styles.radiologistId}>{radiologist.unique_identifier}</span>
@@ -1870,7 +2207,7 @@ function AdminDashboard() {
                   ) : (
                     <div className={styles.compactList}>
                       {filteredRadiologistsData.map(radiologist => (
-                        <div key={radiologist.id} className={styles.compactItem} onClick={() => { setSelectedRadiologistDetail(radiologist); setShowRadiologistDetailModal(true); fetchRadiologistActivities(radiologist.id); }}>
+                        <div key={radiologist.id} className={styles.compactItem} onClick={() => { setSelectedRadiologistDetail(radiologist); setDetailView('radiologist'); fetchRadiologistActivities(radiologist.id); }}>
                           <div className={styles.compactLeft}>
                             <h4>{radiologist.full_name}</h4>
                             <span className={styles.compactMeta}>
@@ -1894,12 +2231,122 @@ function AdminDashboard() {
                   <p>No radiologists found</p>
                 </div>
               )}
+            </>
+            )}
             </div>
           )}
 
           {/* Reports Tab */}
           {activeTab === 'reports' && (
             <div className={styles.section}>
+              {detailView === 'report' && selectedReportDetail ? (
+                // Report Detail View
+                <div>
+                  <div className={styles.detailHeader}>
+                    <button onClick={() => setDetailView(null)} className={styles.backButton}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                      Back to Reports
+                    </button>
+                    <h1 className={styles.pageTitle}>Report Details</h1>
+                  </div>
+
+                  <div className={styles.detailContent}>
+                    <div className={styles.reportDetailsHeader}>
+                      <h3>{selectedReportDetail.session_code || `Session-${selectedReportDetail.id.substring(0, 12)}`}</h3>
+                      <span className={`${styles.statusBadge} ${styles[selectedReportDetail.status?.toLowerCase()]}`}>
+                        {selectedReportDetail.status}
+                      </span>
+                    </div>
+
+                    <div className={styles.detailsGrid}>
+                      <div><strong>Report ID:</strong> {selectedReportDetail.id.substring(0, 12)}...</div>
+                      <div><strong>Patient:</strong> {selectedReportDetail.patient_name || 'Unknown'}</div>
+                      <div><strong>Doctor:</strong> Dr. {selectedReportDetail.doctor_name || 'Unassigned'}</div>
+                      <div><strong>Radiologist:</strong> {selectedReportDetail.radiologist_name || 'Not assigned'}</div>
+                      <div><strong>Hospital:</strong> {selectedReportDetail.hospital_name || 'N/A'}</div>
+                      <div><strong>Date:</strong> {new Date(selectedReportDetail.created_at).toLocaleString()}</div>
+                      <div><strong>Original Filename:</strong> {selectedReportDetail.filename}</div>
+                      {selectedReportDetail.session_code && (
+                        <div><strong>Session Code:</strong> {selectedReportDetail.session_code}</div>
+                      )}
+                    </div>
+
+                    {selectedReportDetail.prediction && (
+                      <div className={styles.predictionSection}>
+                        <h4>Analysis Result</h4>
+                        <div className={styles.predictionResult}>
+                          <span
+                            className={styles.predictionLabel}
+                            style={{
+                              color: selectedReportDetail.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981',
+                              fontSize: '1.5rem',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {selectedReportDetail.prediction}
+                          </span>
+                        </div>
+                        {selectedReportDetail.probabilities && Array.isArray(selectedReportDetail.probabilities) && (
+                          <div className={styles.confidenceBar}>
+                            <strong>Confidence:</strong>
+                            <div className={styles.progressContainer}>
+                              <div
+                                className={styles.progressBar}
+                                style={{
+                                  width: `${(Math.max(...selectedReportDetail.probabilities) * 100).toFixed(1)}%`,
+                                  backgroundColor: (Math.max(...selectedReportDetail.probabilities) * 100) > 75 ? '#10b981' : '#f59e0b'
+                                }}
+                              />
+                              <span className={styles.progressLabel}>
+                                {(Math.max(...selectedReportDetail.probabilities) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className={styles.pdfSection}>
+                      <h4>Available Reports</h4>
+                      <div className={styles.pdfButtons}>
+                        {selectedReportDetail.patient_pdf_url && (
+                          <button
+                            onClick={() => window.open(selectedReportDetail.patient_pdf_url, '_blank')}
+                            className={styles.pdfBtn}
+                          >
+                            <Icons.FileText />
+                            Patient Report
+                          </button>
+                        )}
+                        {selectedReportDetail.technical_pdf_url && (
+                          <button
+                            onClick={() => window.open(selectedReportDetail.technical_pdf_url, '_blank')}
+                            className={styles.pdfBtn}
+                          >
+                            <Icons.FileText />
+                            Technical Report
+                          </button>
+                        )}
+                        {selectedReportDetail.clinician_pdf_url && (
+                          <button
+                            onClick={() => window.open(selectedReportDetail.clinician_pdf_url, '_blank')}
+                            className={styles.pdfBtn}
+                          >
+                            <Icons.FileText />
+                            Clinician Report
+                          </button>
+                        )}
+                        {!selectedReportDetail.patient_pdf_url && !selectedReportDetail.technical_pdf_url && !selectedReportDetail.clinician_pdf_url && (
+                          <p style={{color: '#666', fontStyle: 'italic'}}>No PDF reports available yet</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className={styles.sectionHeaderWithToggle}>
                 <h1 className={styles.pageTitle}>EEG Analysis Reports</h1>
                 <div className={styles.viewToggle}>
@@ -2059,19 +2506,19 @@ function AdminDashboard() {
                             className={styles.reportCard}
                             onClick={() => {
                               setSelectedReportDetail(report);
-                              setShowReportDetailModal(true);
+                              setDetailView('report');
                             }}
                             style={{ cursor: 'pointer' }}
                           >
                             <div className={styles.cardHeader}>
-                              <h3>{getReportDisplayName(report)}</h3>
+                              <h3>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h3>
                               <span className={`${styles.statusBadge} ${styles[report.status?.toLowerCase()]}`}>
                                 {report.status}
                               </span>
                             </div>
                             <div className={styles.cardBody}>
                               <p><strong>Patient:</strong> {report.patient_name || 'Unknown'}</p>
-                              <p><strong>Doctor:</strong> {report.doctor_name || 'Unassigned'}</p>
+                              <p><strong>Doctor:</strong> Dr. {report.doctor_name || 'Unassigned'}</p>
                               <p><strong>Radiologist:</strong> {report.radiologist_name || 'Not Assigned'}</p>
                               <p><strong>Date:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
                               {report.prediction && (
@@ -2098,11 +2545,11 @@ function AdminDashboard() {
                             className={styles.compactItem}
                             onClick={() => {
                               setSelectedReportDetail(report);
-                              setShowReportDetailModal(true);
+                              setDetailView('report');
                             }}
                           >
                             <div className={styles.compactLeft}>
-                              <h4>{getReportDisplayName(report)}</h4>
+                              <h4>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h4>
                               <span className={styles.compactMeta}>
                                 {report.patient_name || 'Unknown Patient'} • Dr. {report.doctor_name || 'Unassigned'} • Radiologist: {report.radiologist_name || 'N/A'} • {new Date(report.created_at).toLocaleDateString()}
                               </span>
@@ -2137,6 +2584,8 @@ function AdminDashboard() {
                   <Icons.FileText />
                   <p>No reports available yet</p>
                 </div>
+              )}
+            </>
               )}
             </div>
           )}
@@ -2179,253 +2628,6 @@ function AdminDashboard() {
                 Assign {selectedDoctor.full_name}
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Patient Detail Modal with Reports */}
-      {showPatientDetailModal && selectedPatientDetail && (
-        <div className={styles.modal} onClick={() => {
-          setShowPatientDetailModal(false);
-          setPatientReports([]);
-        }}>
-          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Patient Details</h2>
-              <button onClick={() => {
-                setShowPatientDetailModal(false);
-                setPatientReports([]);
-              }} className={styles.closeBtn}>×</button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.userDetails}>
-                <div className={styles.avatarLarge}>
-                  {selectedPatientDetail.full_name?.[0]?.toUpperCase()}
-                </div>
-                <h3>{selectedPatientDetail.full_name}</h3>
-                <span className={styles.roleTag}>Patient</span>
-              </div>
-
-              <div className={styles.detailsGrid}>
-                <div><strong>Patient ID:</strong> {selectedPatientDetail.unique_identifier}</div>
-                <div><strong>Email:</strong> {selectedPatientDetail.email || 'N/A'}</div>
-                <div><strong>Phone:</strong> {selectedPatientDetail.phone}</div>
-                <div><strong>Age:</strong> {selectedPatientDetail.date_of_birth ? new Date().getFullYear() - new Date(selectedPatientDetail.date_of_birth).getFullYear() : 'N/A'} years</div>
-                <div><strong>Blood Group:</strong> {selectedPatientDetail.profile?.blood_groups?.blood_type || 'N/A'}</div>
-                <div><strong>Account Status:</strong> {selectedPatientDetail.account_status}</div>
-              </div>
-
-              {selectedPatientDetail.assignedDoctor && (
-                <div className={styles.assignedDoctorSection}>
-                  <h4>Assigned Doctor</h4>
-                  <div className={styles.doctorInfo}>
-                    <p><strong>Name:</strong> {selectedPatientDetail.assignedDoctor.full_name}</p>
-                    <p><strong>Email:</strong> {selectedPatientDetail.assignedDoctor.email}</p>
-                    <p><strong>Phone:</strong> {selectedPatientDetail.assignedDoctor.phone || 'N/A'}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.reportsSection}>
-                <h4>Patient Reports ({patientReports.length})</h4>
-                {loadingReports ? (
-                  <p>Loading reports...</p>
-                ) : patientReports.length > 0 ? (
-                  <div className={styles.reportsListModal}>
-                    {patientReports.map(report => (
-                      <div key={report.id} className={styles.reportItemModal}>
-                        <div className={styles.reportHeaderModal}>
-                          <h5>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h5>
-                          <span className={styles.statusBadge}>{report.status}</span>
-                        </div>
-                        <p><strong>Date:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
-                        <p><strong>Filename:</strong> {report.filename}</p>
-                        {report.prediction && (
-                          <p><strong>Result:</strong> <span style={{color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{report.prediction}</span></p>
-                        )}
-                        {report.patient_pdf_url && (
-                          <button
-                            onClick={() => window.open(report.patient_pdf_url, '_blank')}
-                            className={styles.viewReportBtnSmall}
-                          >
-                            View Report
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{color: '#666'}}>No reports available</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                onClick={() => {
-                  setShowPatientDetailModal(false);
-                  setPatientReports([]);
-                }}
-                className={styles.primaryBtn}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Doctor Detail Modal with Assigned Patients */}
-      {showDoctorDetailModal && selectedDoctorDetail && (
-        <div className={styles.modal} onClick={() => {
-          setShowDoctorDetailModal(false);
-          setDoctorPatients([]);
-        }}>
-          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Doctor Details</h2>
-              <button onClick={() => {
-                setShowDoctorDetailModal(false);
-                setDoctorPatients([]);
-              }} className={styles.closeBtn}>×</button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.userDetails}>
-                <div className={styles.avatarLarge}>
-                  {selectedDoctorDetail.full_name?.[0]?.toUpperCase()}
-                </div>
-                <h3>{selectedDoctorDetail.full_name}</h3>
-                <span className={styles.roleTag}>Doctor</span>
-              </div>
-
-              <div className={styles.detailsGrid}>
-                <div><strong>Doctor ID:</strong> {selectedDoctorDetail.unique_identifier}</div>
-                <div><strong>Email:</strong> {selectedDoctorDetail.email || 'N/A'}</div>
-                <div><strong>Phone:</strong> {selectedDoctorDetail.phone || 'N/A'}</div>
-                <div><strong>Medical License:</strong> {selectedDoctorDetail.profile?.medical_license || 'N/A'}</div>
-                <div><strong>Specialization:</strong> {selectedDoctorDetail.profile?.specialization || 'General'}</div>
-                <div><strong>Experience:</strong> {selectedDoctorDetail.profile?.experience_years || 0} years</div>
-              </div>
-
-              <div className={styles.reportsSection}>
-                <h4>Assigned Patients ({doctorPatients.length})</h4>
-                {loadingDoctorPatients ? (
-                  <p>Loading patients...</p>
-                ) : doctorPatients.length > 0 ? (
-                  <div className={styles.reportsListModal}>
-                    {doctorPatients.map(patient => {
-                      const profile = Array.isArray(patient.patient_profiles)
-                        ? patient.patient_profiles[0]
-                        : patient.patient_profiles;
-
-                      return (
-                        <div key={patient.id} className={styles.reportItemModal}>
-                          <div className={styles.reportHeaderModal}>
-                            <h5>{patient.full_name}</h5>
-                            <span className={styles.statusBadge}>{patient.account_status}</span>
-                          </div>
-                          <p><strong>Patient ID:</strong> {patient.unique_identifier}</p>
-                          <p><strong>Phone:</strong> {patient.phone}</p>
-                          <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
-                          <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p style={{color: '#666'}}>No patients assigned yet</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                onClick={() => {
-                  setShowDoctorDetailModal(false);
-                  setDoctorPatients([]);
-                }}
-                className={styles.primaryBtn}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Radiologist Detail Modal with Activities */}
-      {showRadiologistDetailModal && selectedRadiologistDetail && (
-        <div className={styles.modal} onClick={() => {
-          setShowRadiologistDetailModal(false);
-          setRadiologistActivities([]);
-        }}>
-          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Radiologist Details</h2>
-              <button onClick={() => {
-                setShowRadiologistDetailModal(false);
-                setRadiologistActivities([]);
-              }} className={styles.closeBtn}>×</button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.userDetails}>
-                <div className={styles.avatarLarge}>
-                  {selectedRadiologistDetail.full_name?.[0]?.toUpperCase()}
-                </div>
-                <h3>{selectedRadiologistDetail.full_name}</h3>
-                <span className={styles.roleTag}>Radiologist</span>
-              </div>
-
-              <div className={styles.detailsGrid}>
-                <div><strong>Radiologist ID:</strong> {selectedRadiologistDetail.unique_identifier}</div>
-                <div><strong>Email:</strong> {selectedRadiologistDetail.email}</div>
-                <div><strong>Phone:</strong> {selectedRadiologistDetail.phone}</div>
-                <div><strong>Account Status:</strong> {selectedRadiologistDetail.account_status}</div>
-              </div>
-
-              <div className={styles.reportsSection}>
-                <h4>Recent Activities & Analysis ({radiologistActivities.length})</h4>
-                {loadingActivities ? (
-                  <p>Loading activities...</p>
-                ) : radiologistActivities.length > 0 ? (
-                  <div className={styles.reportsListModal}>
-                    {radiologistActivities.map(activity => (
-                      <div key={activity.id} className={styles.reportItemModal}>
-                        <div className={styles.reportHeaderModal}>
-                          <h5>{activity.session_code || `Session-${activity.id.substring(0, 8)}`}</h5>
-                          <span className={styles.statusBadge}>{activity.status}</span>
-                        </div>
-                        <p><strong>Date:</strong> {new Date(activity.created_at).toLocaleDateString()} {new Date(activity.created_at).toLocaleTimeString()}</p>
-                        <p><strong>File:</strong> {activity.filename}</p>
-                        {activity.prediction && (
-                          <p><strong>Analysis Result:</strong> <span style={{color: activity.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>{activity.prediction}</span></p>
-                        )}
-                        {activity.confidence && (
-                          <p><strong>Confidence:</strong> {(activity.confidence * 100).toFixed(1)}%</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{color: '#666'}}>No recent activities found</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                onClick={() => {
-                  setShowRadiologistDetailModal(false);
-                  setRadiologistActivities([]);
-                }}
-                className={styles.primaryBtn}
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
