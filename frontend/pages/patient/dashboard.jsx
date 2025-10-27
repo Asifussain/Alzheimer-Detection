@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Navbar from '../../components/Navbar';
 import UnifiedSidebar from '../../components/UnifiedSidebar';
 import { useAuth, usePatientData, useHospital } from '../../components/AuthProvider';
@@ -8,6 +9,7 @@ import supabase from '../../lib/supabaseClient';
 import styles from '../../styles/PatientDashboard.module.css';
 
 function PatientDashboard() {
+  const router = useRouter();
   const { user, userProfile } = useAuth();
   const patientData = usePatientData();
   const hospitalData = useHospital();
@@ -17,6 +19,14 @@ function PatientDashboard() {
   const [patientReports, setPatientReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+
+  // Sync activeTab with URL query parameter
+  useEffect(() => {
+    if (router.isReady) {
+      const tabFromUrl = router.query.tab || 'overview';
+      setActiveTab(tabFromUrl);
+    }
+  }, [router.isReady, router.query.tab]);
 
   useEffect(() => {
     if (userProfile) {
@@ -116,6 +126,7 @@ function PatientDashboard() {
     { id: 'overview', label: 'Dashboard', icon: 'Dashboard' },
     { id: 'doctor', label: 'My Doctor', icon: 'Stethoscope' },
     { id: 'sessions', label: 'EEG Sessions', icon: 'Activity', badgeKey: 'sessions' },
+    { id: 'reports', label: 'Reports', icon: 'FileText', badgeKey: 'reports' },
   ];
 
   const stats = {
@@ -215,7 +226,7 @@ function PatientDashboard() {
         <div className={styles.recentReportsSection}>
           <div className={styles.sectionHeaderSmall}>
             <h3>Recent Reports</h3>
-            <button onClick={() => setActiveTab('sessions')} className={styles.viewAllBtn}>
+            <button onClick={() => handleTabChange('sessions')} className={styles.viewAllBtn}>
               View All →
             </button>
           </div>
@@ -273,7 +284,7 @@ function PatientDashboard() {
           <div className={styles.doctorInfoCard}>
             <div className={styles.sectionHeaderSmall}>
               <h3>Assigned Doctor</h3>
-              <button onClick={() => setActiveTab('doctor')} className={styles.viewAllBtn}>
+              <button onClick={() => handleTabChange('doctor')} className={styles.viewAllBtn}>
                 View Details →
               </button>
             </div>
@@ -484,6 +495,14 @@ function PatientDashboard() {
     );
   }
 
+  // Handle tab change with URL update
+  const handleTabChange = (tabId) => {
+    router.push({
+      pathname: router.pathname,
+      query: { tab: tabId }
+    }, undefined, { shallow: true });
+  };
+
   return (
     <>
       <Navbar />
@@ -493,7 +512,7 @@ function PatientDashboard() {
           userProfile={userProfile}
           hospitalData={hospitalData}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           navigationItems={navigationItems}
           stats={stats}
         />
@@ -502,6 +521,7 @@ function PatientDashboard() {
           {activeTab === 'overview' && renderOverview()}
           {activeTab === 'doctor' && renderDoctor()}
           {activeTab === 'sessions' && renderSessions()}
+          {activeTab === 'reports' && renderReports()}
         </main>
       </div>
     </>
