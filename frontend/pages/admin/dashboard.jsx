@@ -196,6 +196,7 @@ function AdminDashboard() {
   const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
   const [patientReports, setPatientReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
+  const [assignedDoctors, setAssignedDoctors] = useState([]);
 
   // Doctor detail view
   const [selectedDoctorDetail, setSelectedDoctorDetail] = useState(null);
@@ -547,6 +548,49 @@ function AdminDashboard() {
       setRadiologistActivities([]);
     } finally {
       setLoadingActivities(false);
+    }
+  };
+
+  // Fetch all assigned doctors for a patient
+  const fetchAssignedDoctors = async (patientId) => {
+    try {
+      const { data, error } = await supabase
+        .from('doctor_patient_relationships')
+        .select(`
+          id,
+          doctor_id,
+          relationship_status,
+          assigned_at,
+          doctor:doctor_id (
+            user_id,
+            user_profiles!doctor_profiles_user_fkey (
+              full_name,
+              email,
+              phone
+            )
+          )
+        `)
+        .eq('patient_id', patientId)
+        .eq('relationship_status', 'active')
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform the data to a simpler structure
+      const doctors = data?.map(rel => ({
+        id: rel.doctor_id,
+        full_name: rel.doctor?.user_profiles?.full_name,
+        email: rel.doctor?.user_profiles?.email,
+        phone: rel.doctor?.user_profiles?.phone,
+        assigned_at: rel.assigned_at,
+        relationship_id: rel.id
+      })) || [];
+
+      setAssignedDoctors(doctors);
+      console.log('📋 Assigned doctors:', doctors);
+    } catch (error) {
+      console.error('Error fetching assigned doctors:', error);
+      setAssignedDoctors([]);
     }
   };
 
@@ -1576,14 +1620,39 @@ function AdminDashboard() {
                     </div>
 
                     <div className={styles.assignedDoctorSection}>
-                      <h4>Assigned Doctor</h4>
-                      {selectedPatientDetail.profile?.assigned_doctor?.user_profiles ? (
-                        <div className={styles.doctorInfo}>
-                          <p><strong>Name:</strong> {selectedPatientDetail.profile.assigned_doctor.user_profiles.full_name}</p>
-                          <p><strong>Email:</strong> {selectedPatientDetail.profile.assigned_doctor.user_profiles.email}</p>
+                      <h4>Assigned Doctors ({assignedDoctors.length})</h4>
+                      {assignedDoctors.length > 0 ? (
+                        <div className={styles.doctorsList}>
+                          {assignedDoctors.map((doctor, index) => (
+                            <div key={doctor.id || index} className={styles.doctorInfo}>
+                              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                                <div>
+                                  <p><strong>Name:</strong> {doctor.full_name}</p>
+                                  <p><strong>Email:</strong> {doctor.email}</p>
+                                  {doctor.phone && <p><strong>Phone:</strong> {doctor.phone}</p>}
+                                  {doctor.assigned_at && (
+                                    <p style={{fontSize: '0.85rem', color: '#888'}}>
+                                      Assigned on: {new Date(doctor.assigned_at).toLocaleDateString()}
+                                    </p>
+                                  )}
+                                </div>
+                                {index === 0 && (
+                                  <span style={{
+                                    fontSize: '0.75rem',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '4px'
+                                  }}>
+                                    Primary
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ) : (
-                        <p style={{color: '#666', fontStyle: 'italic'}}>No doctor assigned yet</p>
+                        <p style={{color: '#666', fontStyle: 'italic'}}>No doctors assigned yet</p>
                       )}
                     </div>
 
@@ -1739,7 +1808,7 @@ function AdminDashboard() {
                         const age = patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A';
 
                         return (
-                          <div key={patient.id} className={styles.patientCard} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); }} style={{ cursor: 'pointer' }}>
+                          <div key={patient.id} className={styles.patientCard} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); fetchAssignedDoctors(patient.id); }} style={{ cursor: 'pointer' }}>
                             <div className={styles.cardHeader}>
                               <h3>{patient.full_name}</h3>
                               <span className={styles.patientId}>{patient.unique_identifier}</span>
@@ -1778,7 +1847,7 @@ function AdminDashboard() {
                         }
 
                         return (
-                          <div key={patient.id} className={styles.compactItem} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); }}>
+                          <div key={patient.id} className={styles.compactItem} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); fetchAssignedDoctors(patient.id); }}>
                             <div className={styles.compactLeft}>
                               <h4>{patient.full_name}</h4>
                               <span className={styles.compactMeta}>

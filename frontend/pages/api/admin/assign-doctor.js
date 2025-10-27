@@ -92,38 +92,84 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Doctor not found or not in your hospital' });
     }
 
-    // Update patient_profiles to assign the doctor
-    const { error: assignError } = await supabaseAdmin
-      .from('patient_profiles')
-      .update({
-        assigned_doctor_id: doctor_id,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', patient_id);
+    // Check if this doctor-patient relationship already exists
+    const { data: existingRelationship } = await supabaseAdmin
+      .from('doctor_patient_relationships')
+      .select('id, relationship_status')
+      .eq('doctor_id', doctor_id)
+      .eq('patient_id', patient_id)
+      .eq('hospital_id', userProfile.hospital_id)
+      .single();
 
-    if (assignError) {
-      console.error('Assignment error:', assignError);
-      return res.status(500).json({
-        error: 'Failed to assign doctor',
-        details: assignError.message
-      });
+    if (existingRelationship) {
+      // If relationship exists but is inactive, reactivate it
+      if (existingRelationship.relationship_status !== 'active') {
+        const { error: updateError } = await supabaseAdmin
+          .from('doctor_patient_relationships')
+          .update({
+            relationship_status: 'active',
+            assigned_at: new Date().toISOString()
+          })
+          .eq('id', existingRelationship.id);
+
+        if (updateError) {
+          return res.status(500).json({
+            error: 'Failed to reactivate doctor assignment',
+            details: updateError.message
+          });
+        }
+      } else {
+        // Relationship is already active
+        return res.status(200).json({
+          success: true,
+          message: `Doctor ${doctor.full_name} is already assigned to this patient`,
+          data: {
+            patient_id,
+            doctor_id,
+            doctor_name: doctor.full_name,
+            already_assigned: true
+          }
+        });
+      }
+    } else {
+      // Create new doctor-patient relationship record
+      const { error: relationshipError } = await supabaseAdmin
+        .from('doctor_patient_relationships')
+        .insert({
+          doctor_id: doctor_id,
+          patient_id: patient_id,
+          hospital_id: userProfile.hospital_id,
+          relationship_status: 'active',
+          assigned_by: user.id,
+          assigned_at: new Date().toISOString()
+        });
+
+      if (relationshipError) {
+        console.error('Relationship creation error:', relationshipError);
+        return res.status(500).json({
+          error: 'Failed to create doctor assignment',
+          details: relationshipError.message
+        });
+      }
     }
 
-    // Create doctor-patient relationship record
-    const { error: relationshipError } = await supabaseAdmin
-      .from('doctor_patient_relationships')
-      .insert({
-        doctor_id: doctor_id,
-        patient_id: patient_id,
-        hospital_id: userProfile.hospital_id,
-        relationship_status: 'active',
-        assigned_by: user.id,
-        assigned_at: new Date().toISOString()
-      });
+    // Update patient_profiles with the primary doctor (first active assignment)
+    // This maintains backward compatibility with the assigned_doctor_id field
+    const { data: currentAssignment } = await supabaseAdmin
+      .from('patient_profiles')
+      .select('assigned_doctor_id')
+      .eq('user_id', patient_id)
+      .single();
 
-    // Log the relationship creation (but don't fail if it errors due to duplicate)
-    if (relationshipError && relationshipError.code !== '23505') { // 23505 is unique violation
-      console.error('Relationship creation error:', relationshipError);
+    // Only update assigned_doctor_id if patient doesn't have a primary doctor yet
+    if (!currentAssignment || !currentAssignment.assigned_doctor_id) {
+      await supabaseAdmin
+        .from('patient_profiles')
+        .update({
+          assigned_doctor_id: doctor_id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', patient_id);
     }
 
     return res.status(200).json({
