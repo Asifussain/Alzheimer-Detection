@@ -91,15 +91,6 @@ export default function Navbar() {
               </li>
             )}
 
-            {/* Reports link */}
-            {profile?.role && profile?.account_status === 'active' && (
-              <li>
-                <Link href="/reports" onClick={closeMobileMenu}>
-                  Reports
-                </Link>
-              </li>
-            )}
-
             {/* About link */}
             <li><Link href="/about" onClick={closeMobileMenu}>About</Link></li>
 

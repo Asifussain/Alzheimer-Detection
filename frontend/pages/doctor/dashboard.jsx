@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../../components/AuthProvider';
 import withAuth from '../../components/withAuth';
 import Navbar from '../../components/Navbar';
@@ -8,6 +9,7 @@ import supabase from '../../lib/supabaseClient';
 import styles from '../../styles/DoctorDashboard.module.css';
 
 function DoctorDashboard() {
+  const router = useRouter();
   const { user, userProfile, hospitalData } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
@@ -17,6 +19,14 @@ function DoctorDashboard() {
     completedSessions: 0,
     todayAppointments: 0
   });
+
+  // Sync activeTab with URL query parameter
+  useEffect(() => {
+    if (router.isReady) {
+      const tabFromUrl = router.query.tab || 'overview';
+      setActiveTab(tabFromUrl);
+    }
+  }, [router.isReady, router.query.tab]);
 
   const [eegSessions, setEegSessions] = useState([]);
   const [technicianReports, setTechnicianReports] = useState([]);
@@ -672,6 +682,14 @@ function DoctorDashboard() {
     </div>
   );
 
+  // Handle tab change with URL update
+  const handleTabChange = (tabId) => {
+    router.push({
+      pathname: router.pathname,
+      query: { tab: tabId }
+    }, undefined, { shallow: true });
+  };
+
   if (isLoading) {
     return (
       <div className={styles.loadingContainer}>
@@ -690,7 +708,7 @@ function DoctorDashboard() {
           userProfile={userProfile}
           hospitalData={hospitalData}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           navigationItems={navigationItems}
           stats={dashboardStats}
         />

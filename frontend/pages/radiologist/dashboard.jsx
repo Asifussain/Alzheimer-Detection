@@ -70,6 +70,14 @@ function RadiologistDashboard() {
   const [error, setError] = useState('');
   const [allPredictions, setAllPredictions] = useState([]);
 
+  // Sync activeTab with URL query parameter
+  useEffect(() => {
+    if (router.isReady) {
+      const tabFromUrl = router.query.tab || 'overview';
+      setActiveTab(tabFromUrl);
+    }
+  }, [router.isReady, router.query.tab]);
+
   // Pagination and filtering state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -425,7 +433,7 @@ function RadiologistDashboard() {
 
   const navigationItems = [
     { id: 'overview', label: 'Overview', icon: 'Dashboard' },
-    { id: 'allPredictions', label: 'All Predictions', icon: 'FileText', badgeKey: 'predictions' },
+    { id: 'allPredictions', label: 'Reports', icon: 'FileText', badgeKey: 'predictions' },
     { id: 'doctors', label: 'Doctors', icon: 'Stethoscope' },
     { id: 'patients', label: 'Patients', icon: 'Users', disabled: !selectedDoctor, badgeKey: 'patients' },
     { id: 'sessions', label: 'EEG Sessions', icon: 'Activity', disabled: !selectedPatient, badgeKey: 'sessions' },
@@ -437,6 +445,14 @@ function RadiologistDashboard() {
     sessions: sessions.length,
   };
 
+  // Handle tab change with URL update
+  const handleTabChange = (tabId) => {
+    router.push({
+      pathname: router.pathname,
+      query: { tab: tabId }
+    }, undefined, { shallow: true });
+  };
+
   return (
     <>
       <Navbar />
@@ -446,7 +462,7 @@ function RadiologistDashboard() {
           userProfile={userProfile}
           hospitalData={hospitalData}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           navigationItems={navigationItems}
           stats={stats}
         />

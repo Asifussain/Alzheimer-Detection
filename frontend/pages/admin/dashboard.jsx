@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../../components/AuthProvider';
 import withAuth from '../../components/withAuth';
 import Navbar from '../../components/Navbar';
@@ -76,13 +77,92 @@ const Icons = {
       <line x1="12" y1="16" x2="12.01" y2="16"/>
     </svg>
   ),
+  FileText: () => (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  Grid: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7"/>
+      <rect x="14" y="3" width="7" height="7"/>
+      <rect x="14" y="14" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/>
+    </svg>
+  ),
+  List: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="8" y1="6" x2="21" y2="6"/>
+      <line x1="8" y1="12" x2="21" y2="12"/>
+      <line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/>
+      <line x1="3" y1="12" x2="3.01" y2="12"/>
+      <line x1="3" y1="18" x2="3.01" y2="18"/>
+    </svg>
+  ),
+  Search: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.35-4.35"/>
+    </svg>
+  ),
+  Filter: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  ),
+  X: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  Calendar: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  ),
+  ChevronDown: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  ),
+  ChevronUp: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  ),
 };
 
 function AdminDashboard() {
+  const router = useRouter();
   const { user, userProfile, hospitalData } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTabState] = useState('overview');
+  const [isLoading, setIsLoading] = useState(false); // Start with false to avoid flash
   const [error, setError] = useState('');
+
+  // Sync activeTab with URL query parameter
+  useEffect(() => {
+    if (router.isReady) {
+      const tabFromUrl = router.query.tab || 'overview';
+      setActiveTabState(tabFromUrl);
+    }
+  }, [router.isReady, router.query.tab]);
+
+  // Handle tab change with URL update
+  const setActiveTab = (tabId) => {
+    router.push({
+      pathname: router.pathname,
+      query: { tab: tabId }
+    }, undefined, { shallow: true });
+  };
 
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
@@ -133,11 +213,90 @@ function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
+  // Reports state
+  const [allReports, setAllReports] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
+
+  // Filter states for Reports
+  const [reportsSearchQuery, setReportsSearchQuery] = useState('');
+  const [reportsStatusFilter, setReportsStatusFilter] = useState('all');
+  const [reportsPredictionFilter, setReportsPredictionFilter] = useState('all');
+  const [reportsPatientFilter, setReportsPatientFilter] = useState('all');
+  const [reportsDoctorFilter, setReportsDoctorFilter] = useState('all');
+  const [reportsRadiologistFilter, setReportsRadiologistFilter] = useState('all');
+  const [reportsDateRange, setReportsDateRange] = useState({ start: '', end: '' });
+
+  // Filter states for Patients
+  const [patientsSearchQuery, setPatientsSearchQuery] = useState('');
+  const [patientsStatusFilter, setPatientsStatusFilter] = useState('all');
+  const [patientsAssignmentFilter, setPatientsAssignmentFilter] = useState('all');
+  const [patientsDoctorFilter, setPatientsDoctorFilter] = useState('all');
+  const [patientsDateRange, setPatientsDateRange] = useState({ start: '', end: '' });
+  const [filteredPatientsData, setFilteredPatientsData] = useState([]);
+
+  // Filter states for Doctors
+  const [doctorsSearchQuery, setDoctorsSearchQuery] = useState('');
+  const [doctorsStatusFilter, setDoctorsStatusFilter] = useState('all');
+  const [doctorsSpecializationFilter, setDoctorsSpecializationFilter] = useState('all');
+  const [doctorsPatientCountFilter, setDoctorsPatientCountFilter] = useState('all');
+  const [doctorsDateRange, setDoctorsDateRange] = useState({ start: '', end: '' });
+  const [filteredDoctorsData, setFilteredDoctorsData] = useState([]);
+
+  // Filter states for Radiologists
+  const [radiologistsSearchQuery, setRadiologistsSearchQuery] = useState('');
+  const [radiologistsStatusFilter, setRadiologistsStatusFilter] = useState('all');
+  const [radiologistsActivityFilter, setRadiologistsActivityFilter] = useState('all');
+  const [radiologistsDateRange, setRadiologistsDateRange] = useState({ start: '', end: '' });
+  const [filteredRadiologistsData, setFilteredRadiologistsData] = useState([]);
+
+  // View mode states for each tab (default to compact)
+  const [reportsViewMode, setReportsViewMode] = useState('compact');
+  const [patientsViewMode, setPatientsViewMode] = useState('compact');
+  const [doctorsViewMode, setDoctorsViewMode] = useState('compact');
+  const [radiologistsViewMode, setRadiologistsViewMode] = useState('compact');
+
+  // Filter expansion states
+  const [reportsFiltersExpanded, setReportsFiltersExpanded] = useState(false);
+  const [patientsFiltersExpanded, setPatientsFiltersExpanded] = useState(false);
+  const [doctorsFiltersExpanded, setDoctorsFiltersExpanded] = useState(false);
+  const [radiologistsFiltersExpanded, setRadiologistsFiltersExpanded] = useState(false);
+
+  // Modal state for detailed views
+  const [selectedReportDetail, setSelectedReportDetail] = useState(null);
+  const [showReportDetailModal, setShowReportDetailModal] = useState(false);
+
+  // Dashboard analytics state
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [reportsTrend, setReportsTrend] = useState([]);
+  const [detectionStats, setDetectionStats] = useState({ alzheimers: 0, normal: 0 });
+
+  // Data cache flags to prevent unnecessary refetches - using refs + sessionStorage
+  const dataFetchedRef = useRef({
+    dashboard: false,
+    reports: false,
+    activities: false
+  });
+
+  // Initialize cache from sessionStorage on mount
+  useEffect(() => {
+    const cachedFlag = sessionStorage.getItem('admin_dashboard_fetched');
+    if (cachedFlag === 'true') {
+      dataFetchedRef.current.dashboard = true;
+      console.log('📦 Restored cache flag from sessionStorage');
+    }
+  }, []);
+
   const fetchDashboardData = useCallback(async () => {
+    // Skip if already fetched to prevent unnecessary reloads
+    if (dataFetchedRef.current.dashboard) {
+      console.log('⚡ Data already fetched, skipping reload');
+      return;
+    }
+
     // Get hospital_id with fallback
     const hospitalId = userProfile?.hospital_id || hospitalData?.id;
 
-    console.log('Admin Dashboard - Starting data fetch', {
+    console.log('🔄 Admin Dashboard - Starting data fetch', {
       userProfile,
       hospitalData,
       hospitalId
@@ -182,7 +341,9 @@ function AdminDashboard() {
           patientsCount: patients?.length,
           doctorsCount: doctors?.length,
           sampleDoctor: doctors?.[0],
-          samplePatient: patients?.[0]
+          samplePatient: patients?.[0],
+          samplePatientProfile: patients?.[0]?.patient_profiles?.[0],
+          assignedDoctor: patients?.[0]?.patient_profiles?.[0]?.assigned_doctor
         });
 
         setPendingUsers(pendingUsers || []);
@@ -198,6 +359,9 @@ function AdminDashboard() {
           activeRadiologists: stats?.activeRadiologists || 0,
           unassignedPatients: (patients || []).filter(p => !p.patient_profiles?.[0]?.assigned_doctor_id).length,
         });
+
+        // Mark as fetched to prevent re-fetching
+        dataFetchedRef.current.dashboard = true;
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -205,13 +369,13 @@ function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile]);
+  }, [userProfile, hospitalData]);
 
   useEffect(() => {
     if (user && userProfile && userProfile.role === 'admin') {
       fetchDashboardData();
     }
-  }, [user, userProfile, fetchDashboardData]);
+  }, [user, userProfile]); // Removed fetchDashboardData to prevent infinite loop
 
   const handleApproveUser = async (userId, role) => {
     try {
@@ -353,6 +517,477 @@ function AdminDashboard() {
     }
   };
 
+  const fetchAllReports = async () => {
+    // Skip if already fetched
+    if (dataFetchedRef.current.reports && allReports.length > 0) {
+      console.log('⚡ Reports already fetched, skipping reload');
+      return;
+    }
+
+    try {
+      const hospitalId = userProfile?.hospital_id || hospitalData?.id;
+      let query = supabase
+        .from('predictions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Admin sees all reports in their hospital
+      if (hospitalId) {
+        query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setAllReports(data || []);
+
+      // Calculate detection stats
+      if (data && data.length > 0) {
+        const alzCount = data.filter(r => r.prediction?.toLowerCase().includes('alz')).length;
+        const normalCount = data.filter(r => r.prediction?.toLowerCase().includes('normal')).length;
+        setDetectionStats({ alzheimers: alzCount, normal: normalCount });
+      }
+
+      // Mark as fetched
+      dataFetchedRef.current.reports = true;
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      setAllReports([]);
+    }
+  };
+
+  // Fetch recent activities for dashboard
+  const fetchRecentActivities = async () => {
+    // Skip if already fetched
+    if (dataFetchedRef.current.activities && recentActivities.length > 0) {
+      console.log('⚡ Activities already fetched, skipping reload');
+      return;
+    }
+
+    try {
+      const hospitalId = userProfile?.hospital_id || hospitalData?.id;
+
+      // Fetch recent predictions
+      let query = supabase
+        .from('predictions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (hospitalId) {
+        query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`);
+      }
+
+      const { data: predictions, error } = await query;
+      if (error) throw error;
+
+      // Create activity feed
+      const activities = [];
+
+      if (predictions) {
+        predictions.forEach(pred => {
+          activities.push({
+            id: `pred-${pred.id}`,
+            type: 'report',
+            message: `${pred.radiologist_name || 'Radiologist'} analyzed report for ${pred.patient_name || 'patient'}`,
+            timestamp: pred.created_at,
+            status: pred.prediction?.toLowerCase().includes('alz') ? 'alzheimers' : 'normal',
+            icon: 'FileText'
+          });
+        });
+      }
+
+      // Add recent patient joins
+      const recentPatients = allPatients
+        .filter(p => p.created_at)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 3);
+
+      recentPatients.forEach(patient => {
+        activities.push({
+          id: `patient-${patient.id}`,
+          type: 'patient',
+          message: `New patient registered: ${patient.full_name}`,
+          timestamp: patient.created_at,
+          icon: 'Heart'
+        });
+      });
+
+      // Add recent doctor assignments
+      const assignedPatients = allPatients
+        .filter(p => {
+          const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+          return profile?.assigned_doctor_id && profile?.updated_at;
+        })
+        .sort((a, b) => {
+          const aProfile = Array.isArray(a.patient_profiles) ? a.patient_profiles[0] : a.patient_profiles;
+          const bProfile = Array.isArray(b.patient_profiles) ? b.patient_profiles[0] : b.patient_profiles;
+          return new Date(bProfile.updated_at) - new Date(aProfile.updated_at);
+        })
+        .slice(0, 3);
+
+      assignedPatients.forEach(patient => {
+        const profile = Array.isArray(patient.patient_profiles) ? patient.patient_profiles[0] : patient.patient_profiles;
+        activities.push({
+          id: `assign-${patient.id}`,
+          type: 'assignment',
+          message: `${patient.full_name} assigned to ${patient.assignedDoctor?.full_name || 'doctor'}`,
+          timestamp: profile.updated_at,
+          icon: 'UserPlus'
+        });
+      });
+
+      // Sort by timestamp and take top 15
+      activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setRecentActivities(activities.slice(0, 15));
+
+      // Mark as fetched
+      dataFetchedRef.current.activities = true;
+
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      setRecentActivities([]);
+    }
+  };
+
+  // Calculate reports trend for last 7 days
+  const calculateReportsTrend = () => {
+    if (!allReports || allReports.length === 0) {
+      setReportsTrend([]);
+      return;
+    }
+
+    const last7Days = [];
+    const today = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      const count = allReports.filter(report => {
+        const reportDate = new Date(report.created_at).toISOString().split('T')[0];
+        return reportDate === dateStr;
+      }).length;
+
+      last7Days.push({
+        date: dateStr,
+        count: count,
+        label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      });
+    }
+
+    setReportsTrend(last7Days);
+  };
+
+  // Fetch reports when reports tab is active
+  useEffect(() => {
+    if (activeTab === 'reports' && allReports.length === 0 && userProfile) {
+      fetchAllReports();
+    }
+  }, [activeTab, userProfile]);
+
+  // Fetch analytics data when overview tab is active
+  useEffect(() => {
+    if (activeTab === 'overview' && userProfile) {
+      if (allReports.length === 0) {
+        fetchAllReports();
+      }
+      fetchRecentActivities();
+    }
+  }, [activeTab, userProfile, allPatients, allDoctors]);
+
+  // Calculate trends when reports change
+  useEffect(() => {
+    if (allReports.length > 0) {
+      calculateReportsTrend();
+    }
+  }, [allReports]);
+
+  // Helper function to generate meaningful display name for reports
+  const getReportDisplayName = (report) => {
+    // Format: "Patient Name - Dr. Doctor Name" or fallback to session code
+    const patientPart = report.patient_name || 'Unknown Patient';
+    const doctorPart = report.doctor_name ? `Dr. ${report.doctor_name}` : 'Unassigned Doctor';
+    return `${patientPart} - ${doctorPart}`;
+  };
+
+  // Get unique filter options from reports
+  const getUniquePatients = () => {
+    const patients = [...new Set(allReports.map(r => r.patient_name).filter(Boolean))];
+    return patients.sort();
+  };
+
+  const getUniqueDoctors = () => {
+    const doctors = [...new Set(allReports.map(r => r.doctor_name).filter(Boolean))];
+    return doctors.sort();
+  };
+
+  const getUniqueRadiologists = () => {
+    const radiologists = [...new Set(allReports.map(r => r.radiologist_name).filter(Boolean))];
+    return radiologists.sort();
+  };
+
+  // Apply filters to reports
+  useEffect(() => {
+    let filtered = [...allReports];
+
+    // Search query filter
+    if (reportsSearchQuery) {
+      const query = reportsSearchQuery.toLowerCase();
+      filtered = filtered.filter(report =>
+        report.patient_name?.toLowerCase().includes(query) ||
+        report.doctor_name?.toLowerCase().includes(query) ||
+        report.radiologist_name?.toLowerCase().includes(query) ||
+        report.session_code?.toLowerCase().includes(query) ||
+        report.id?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (reportsStatusFilter !== 'all') {
+      filtered = filtered.filter(report =>
+        report.status?.toLowerCase() === reportsStatusFilter.toLowerCase()
+      );
+    }
+
+    // Prediction filter
+    if (reportsPredictionFilter !== 'all') {
+      if (reportsPredictionFilter === 'alzheimers') {
+        filtered = filtered.filter(report =>
+          report.prediction?.toLowerCase().includes('alz')
+        );
+      } else if (reportsPredictionFilter === 'normal') {
+        filtered = filtered.filter(report =>
+          report.prediction?.toLowerCase().includes('normal')
+        );
+      }
+    }
+
+    // Patient filter
+    if (reportsPatientFilter !== 'all') {
+      filtered = filtered.filter(report => report.patient_name === reportsPatientFilter);
+    }
+
+    // Doctor filter
+    if (reportsDoctorFilter !== 'all') {
+      filtered = filtered.filter(report => report.doctor_name === reportsDoctorFilter);
+    }
+
+    // Radiologist filter
+    if (reportsRadiologistFilter !== 'all') {
+      filtered = filtered.filter(report => report.radiologist_name === reportsRadiologistFilter);
+    }
+
+    // Date range filter
+    if (reportsDateRange.start) {
+      filtered = filtered.filter(report =>
+        new Date(report.created_at) >= new Date(reportsDateRange.start)
+      );
+    }
+    if (reportsDateRange.end) {
+      filtered = filtered.filter(report =>
+        new Date(report.created_at) <= new Date(reportsDateRange.end + 'T23:59:59')
+      );
+    }
+
+    setFilteredReports(filtered);
+  }, [allReports, reportsSearchQuery, reportsStatusFilter, reportsPredictionFilter,
+      reportsPatientFilter, reportsDoctorFilter, reportsRadiologistFilter, reportsDateRange]);
+
+  // Reset filters function
+  const resetReportsFilters = () => {
+    setReportsSearchQuery('');
+    setReportsStatusFilter('all');
+    setReportsPredictionFilter('all');
+    setReportsPatientFilter('all');
+    setReportsDoctorFilter('all');
+    setReportsRadiologistFilter('all');
+    setReportsDateRange({ start: '', end: '' });
+  };
+
+  // Get unique values for patient filters
+  const getUniqueDoctorsForPatients = () => {
+    const doctors = [...new Set(allPatients
+      .map(p => p.assignedDoctor?.full_name)
+      .filter(Boolean))];
+    return doctors.sort();
+  };
+
+  // Apply filters to patients
+  useEffect(() => {
+    let filtered = [...allPatients];
+
+    // Search query
+    if (patientsSearchQuery) {
+      const query = patientsSearchQuery.toLowerCase();
+      filtered = filtered.filter(patient =>
+        patient.full_name?.toLowerCase().includes(query) ||
+        patient.email?.toLowerCase().includes(query) ||
+        patient.unique_identifier?.toLowerCase().includes(query) ||
+        patient.phone?.includes(query)
+      );
+    }
+
+    // Status filter
+    if (patientsStatusFilter !== 'all') {
+      filtered = filtered.filter(p => p.account_status === patientsStatusFilter);
+    }
+
+    // Assignment filter
+    if (patientsAssignmentFilter === 'assigned') {
+      filtered = filtered.filter(p => {
+        const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+        return profile?.assigned_doctor_id;
+      });
+    } else if (patientsAssignmentFilter === 'unassigned') {
+      filtered = filtered.filter(p => {
+        const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
+        return !profile?.assigned_doctor_id;
+      });
+    }
+
+    // Doctor filter
+    if (patientsDoctorFilter !== 'all') {
+      filtered = filtered.filter(p => p.assignedDoctor?.full_name === patientsDoctorFilter);
+    }
+
+    // Date range
+    if (patientsDateRange.start) {
+      filtered = filtered.filter(p => new Date(p.created_at) >= new Date(patientsDateRange.start));
+    }
+    if (patientsDateRange.end) {
+      filtered = filtered.filter(p => new Date(p.created_at) <= new Date(patientsDateRange.end + 'T23:59:59'));
+    }
+
+    setFilteredPatientsData(filtered);
+  }, [allPatients, patientsSearchQuery, patientsStatusFilter, patientsAssignmentFilter,
+      patientsDoctorFilter, patientsDateRange]);
+
+  const resetPatientsFilters = () => {
+    setPatientsSearchQuery('');
+    setPatientsStatusFilter('all');
+    setPatientsAssignmentFilter('all');
+    setPatientsDoctorFilter('all');
+    setPatientsDateRange({ start: '', end: '' });
+  };
+
+  // Helper function to get patient count for a doctor
+  const getDoctorPatientCount = (doctorId) => {
+    return allPatients.filter(patient => {
+      const profile = Array.isArray(patient.patient_profiles)
+        ? patient.patient_profiles[0]
+        : patient.patient_profiles;
+      return profile?.assigned_doctor_id === doctorId;
+    }).length;
+  };
+
+  // Get unique specializations
+  const getUniqueSpecializations = () => {
+    const specs = [...new Set(allDoctors
+      .map(d => d.doctor_profiles?.[0]?.specialization)
+      .filter(Boolean))];
+    return specs.sort();
+  };
+
+  // Apply filters to doctors
+  useEffect(() => {
+    let filtered = [...allDoctors];
+
+    // Search query
+    if (doctorsSearchQuery) {
+      const query = doctorsSearchQuery.toLowerCase();
+      filtered = filtered.filter(doctor =>
+        doctor.full_name?.toLowerCase().includes(query) ||
+        doctor.email?.toLowerCase().includes(query) ||
+        doctor.unique_identifier?.toLowerCase().includes(query) ||
+        doctor.doctor_profiles?.[0]?.specialization?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (doctorsStatusFilter !== 'all') {
+      filtered = filtered.filter(d => d.account_status === doctorsStatusFilter);
+    }
+
+    // Specialization filter
+    if (doctorsSpecializationFilter !== 'all') {
+      filtered = filtered.filter(d =>
+        d.doctor_profiles?.[0]?.specialization === doctorsSpecializationFilter
+      );
+    }
+
+    // Patient count filter
+    if (doctorsPatientCountFilter === 'with-patients') {
+      filtered = filtered.filter(d => getDoctorPatientCount(d.id) > 0);
+    } else if (doctorsPatientCountFilter === 'no-patients') {
+      filtered = filtered.filter(d => getDoctorPatientCount(d.id) === 0);
+    }
+
+    // Date range
+    if (doctorsDateRange.start) {
+      filtered = filtered.filter(d => new Date(d.created_at) >= new Date(doctorsDateRange.start));
+    }
+    if (doctorsDateRange.end) {
+      filtered = filtered.filter(d => new Date(d.created_at) <= new Date(doctorsDateRange.end + 'T23:59:59'));
+    }
+
+    setFilteredDoctorsData(filtered);
+  }, [allDoctors, doctorsSearchQuery, doctorsStatusFilter, doctorsSpecializationFilter,
+      doctorsPatientCountFilter, doctorsDateRange]);
+
+  const resetDoctorsFilters = () => {
+    setDoctorsSearchQuery('');
+    setDoctorsStatusFilter('all');
+    setDoctorsSpecializationFilter('all');
+    setDoctorsPatientCountFilter('all');
+    setDoctorsDateRange({ start: '', end: '' });
+  };
+
+  // Apply filters to radiologists
+  useEffect(() => {
+    let filtered = [...allRadiologists];
+
+    // Search query
+    if (radiologistsSearchQuery) {
+      const query = radiologistsSearchQuery.toLowerCase();
+      filtered = filtered.filter(rad =>
+        rad.full_name?.toLowerCase().includes(query) ||
+        rad.email?.toLowerCase().includes(query) ||
+        rad.unique_identifier?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (radiologistsStatusFilter !== 'all') {
+      filtered = filtered.filter(r => r.account_status === radiologistsStatusFilter);
+    }
+
+    // Activity filter (based on reports count)
+    if (radiologistsActivityFilter === 'active') {
+      filtered = filtered.filter(r => (r.activityCount || 0) > 0);
+    } else if (radiologistsActivityFilter === 'inactive') {
+      filtered = filtered.filter(r => (r.activityCount || 0) === 0);
+    }
+
+    // Date range
+    if (radiologistsDateRange.start) {
+      filtered = filtered.filter(r => new Date(r.created_at) >= new Date(radiologistsDateRange.start));
+    }
+    if (radiologistsDateRange.end) {
+      filtered = filtered.filter(r => new Date(r.created_at) <= new Date(radiologistsDateRange.end + 'T23:59:59'));
+    }
+
+    setFilteredRadiologistsData(filtered);
+  }, [allRadiologists, radiologistsSearchQuery, radiologistsStatusFilter,
+      radiologistsActivityFilter, radiologistsDateRange]);
+
+  const resetRadiologistsFilters = () => {
+    setRadiologistsSearchQuery('');
+    setRadiologistsStatusFilter('all');
+    setRadiologistsActivityFilter('all');
+    setRadiologistsDateRange({ start: '', end: '' });
+  };
+
   const filteredDoctors = allDoctors.filter(doc =>
     doc.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.doctor_profiles?.[0]?.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -409,6 +1044,7 @@ function AdminDashboard() {
     { id: 'patients', label: 'Patients', icon: 'Heart', badgeKey: 'activePatients' },
     { id: 'doctors', label: 'Doctors', icon: 'Stethoscope', badgeKey: 'activeDoctors' },
     { id: 'radiologists', label: 'Radiologists', icon: 'Activity', badgeKey: 'activeRadiologists' },
+    { id: 'reports', label: 'Reports', icon: 'FileText' },
   ];
 
   if (isLoading && !userProfile) {
@@ -462,45 +1098,319 @@ function AdminDashboard() {
             <div className={styles.overviewSection}>
               <h1 className={styles.pageTitle}>Dashboard Overview</h1>
 
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
-                  <Icons.Users />
-                  <div>
-                    <h3>Total Users</h3>
-                    <p className={styles.statNumber}>{dashboardStats.totalUsers}</p>
+              {/* Enhanced Stats Grid */}
+              <div className={styles.statsGridEnhanced}>
+                <div className={styles.statCardEnhanced} onClick={() => setActiveTab('patients')}>
+                  <div className={styles.statIconWrapper} style={{background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'}}>
+                    <Icons.Heart />
+                  </div>
+                  <div className={styles.statContent}>
+                    <p className={styles.statLabel}>Active Patients</p>
+                    <h2 className={styles.statValue}>{dashboardStats.activePatients}</h2>
+                    <span className={styles.statTrend}>
+                      {dashboardStats.unassignedPatients > 0 && `${dashboardStats.unassignedPatients} unassigned`}
+                    </span>
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
-                  <Icons.Heart />
-                  <div>
-                    <h3>Active Patients</h3>
-                    <p className={styles.statNumber}>{dashboardStats.activePatients}</p>
+                <div className={styles.statCardEnhanced} onClick={() => setActiveTab('doctors')}>
+                  <div className={styles.statIconWrapper} style={{background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}>
+                    <Icons.Stethoscope />
+                  </div>
+                  <div className={styles.statContent}>
+                    <p className={styles.statLabel}>Active Doctors</p>
+                    <h2 className={styles.statValue}>{dashboardStats.activeDoctors}</h2>
+                    <span className={styles.statTrend}>Healthcare providers</span>
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('doctors')}>
-                  <Icons.Stethoscope />
-                  <div>
-                    <h3>Active Doctors</h3>
-                    <p className={styles.statNumber}>{dashboardStats.activeDoctors}</p>
+                <div className={styles.statCardEnhanced} onClick={() => setActiveTab('radiologists')}>
+                  <div className={styles.statIconWrapper} style={{background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'}}>
+                    <Icons.Activity />
+                  </div>
+                  <div className={styles.statContent}>
+                    <p className={styles.statLabel}>Radiologists</p>
+                    <h2 className={styles.statValue}>{dashboardStats.activeRadiologists}</h2>
+                    <span className={styles.statTrend}>Analysis specialists</span>
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('radiologists')}>
-                  <Icons.Activity />
-                  <div>
-                    <h3>Radiologists</h3>
-                    <p className={styles.statNumber}>{dashboardStats.activeRadiologists}</p>
+                <div className={styles.statCardEnhanced} onClick={() => setActiveTab('reports')}>
+                  <div className={styles.statIconWrapper} style={{background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'}}>
+                    <Icons.FileText />
+                  </div>
+                  <div className={styles.statContent}>
+                    <p className={styles.statLabel}>Total Reports</p>
+                    <h2 className={styles.statValue}>{allReports.length}</h2>
+                    <span className={styles.statTrend}>EEG analyses</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts and Analytics Grid */}
+              <div className={styles.analyticsGrid}>
+                {/* User Distribution Pie Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>User Distribution</h3>
+                  <div className={styles.pieChartContainer}>
+                    <svg viewBox="0 0 200 200" className={styles.pieChart}>
+                      {(() => {
+                        const total = dashboardStats.activePatients + dashboardStats.activeDoctors + dashboardStats.activeRadiologists;
+                        if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#666">No data</text>;
+
+                        const patientsPercent = (dashboardStats.activePatients / total) * 100;
+                        const doctorsPercent = (dashboardStats.activeDoctors / total) * 100;
+                        const radiologistsPercent = (dashboardStats.activeRadiologists / total) * 100;
+
+                        let currentAngle = 0;
+                        const createArc = (percent, color) => {
+                          const angle = (percent / 100) * 360;
+                          const startAngle = currentAngle;
+                          currentAngle += angle;
+
+                          const startRad = (startAngle - 90) * Math.PI / 180;
+                          const endRad = (startAngle + angle - 90) * Math.PI / 180;
+
+                          const x1 = 100 + 80 * Math.cos(startRad);
+                          const y1 = 100 + 80 * Math.sin(startRad);
+                          const x2 = 100 + 80 * Math.cos(endRad);
+                          const y2 = 100 + 80 * Math.sin(endRad);
+
+                          const largeArc = angle > 180 ? 1 : 0;
+
+                          return `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                        };
+
+                        return (
+                          <>
+                            <path d={createArc(patientsPercent, '#3b82f6')} fill="#3b82f6" opacity="0.9" />
+                            <path d={createArc(doctorsPercent, '#10b981')} fill="#10b981" opacity="0.9" />
+                            <path d={createArc(radiologistsPercent, '#8b5cf6')} fill="#8b5cf6" opacity="0.9" />
+                            <circle cx="100" cy="100" r="50" fill="#0f172a" />
+                            <text x="100" y="95" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold">{total}</text>
+                            <text x="100" y="110" textAnchor="middle" fill="#94a3b8" fontSize="10">Total Users</text>
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div className={styles.pieLegend}>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#3b82f6'}}></span>
+                        <span>Patients ({dashboardStats.activePatients})</span>
+                      </div>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#10b981'}}></span>
+                        <span>Doctors ({dashboardStats.activeDoctors})</span>
+                      </div>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#8b5cf6'}}></span>
+                        <span>Radiologists ({dashboardStats.activeRadiologists})</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('patients')}>
-                  <Icons.AlertCircle />
-                  <div>
-                    <h3>Unassigned Patients</h3>
-                    <p className={styles.statNumber}>{dashboardStats.unassignedPatients}</p>
+                {/* Reports Trend Line Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Reports Trend (Last 7 Days)</h3>
+                  <div className={styles.lineChartContainer}>
+                    {reportsTrend.length > 0 ? (
+                      <svg viewBox="0 0 400 200" className={styles.lineChart}>
+                        {/* Grid lines */}
+                        <line x1="40" y1="20" x2="40" y2="160" stroke="#1e293b" strokeWidth="2" />
+                        <line x1="40" y1="160" x2="380" y2="160" stroke="#1e293b" strokeWidth="2" />
+
+                        {/* Y-axis labels */}
+                        {[0, 1, 2, 3, 4, 5].map((val, i) => {
+                          const maxCount = Math.max(...reportsTrend.map(d => d.count), 5);
+                          const yPos = 160 - (val / 5) * 140;
+                          const labelVal = Math.round((val / 5) * maxCount);
+                          return (
+                            <g key={i}>
+                              <line x1="35" y1={yPos} x2="380" y2={yPos} stroke="#1e293b" strokeWidth="1" opacity="0.3" />
+                              <text x="30" y={yPos + 4} textAnchor="end" fill="#94a3b8" fontSize="10">{labelVal}</text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Line and points */}
+                        {(() => {
+                          const maxCount = Math.max(...reportsTrend.map(d => d.count), 5);
+                          const points = reportsTrend.map((d, i) => {
+                            const x = 60 + (i * 50);
+                            const y = 160 - (d.count / maxCount) * 140;
+                            return { x, y, count: d.count, label: d.label };
+                          });
+
+                          const pathD = points.map((p, i) =>
+                            i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`
+                          ).join(' ');
+
+                          return (
+                            <>
+                              <path d={pathD} stroke="#3b82f6" strokeWidth="3" fill="none" />
+                              <path d={`${pathD} L ${points[points.length - 1].x} 160 L ${points[0].x} 160 Z`}
+                                    fill="url(#lineGradient)" opacity="0.3" />
+                              <defs>
+                                <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
+                                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                              {points.map((p, i) => (
+                                <g key={i}>
+                                  <circle cx={p.x} cy={p.y} r="5" fill="#3b82f6" stroke="#0f172a" strokeWidth="2" />
+                                  <text x={p.x} y="180" textAnchor="middle" fill="#94a3b8" fontSize="10">{p.label}</text>
+                                </g>
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    ) : (
+                      <div className={styles.noData}>No report data available</div>
+                    )}
                   </div>
+                </div>
+
+                {/* Detection Statistics Bar Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Detection Statistics</h3>
+                  <div className={styles.barChartContainer}>
+                    {(detectionStats.alzheimers > 0 || detectionStats.normal > 0) ? (
+                      <svg viewBox="0 0 300 200" className={styles.barChart}>
+                        {(() => {
+                          const total = detectionStats.alzheimers + detectionStats.normal;
+                          const maxVal = Math.max(detectionStats.alzheimers, detectionStats.normal, 1);
+                          const alzHeight = (detectionStats.alzheimers / maxVal) * 120;
+                          const normalHeight = (detectionStats.normal / maxVal) * 120;
+
+                          return (
+                            <>
+                              {/* Alzheimer's bar */}
+                              <rect x="60" y={160 - alzHeight} width="60" height={alzHeight} fill="#ef4444" opacity="0.9" rx="4" />
+                              <text x="90" y={150 - alzHeight} textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">
+                                {detectionStats.alzheimers}
+                              </text>
+                              <text x="90" y="180" textAnchor="middle" fill="#94a3b8" fontSize="12">Alzheimer's</text>
+                              <text x="90" y="195" textAnchor="middle" fill="#94a3b8" fontSize="10">
+                                ({((detectionStats.alzheimers / total) * 100).toFixed(1)}%)
+                              </text>
+
+                              {/* Normal bar */}
+                              <rect x="180" y={160 - normalHeight} width="60" height={normalHeight} fill="#10b981" opacity="0.9" rx="4" />
+                              <text x="210" y={150 - normalHeight} textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">
+                                {detectionStats.normal}
+                              </text>
+                              <text x="210" y="180" textAnchor="middle" fill="#94a3b8" fontSize="12">Normal</text>
+                              <text x="210" y="195" textAnchor="middle" fill="#94a3b8" fontSize="10">
+                                ({((detectionStats.normal / total) * 100).toFixed(1)}%)
+                              </text>
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    ) : (
+                      <div className={styles.noData}>No detection data available</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Patient Assignment Donut Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Patient Assignment Status</h3>
+                  <div className={styles.donutChartContainer}>
+                    <svg viewBox="0 0 200 200" className={styles.donutChart}>
+                      {(() => {
+                        const assigned = dashboardStats.activePatients - dashboardStats.unassignedPatients;
+                        const unassigned = dashboardStats.unassignedPatients;
+                        const total = assigned + unassigned;
+
+                        if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#666">No patients</text>;
+
+                        const assignedPercent = (assigned / total) * 100;
+                        const unassignedPercent = (unassigned / total) * 100;
+
+                        const createDonutArc = (startPercent, percent, radius, thickness, color) => {
+                          const startAngle = (startPercent / 100) * 360 - 90;
+                          const endAngle = ((startPercent + percent) / 100) * 360 - 90;
+
+                          const startRad = startAngle * Math.PI / 180;
+                          const endRad = endAngle * Math.PI / 180;
+
+                          const x1Outer = 100 + radius * Math.cos(startRad);
+                          const y1Outer = 100 + radius * Math.sin(startRad);
+                          const x2Outer = 100 + radius * Math.cos(endRad);
+                          const y2Outer = 100 + radius * Math.sin(endRad);
+
+                          const innerRadius = radius - thickness;
+                          const x1Inner = 100 + innerRadius * Math.cos(endRad);
+                          const y1Inner = 100 + innerRadius * Math.sin(endRad);
+                          const x2Inner = 100 + innerRadius * Math.cos(startRad);
+                          const y2Inner = 100 + innerRadius * Math.sin(startRad);
+
+                          const largeArc = percent > 50 ? 1 : 0;
+
+                          return `M ${x1Outer} ${y1Outer} A ${radius} ${radius} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
+                        };
+
+                        return (
+                          <>
+                            <path d={createDonutArc(0, assignedPercent, 80, 25, '#10b981')} fill="#10b981" opacity="0.9" />
+                            <path d={createDonutArc(assignedPercent, unassignedPercent, 80, 25, '#ef4444')} fill="#ef4444" opacity="0.9" />
+                            <text x="100" y="95" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">
+                              {((assigned / total) * 100).toFixed(0)}%
+                            </text>
+                            <text x="100" y="115" textAnchor="middle" fill="#94a3b8" fontSize="12">Assigned</text>
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div className={styles.donutLegend}>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#10b981'}}></span>
+                        <span>Assigned ({dashboardStats.activePatients - dashboardStats.unassignedPatients})</span>
+                      </div>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#ef4444'}}></span>
+                        <span>Unassigned ({dashboardStats.unassignedPatients})</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activity Feed */}
+              <div className={styles.activitySection}>
+                <h2 className={styles.sectionTitle}>Recent Activity</h2>
+                <div className={styles.activityFeed}>
+                  {recentActivities.length > 0 ? (
+                    recentActivities.map(activity => {
+                      const Icon = Icons[activity.icon] || Icons.FileText;
+                      const timeDiff = Math.floor((new Date() - new Date(activity.timestamp)) / 60000);
+                      const timeText = timeDiff < 1 ? 'Just now' :
+                                      timeDiff < 60 ? `${timeDiff}m ago` :
+                                      timeDiff < 1440 ? `${Math.floor(timeDiff / 60)}h ago` :
+                                      `${Math.floor(timeDiff / 1440)}d ago`;
+
+                      return (
+                        <div key={activity.id} className={styles.activityItem}>
+                          <div className={`${styles.activityIcon} ${activity.status ? styles[activity.status] : ''}`}>
+                            <Icon />
+                          </div>
+                          <div className={styles.activityContent}>
+                            <p className={styles.activityMessage}>{activity.message}</p>
+                            <span className={styles.activityTime}>{timeText}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className={styles.noActivity}>
+                      <Icons.Activity />
+                      <p>No recent activity</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -514,133 +1424,179 @@ function AdminDashboard() {
             </div>
           )}
 
-          {/* Patients Tab - Redesigned with Search and Filters */}
+          {/* Patients Tab */}
           {activeTab === 'patients' && (
             <div className={styles.section}>
-              <h1 className={styles.pageTitle}>Patient Management</h1>
-
-              {/* Search and Filter Bar */}
-              <div className={styles.filterBar}>
-                <div className={styles.searchBox}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="m21 21-4.35-4.35"/>
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search by name, ID, or phone..."
-                    value={patientSearchTerm}
-                    onChange={(e) => setPatientSearchTerm(e.target.value)}
-                    className={styles.searchInputBar}
-                  />
-                </div>
-                <div className={styles.filterButtons}>
+              <div className={styles.sectionHeaderWithToggle}>
+                <h1 className={styles.pageTitle}>Patient Management</h1>
+                <div className={styles.viewToggle}>
                   <button
-                    className={`${styles.filterBtn} ${patientFilter === 'all' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setPatientFilter('all')}
+                    className={`${styles.viewToggleBtn} ${patientsViewMode === 'detailed' ? styles.active : ''}`}
+                    onClick={() => setPatientsViewMode('detailed')}
+                    title="Detailed View"
                   >
-                    All Patients ({allPatients.length})
+                    <Icons.Grid />
                   </button>
                   <button
-                    className={`${styles.filterBtn} ${patientFilter === 'unassigned' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setPatientFilter('unassigned')}
+                    className={`${styles.viewToggleBtn} ${patientsViewMode === 'compact' ? styles.active : ''}`}
+                    onClick={() => setPatientsViewMode('compact')}
+                    title="Compact View"
                   >
-                    Unassigned ({allPatients.filter(p => {
-                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                      return !profile?.assigned_doctor_id;
-                    }).length})
-                  </button>
-                  <button
-                    className={`${styles.filterBtn} ${patientFilter === 'assigned' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setPatientFilter('assigned')}
-                  >
-                    Assigned ({allPatients.filter(p => {
-                      const profile = Array.isArray(p.patient_profiles) ? p.patient_profiles[0] : p.patient_profiles;
-                      return profile?.assigned_doctor_id;
-                    }).length})
+                    <Icons.List />
                   </button>
                 </div>
               </div>
 
-              {!allPatients || allPatients.length === 0 ? (
+              {/* Advanced Filters */}
+              <div className={styles.filtersCard}>
+                {/* Always Visible: Search Bar */}
+                <div className={styles.searchRow}>
+                  <div className={styles.searchBox}>
+                    <Icons.Search />
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, email, or phone..."
+                      value={patientsSearchQuery}
+                      onChange={(e) => setPatientsSearchQuery(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                    {patientsSearchQuery && (
+                      <button onClick={() => setPatientsSearchQuery('')} className={styles.clearBtn}>
+                        <Icons.X />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className={styles.filterToggleBtn}
+                    onClick={() => setPatientsFiltersExpanded(!patientsFiltersExpanded)}
+                    title={patientsFiltersExpanded ? "Hide Filters" : "Show More Filters"}
+                  >
+                    <Icons.Filter />
+                    {patientsFiltersExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                    <span>{filteredPatientsData.length}/{allPatients.length}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Advanced Filters */}
+                {patientsFiltersExpanded && (
+                  <div className={styles.expandedFilters}>
+                    <div className={styles.filtersHeaderExpanded}>
+                      <h3>Advanced Filters</h3>
+                      <button onClick={resetPatientsFilters} className={styles.resetFiltersBtn}>
+                        <Icons.X />
+                        Reset All
+                      </button>
+                    </div>
+
+                    <div className={styles.filterRow}>
+                      <select value={patientsStatusFilter} onChange={(e) => setPatientsStatusFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+
+                      <select value={patientsAssignmentFilter} onChange={(e) => setPatientsAssignmentFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Assignments</option>
+                        <option value="assigned">Assigned to Doctor</option>
+                        <option value="unassigned">Unassigned</option>
+                      </select>
+
+                      <select value={patientsDoctorFilter} onChange={(e) => setPatientsDoctorFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Doctors</option>
+                        {getUniqueDoctorsForPatients().map(doctor => (
+                          <option key={doctor} value={doctor}>Dr. {doctor}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles.dateRangeRow}>
+                      <Icons.Calendar />
+                      <span className={styles.dateLabel}>Joined Date:</span>
+                      <input type="date" value={patientsDateRange.start} onChange={(e) => setPatientsDateRange({...patientsDateRange, start: e.target.value})} className={styles.dateInput} />
+                      <span className={styles.dateSeparator}>to</span>
+                      <input type="date" value={patientsDateRange.end} onChange={(e) => setPatientsDateRange({...patientsDateRange, end: e.target.value})} className={styles.dateInput} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {filteredPatientsData.length > 0 ? (
+                <>
+                  {patientsViewMode === 'detailed' ? (
+                    <div className={styles.cardGrid}>
+                      {filteredPatientsData.map(patient => {
+                        const profile = Array.isArray(patient.patient_profiles) ? patient.patient_profiles[0] : patient.patient_profiles;
+                        const age = patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A';
+
+                        return (
+                          <div key={patient.id} className={styles.patientCard} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setShowPatientDetailModal(true); fetchPatientReports(patient.id); }} style={{ cursor: 'pointer' }}>
+                            <div className={styles.cardHeader}>
+                              <h3>{patient.full_name}</h3>
+                              <span className={styles.patientId}>{patient.unique_identifier}</span>
+                            </div>
+                            <div className={styles.cardBody}>
+                              <p><strong>Age:</strong> {age} years</p>
+                              <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
+                              <p><strong>Phone:</strong> {patient.phone}</p>
+                              <p><strong>Doctor:</strong> {profile?.assigned_doctor?.user_profiles?.full_name || 'Unassigned'}</p>
+                            </div>
+                            {!profile?.assigned_doctor_id && (
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtn}>
+                                <Icons.UserPlus />
+                                Assign Doctor
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={styles.compactList}>
+                      {filteredPatientsData.map((patient, index) => {
+                        const profile = Array.isArray(patient.patient_profiles) ? patient.patient_profiles[0] : patient.patient_profiles;
+                        const age = patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A';
+
+                        // Debug logging for first patient only
+                        if (index === 0) {
+                          console.log('🔍 Patient data check:', {
+                            patientName: patient.full_name,
+                            profile: profile,
+                            assignedDoctorId: profile?.assigned_doctor_id,
+                            assignedDoctor: profile?.assigned_doctor,
+                            doctorName: profile?.assigned_doctor?.user_profiles?.full_name
+                          });
+                        }
+
+                        return (
+                          <div key={patient.id} className={styles.compactItem} onClick={() => { setSelectedPatientDetail({ ...patient, profile }); setShowPatientDetailModal(true); fetchPatientReports(patient.id); }}>
+                            <div className={styles.compactLeft}>
+                              <h4>{patient.full_name}</h4>
+                              <span className={styles.compactMeta}>
+                                {patient.unique_identifier} • Age: {age} • {profile?.blood_groups?.blood_type || 'N/A'} • Dr. {profile?.assigned_doctor?.user_profiles?.full_name || 'Unassigned'}
+                              </span>
+                            </div>
+                            <div className={styles.compactRight}>
+                              <span className={`${styles.statusBadgeSmall} ${styles[patient.account_status?.toLowerCase()]}`}>
+                                {patient.account_status}
+                              </span>
+                              {!profile?.assigned_doctor_id && (
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtn} style={{padding: '0.5rem 1rem', fontSize: '0.85rem'}}>
+                                  Assign
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className={styles.emptyState}>
                   <Icons.Heart />
                   <p>No patients found</p>
-                  <button onClick={() => setActiveTab('add-user')} className={styles.primaryBtn} style={{width: 'auto', marginTop: '1rem'}}>
-                    Add Patient
-                  </button>
                 </div>
-              ) : filteredPatients.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Icons.Heart />
-                  <p>No patients match your search</p>
-                </div>
-              ) : (
-                <>
-                  <div className={styles.cardGrid}>
-                      {filteredPatients
-                        .map(patient => {
-                          const profile = Array.isArray(patient.patient_profiles)
-                            ? patient.patient_profiles[0]
-                            : patient.patient_profiles;
-
-                          return (
-                            <div key={patient.id} className={styles.patientCard}>
-                              <div
-                                className={styles.cardHeader}
-                                onClick={() => {
-                                  setSelectedPatientDetail({ ...patient, profile });
-                                  setShowPatientDetailModal(true);
-                                  fetchPatientReports(patient.id);
-                                }}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <h3>{patient.full_name}</h3>
-                                <span className={styles.patientId}>{patient.unique_identifier}</span>
-                              </div>
-
-                              <div className={styles.cardBody}>
-                                <p><strong>Phone:</strong> {patient.phone}</p>
-                                <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
-                                <p><strong>Age:</strong> {patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</p>
-
-                                {/* Check if patient has assigned doctor */}
-                                {profile?.assigned_doctor_id ? (
-                                  <div className={styles.assignedInfo}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-                                      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
-                                      <circle cx="20" cy="10" r="2"/>
-                                    </svg>
-                                    <div>
-                                      <strong>Assigned Doctor</strong>
-                                      <p>{allDoctors.find(d => d.id === profile.assigned_doctor_id)?.full_name || 'Unknown'}</p>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPatient(patient);
-                                      setShowAssignModal(true);
-                                    }}
-                                    className={styles.assignBtn}
-                                  >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                      <circle cx="8.5" cy="7" r="4"/>
-                                      <line x1="20" y1="8" x2="20" y2="14"/>
-                                      <line x1="23" y1="11" x2="17" y2="11"/>
-                                    </svg>
-                                    Assign Doctor
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                </>
               )}
             </div>
           )}
@@ -648,91 +1604,155 @@ function AdminDashboard() {
           {/* Doctors Tab */}
           {activeTab === 'doctors' && (
             <div className={styles.section}>
-              <h1 className={styles.pageTitle}>Doctor Management</h1>
-
-              {/* Search and Filter Bar */}
-              <div className={styles.filterBar}>
-                <div className={styles.searchBox}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="m21 21-4.35-4.35"/>
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search by name, ID, or specialization..."
-                    value={doctorSearchTerm}
-                    onChange={(e) => setDoctorSearchTerm(e.target.value)}
-                    className={styles.searchInputBar}
-                  />
-                </div>
-                <div className={styles.filterButtons}>
+              <div className={styles.sectionHeaderWithToggle}>
+                <h1 className={styles.pageTitle}>Doctor Management</h1>
+                <div className={styles.viewToggle}>
                   <button
-                    className={`${styles.filterBtn} ${doctorFilter === 'all' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setDoctorFilter('all')}
+                    className={`${styles.viewToggleBtn} ${doctorsViewMode === 'detailed' ? styles.active : ''}`}
+                    onClick={() => setDoctorsViewMode('detailed')}
+                    title="Detailed View"
                   >
-                    All Doctors ({allDoctors.length})
+                    <Icons.Grid />
                   </button>
                   <button
-                    className={`${styles.filterBtn} ${doctorFilter === 'with-patients' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setDoctorFilter('with-patients')}
+                    className={`${styles.viewToggleBtn} ${doctorsViewMode === 'compact' ? styles.active : ''}`}
+                    onClick={() => setDoctorsViewMode('compact')}
+                    title="Compact View"
                   >
-                    With Patients
-                  </button>
-                  <button
-                    className={`${styles.filterBtn} ${doctorFilter === 'no-patients' ? styles.filterBtnActive : ''}`}
-                    onClick={() => setDoctorFilter('no-patients')}
-                  >
-                    No Patients
+                    <Icons.List />
                   </button>
                 </div>
               </div>
 
-              {!allDoctors || allDoctors.length === 0 ? (
+              {/* Advanced Filters */}
+              <div className={styles.filtersCard}>
+                {/* Always Visible: Search Bar */}
+                <div className={styles.searchRow}>
+                  <div className={styles.searchBox}>
+                    <Icons.Search />
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, email, or specialization..."
+                      value={doctorsSearchQuery}
+                      onChange={(e) => setDoctorsSearchQuery(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                    {doctorsSearchQuery && (
+                      <button onClick={() => setDoctorsSearchQuery('')} className={styles.clearBtn}>
+                        <Icons.X />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className={styles.filterToggleBtn}
+                    onClick={() => setDoctorsFiltersExpanded(!doctorsFiltersExpanded)}
+                    title={doctorsFiltersExpanded ? "Hide Filters" : "Show More Filters"}
+                  >
+                    <Icons.Filter />
+                    {doctorsFiltersExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                    <span>{filteredDoctorsData.length}/{allDoctors.length}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Advanced Filters */}
+                {doctorsFiltersExpanded && (
+                  <div className={styles.expandedFilters}>
+                    <div className={styles.filtersHeaderExpanded}>
+                      <h3>Advanced Filters</h3>
+                      <button onClick={resetDoctorsFilters} className={styles.resetFiltersBtn}>
+                        <Icons.X />
+                        Reset All
+                      </button>
+                    </div>
+
+                    <div className={styles.filterRow}>
+                      <select value={doctorsStatusFilter} onChange={(e) => setDoctorsStatusFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+
+                      <select value={doctorsSpecializationFilter} onChange={(e) => setDoctorsSpecializationFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Specializations</option>
+                        {getUniqueSpecializations().map(spec => (
+                          <option key={spec} value={spec}>{spec}</option>
+                        ))}
+                      </select>
+
+                      <select value={doctorsPatientCountFilter} onChange={(e) => setDoctorsPatientCountFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Patient Counts</option>
+                        <option value="with-patients">Has Patients</option>
+                        <option value="no-patients">No Patients</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.dateRangeRow}>
+                      <Icons.Calendar />
+                      <span className={styles.dateLabel}>Joined Date:</span>
+                      <input type="date" value={doctorsDateRange.start} onChange={(e) => setDoctorsDateRange({...doctorsDateRange, start: e.target.value})} className={styles.dateInput} />
+                      <span className={styles.dateSeparator}>to</span>
+                      <input type="date" value={doctorsDateRange.end} onChange={(e) => setDoctorsDateRange({...doctorsDateRange, end: e.target.value})} className={styles.dateInput} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {filteredDoctorsData.length > 0 ? (
+                <>
+                  {doctorsViewMode === 'detailed' ? (
+                    <div className={styles.cardGrid}>
+                      {filteredDoctorsData.map(doctor => {
+                        const profile = Array.isArray(doctor.doctor_profiles) ? doctor.doctor_profiles[0] : doctor.doctor_profiles;
+                        const patientCount = getDoctorPatientCount(doctor.id);
+
+                        return (
+                          <div key={doctor.id} className={styles.doctorCard} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setShowDoctorDetailModal(true); fetchDoctorPatients(doctor.id); }} style={{ cursor: 'pointer' }}>
+                            <div className={styles.cardHeader}>
+                              <h3>{doctor.full_name}</h3>
+                              <span className={styles.doctorId}>{doctor.unique_identifier}</span>
+                            </div>
+                            <div className={styles.cardBody}>
+                              <p><strong>Specialization:</strong> {profile?.specialization || 'General'}</p>
+                              <p><strong>Experience:</strong> {profile?.experience_years || 0} years</p>
+                              <p><strong>License:</strong> {profile?.medical_license || 'N/A'}</p>
+                              <p><strong>Phone:</strong> {doctor.phone}</p>
+                              <p><strong>Patients:</strong> {patientCount}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={styles.compactList}>
+                      {filteredDoctorsData.map(doctor => {
+                        const profile = Array.isArray(doctor.doctor_profiles) ? doctor.doctor_profiles[0] : doctor.doctor_profiles;
+                        const patientCount = getDoctorPatientCount(doctor.id);
+
+                        return (
+                          <div key={doctor.id} className={styles.compactItem} onClick={() => { setSelectedDoctorDetail({ ...doctor, profile }); setShowDoctorDetailModal(true); fetchDoctorPatients(doctor.id); }}>
+                            <div className={styles.compactLeft}>
+                              <h4>Dr. {doctor.full_name}</h4>
+                              <span className={styles.compactMeta}>
+                                {profile?.specialization || 'General'} • {profile?.experience_years || 0} yrs exp • {patientCount} patients • {doctor.unique_identifier}
+                              </span>
+                            </div>
+                            <div className={styles.compactRight}>
+                              <span className={`${styles.statusBadgeSmall} ${styles[doctor.account_status?.toLowerCase()]}`}>
+                                {doctor.account_status}
+                              </span>
+                              <span className={styles.confidenceBadge}>{profile?.medical_license || 'No License'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className={styles.emptyState}>
                   <Icons.Stethoscope />
                   <p>No doctors found</p>
-                  <button onClick={() => setActiveTab('add-user')} className={styles.primaryBtn} style={{width: 'auto', marginTop: '1rem'}}>
-                    Add Doctor
-                  </button>
-                </div>
-              ) : filteredDoctorsList.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Icons.Stethoscope />
-                  <p>No doctors match your search</p>
-                </div>
-              ) : (
-                <div className={styles.cardGrid}>
-                  {filteredDoctorsList.map(doctor => {
-                    // Handle both array and single object for doctor_profiles
-                    const profile = Array.isArray(doctor.doctor_profiles)
-                      ? doctor.doctor_profiles[0]
-                      : doctor.doctor_profiles;
-
-                    return (
-                      <div key={doctor.id} className={styles.doctorCard}>
-                        <div
-                          className={styles.cardHeader}
-                          onClick={() => {
-                            setSelectedDoctorDetail({ ...doctor, profile });
-                            setShowDoctorDetailModal(true);
-                            fetchDoctorPatients(doctor.id);
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <h3>{doctor.full_name || 'Unknown'}</h3>
-                          <span className={styles.doctorId}>{doctor.unique_identifier || 'N/A'}</span>
-                        </div>
-
-                        <div className={styles.cardBody}>
-                          <p><strong>Email:</strong> {doctor.email || 'N/A'}</p>
-                          <p><strong>Phone:</strong> {doctor.phone || 'N/A'}</p>
-                          <p><strong>License:</strong> {profile?.medical_license || 'N/A'}</p>
-                          <p><strong>Specialization:</strong> {profile?.specialization || 'General'}</p>
-                          <p><strong>Experience:</strong> {profile?.experience_years || 0} years</p>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </div>
@@ -741,37 +1761,381 @@ function AdminDashboard() {
           {/* Radiologists Tab */}
           {activeTab === 'radiologists' && (
             <div className={styles.section}>
-              <h1 className={styles.pageTitle}>Radiologist Management</h1>
+              <div className={styles.sectionHeaderWithToggle}>
+                <h1 className={styles.pageTitle}>Radiologist Management</h1>
+                <div className={styles.viewToggle}>
+                  <button
+                    className={`${styles.viewToggleBtn} ${radiologistsViewMode === 'detailed' ? styles.active : ''}`}
+                    onClick={() => setRadiologistsViewMode('detailed')}
+                    title="Detailed View"
+                  >
+                    <Icons.Grid />
+                  </button>
+                  <button
+                    className={`${styles.viewToggleBtn} ${radiologistsViewMode === 'compact' ? styles.active : ''}`}
+                    onClick={() => setRadiologistsViewMode('compact')}
+                    title="Compact View"
+                  >
+                    <Icons.List />
+                  </button>
+                </div>
+              </div>
 
-              {allRadiologists.length === 0 ? (
+              {/* Advanced Filters */}
+              <div className={styles.filtersCard}>
+                {/* Always Visible: Search Bar */}
+                <div className={styles.searchRow}>
+                  <div className={styles.searchBox}>
+                    <Icons.Search />
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, or email..."
+                      value={radiologistsSearchQuery}
+                      onChange={(e) => setRadiologistsSearchQuery(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                    {radiologistsSearchQuery && (
+                      <button onClick={() => setRadiologistsSearchQuery('')} className={styles.clearBtn}>
+                        <Icons.X />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className={styles.filterToggleBtn}
+                    onClick={() => setRadiologistsFiltersExpanded(!radiologistsFiltersExpanded)}
+                    title={radiologistsFiltersExpanded ? "Hide Filters" : "Show More Filters"}
+                  >
+                    <Icons.Filter />
+                    {radiologistsFiltersExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                    <span>{filteredRadiologistsData.length}/{allRadiologists.length}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Advanced Filters */}
+                {radiologistsFiltersExpanded && (
+                  <div className={styles.expandedFilters}>
+                    <div className={styles.filtersHeaderExpanded}>
+                      <h3>Advanced Filters</h3>
+                      <button onClick={resetRadiologistsFilters} className={styles.resetFiltersBtn}>
+                        <Icons.X />
+                        Reset All
+                      </button>
+                    </div>
+
+                    <div className={styles.filterRow}>
+                      <select value={radiologistsStatusFilter} onChange={(e) => setRadiologistsStatusFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+
+                      <select value={radiologistsActivityFilter} onChange={(e) => setRadiologistsActivityFilter(e.target.value)} className={styles.filterSelect}>
+                        <option value="all">All Activity Levels</option>
+                        <option value="active">Has Analyzed Reports</option>
+                        <option value="inactive">No Reports Yet</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.dateRangeRow}>
+                      <Icons.Calendar />
+                      <span className={styles.dateLabel}>Joined Date:</span>
+                      <input type="date" value={radiologistsDateRange.start} onChange={(e) => setRadiologistsDateRange({...radiologistsDateRange, start: e.target.value})} className={styles.dateInput} />
+                      <span className={styles.dateSeparator}>to</span>
+                      <input type="date" value={radiologistsDateRange.end} onChange={(e) => setRadiologistsDateRange({...radiologistsDateRange, end: e.target.value})} className={styles.dateInput} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {filteredRadiologistsData.length > 0 ? (
+                <>
+                  {radiologistsViewMode === 'detailed' ? (
+                    <div className={styles.cardGrid}>
+                      {filteredRadiologistsData.map(radiologist => (
+                        <div key={radiologist.id} className={styles.radiologistCard} onClick={() => { setSelectedRadiologistDetail(radiologist); setShowRadiologistDetailModal(true); fetchRadiologistActivities(radiologist.id); }} style={{ cursor: 'pointer' }}>
+                          <div className={styles.cardHeader}>
+                            <h3>{radiologist.full_name}</h3>
+                            <span className={styles.radiologistId}>{radiologist.unique_identifier}</span>
+                          </div>
+                          <div className={styles.cardBody}>
+                            <p><strong>Email:</strong> {radiologist.email}</p>
+                            <p><strong>Phone:</strong> {radiologist.phone}</p>
+                            <p><strong>Status:</strong> {radiologist.account_status}</p>
+                            <p><strong>Reports Analyzed:</strong> {radiologist.activityCount || 0}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.compactList}>
+                      {filteredRadiologistsData.map(radiologist => (
+                        <div key={radiologist.id} className={styles.compactItem} onClick={() => { setSelectedRadiologistDetail(radiologist); setShowRadiologistDetailModal(true); fetchRadiologistActivities(radiologist.id); }}>
+                          <div className={styles.compactLeft}>
+                            <h4>{radiologist.full_name}</h4>
+                            <span className={styles.compactMeta}>
+                              {radiologist.unique_identifier} • {radiologist.email} • {radiologist.activityCount || 0} reports analyzed
+                            </span>
+                          </div>
+                          <div className={styles.compactRight}>
+                            <span className={`${styles.statusBadgeSmall} ${styles[radiologist.account_status?.toLowerCase()]}`}>
+                              {radiologist.account_status}
+                            </span>
+                            <span className={styles.confidenceBadge}>{radiologist.phone}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className={styles.emptyState}>
                   <Icons.Activity />
                   <p>No radiologists found</p>
                 </div>
-              ) : (
-                <div className={styles.cardGrid}>
-                  {allRadiologists.map(radiologist => (
-                    <div key={radiologist.id} className={styles.radiologistCard}>
-                      <div
-                        className={styles.cardHeader}
-                        onClick={() => {
-                          setSelectedRadiologistDetail(radiologist);
-                          setShowRadiologistDetailModal(true);
-                          fetchRadiologistActivities(radiologist.id);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <h3>{radiologist.full_name}</h3>
-                        <span className={styles.radiologistId}>{radiologist.unique_identifier}</span>
-                      </div>
+              )}
+            </div>
+          )}
 
-                      <div className={styles.cardBody}>
-                        <p><strong>Email:</strong> {radiologist.email}</p>
-                        <p><strong>Phone:</strong> {radiologist.phone}</p>
-                        <p><strong>Status:</strong> {radiologist.account_status}</p>
-                      </div>
+          {/* Reports Tab */}
+          {activeTab === 'reports' && (
+            <div className={styles.section}>
+              <div className={styles.sectionHeaderWithToggle}>
+                <h1 className={styles.pageTitle}>EEG Analysis Reports</h1>
+                <div className={styles.viewToggle}>
+                  <button
+                    className={`${styles.viewToggleBtn} ${reportsViewMode === 'detailed' ? styles.active : ''}`}
+                    onClick={() => setReportsViewMode('detailed')}
+                    title="Detailed View"
+                  >
+                    <Icons.Grid />
+                  </button>
+                  <button
+                    className={`${styles.viewToggleBtn} ${reportsViewMode === 'compact' ? styles.active : ''}`}
+                    onClick={() => setReportsViewMode('compact')}
+                    title="Compact View"
+                  >
+                    <Icons.List />
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Filters Section */}
+              <div className={styles.filtersCard}>
+                {/* Always Visible: Search Bar */}
+                <div className={styles.searchRow}>
+                  <div className={styles.searchBox}>
+                    <Icons.Search />
+                    <input
+                      type="text"
+                      placeholder="Search by patient, doctor, radiologist, or session code..."
+                      value={reportsSearchQuery}
+                      onChange={(e) => setReportsSearchQuery(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                    {reportsSearchQuery && (
+                      <button onClick={() => setReportsSearchQuery('')} className={styles.clearBtn}>
+                        <Icons.X />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className={styles.filterToggleBtn}
+                    onClick={() => setReportsFiltersExpanded(!reportsFiltersExpanded)}
+                    title={reportsFiltersExpanded ? "Hide Filters" : "Show More Filters"}
+                  >
+                    <Icons.Filter />
+                    {reportsFiltersExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                    <span>{filteredReports.length}/{allReports.length}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Advanced Filters */}
+                {reportsFiltersExpanded && (
+                  <div className={styles.expandedFilters}>
+                    <div className={styles.filtersHeaderExpanded}>
+                      <h3>Advanced Filters</h3>
+                      <button onClick={resetReportsFilters} className={styles.resetFiltersBtn}>
+                        <Icons.X />
+                        Reset All
+                      </button>
                     </div>
-                  ))}
+
+                    {/* Filter Row 1 */}
+                    <div className={styles.filterRow}>
+                  <select
+                    value={reportsStatusFilter}
+                    onChange={(e) => setReportsStatusFilter(e.target.value)}
+                    className={styles.filterSelect}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="failed">Failed</option>
+                  </select>
+
+                  <select
+                    value={reportsPredictionFilter}
+                    onChange={(e) => setReportsPredictionFilter(e.target.value)}
+                    className={styles.filterSelect}
+                  >
+                    <option value="all">All Results</option>
+                    <option value="alzheimers">Alzheimer's Detected</option>
+                    <option value="normal">Normal/Healthy</option>
+                  </select>
+
+                  <select
+                    value={reportsPatientFilter}
+                    onChange={(e) => setReportsPatientFilter(e.target.value)}
+                    className={styles.filterSelect}
+                  >
+                    <option value="all">All Patients</option>
+                    {getUniquePatients().map(patient => (
+                      <option key={patient} value={patient}>{patient}</option>
+                    ))}
+                  </select>
+                </div>
+
+                    {/* Filter Row 2 */}
+                    <div className={styles.filterRow}>
+                      <select
+                        value={reportsDoctorFilter}
+                        onChange={(e) => setReportsDoctorFilter(e.target.value)}
+                        className={styles.filterSelect}
+                      >
+                        <option value="all">All Doctors</option>
+                        {getUniqueDoctors().map(doctor => (
+                          <option key={doctor} value={doctor}>Dr. {doctor}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={reportsRadiologistFilter}
+                        onChange={(e) => setReportsRadiologistFilter(e.target.value)}
+                        className={styles.filterSelect}
+                      >
+                        <option value="all">All Radiologists</option>
+                        {getUniqueRadiologists().map(radiologist => (
+                          <option key={radiologist} value={radiologist}>{radiologist}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div className={styles.dateRangeRow}>
+                      <Icons.Calendar />
+                      <span className={styles.dateLabel}>Date Range:</span>
+                      <input
+                        type="date"
+                        value={reportsDateRange.start}
+                        onChange={(e) => setReportsDateRange({...reportsDateRange, start: e.target.value})}
+                        className={styles.dateInput}
+                      />
+                      <span className={styles.dateSeparator}>to</span>
+                      <input
+                        type="date"
+                        value={reportsDateRange.end}
+                        onChange={(e) => setReportsDateRange({...reportsDateRange, end: e.target.value})}
+                        className={styles.dateInput}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {filteredReports.length > 0 ? (
+                <>
+                  {reportsViewMode === 'detailed' ? (
+                    <div className={styles.cardGrid}>
+                      {filteredReports.map(report => {
+                        const confidence = report.probabilities && Array.isArray(report.probabilities)
+                          ? (Math.max(...report.probabilities) * 100).toFixed(1)
+                          : 'N/A';
+
+                        return (
+                          <div
+                            key={report.id}
+                            className={styles.reportCard}
+                            onClick={() => {
+                              setSelectedReportDetail(report);
+                              setShowReportDetailModal(true);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div className={styles.cardHeader}>
+                              <h3>{getReportDisplayName(report)}</h3>
+                              <span className={`${styles.statusBadge} ${styles[report.status?.toLowerCase()]}`}>
+                                {report.status}
+                              </span>
+                            </div>
+                            <div className={styles.cardBody}>
+                              <p><strong>Patient:</strong> {report.patient_name || 'Unknown'}</p>
+                              <p><strong>Doctor:</strong> {report.doctor_name || 'Unassigned'}</p>
+                              <p><strong>Radiologist:</strong> {report.radiologist_name || 'Not Assigned'}</p>
+                              <p><strong>Date:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
+                              {report.prediction && (
+                                <p><strong>Result:</strong> <span style={{ color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981' }}>{report.prediction}</span></p>
+                              )}
+                              {confidence !== 'N/A' && (
+                                <p><strong>Confidence:</strong> {confidence}%</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={styles.compactList}>
+                      {filteredReports.map(report => {
+                        const confidence = report.probabilities && Array.isArray(report.probabilities)
+                          ? (Math.max(...report.probabilities) * 100).toFixed(1)
+                          : 'N/A';
+
+                        return (
+                          <div
+                            key={report.id}
+                            className={styles.compactItem}
+                            onClick={() => {
+                              setSelectedReportDetail(report);
+                              setShowReportDetailModal(true);
+                            }}
+                          >
+                            <div className={styles.compactLeft}>
+                              <h4>{getReportDisplayName(report)}</h4>
+                              <span className={styles.compactMeta}>
+                                {report.patient_name || 'Unknown Patient'} • Dr. {report.doctor_name || 'Unassigned'} • Radiologist: {report.radiologist_name || 'N/A'} • {new Date(report.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className={styles.compactRight}>
+                              <span className={`${styles.statusBadgeSmall} ${styles[report.status?.toLowerCase()]}`}>
+                                {report.status}
+                              </span>
+                              {report.prediction && (
+                                <span
+                                  className={styles.predictionBadge}
+                                  style={{
+                                    backgroundColor: report.prediction.toLowerCase().includes('alz') ? '#fef2f2' : '#f0fdf4',
+                                    color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'
+                                  }}
+                                >
+                                  {report.prediction}
+                                </span>
+                              )}
+                              {confidence !== 'N/A' && (
+                                <span className={styles.confidenceBadge}>{confidence}%</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className={styles.emptyState}>
+                  <Icons.FileText />
+                  <p>No reports available yet</p>
                 </div>
               )}
             </div>
@@ -1057,6 +2421,120 @@ function AdminDashboard() {
                   setShowRadiologistDetailModal(false);
                   setRadiologistActivities([]);
                 }}
+                className={styles.primaryBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Detail Modal */}
+      {showReportDetailModal && selectedReportDetail && (
+        <div className={styles.modal} onClick={() => setShowReportDetailModal(false)}>
+          <div className={styles.modalContentLarge} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Report Details</h2>
+              <button onClick={() => setShowReportDetailModal(false)} className={styles.closeBtn}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.reportDetailsHeader}>
+                <h3>{getReportDisplayName(selectedReportDetail)}</h3>
+                <span className={`${styles.statusBadge} ${styles[selectedReportDetail.status?.toLowerCase()]}`}>
+                  {selectedReportDetail.status}
+                </span>
+              </div>
+
+              <div className={styles.detailsGrid}>
+                <div><strong>Report ID:</strong> {selectedReportDetail.id.substring(0, 12)}...</div>
+                <div><strong>Patient:</strong> {selectedReportDetail.patient_name || 'Unknown'}</div>
+                <div><strong>Doctor:</strong> {selectedReportDetail.doctor_name || 'Unassigned'}</div>
+                <div><strong>Radiologist:</strong> {selectedReportDetail.radiologist_name || 'Not assigned'}</div>
+                <div><strong>Hospital:</strong> {selectedReportDetail.hospital_name || 'N/A'}</div>
+                <div><strong>Date:</strong> {new Date(selectedReportDetail.created_at).toLocaleString()}</div>
+                <div><strong>Original Filename:</strong> {selectedReportDetail.filename}</div>
+                {selectedReportDetail.session_code && (
+                  <div><strong>Session Code:</strong> {selectedReportDetail.session_code}</div>
+                )}
+              </div>
+
+              {selectedReportDetail.prediction && (
+                <div className={styles.predictionSection}>
+                  <h4>Analysis Results</h4>
+                  <div className={styles.predictionDetails}>
+                    <div className={styles.predictionMain}>
+                      <strong>Prediction:</strong>
+                      <span style={{
+                        fontSize: '1.2em',
+                        color: selectedReportDetail.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981',
+                        marginLeft: '10px'
+                      }}>
+                        {selectedReportDetail.prediction}
+                      </span>
+                    </div>
+                    {selectedReportDetail.probabilities && Array.isArray(selectedReportDetail.probabilities) && (
+                      <div className={styles.confidenceBar}>
+                        <strong>Confidence:</strong>
+                        <div className={styles.progressContainer}>
+                          <div
+                            className={styles.progressBar}
+                            style={{
+                              width: `${(Math.max(...selectedReportDetail.probabilities) * 100).toFixed(1)}%`,
+                              backgroundColor: (Math.max(...selectedReportDetail.probabilities) * 100) > 75 ? '#10b981' : '#f59e0b'
+                            }}
+                          />
+                          <span className={styles.progressLabel}>
+                            {(Math.max(...selectedReportDetail.probabilities) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className={styles.pdfSection}>
+                <h4>Available Reports</h4>
+                <div className={styles.pdfButtons}>
+                  {selectedReportDetail.patient_pdf_url && (
+                    <button
+                      onClick={() => window.open(selectedReportDetail.patient_pdf_url, '_blank')}
+                      className={styles.pdfBtn}
+                    >
+                      <Icons.FileText />
+                      Patient Report
+                    </button>
+                  )}
+                  {selectedReportDetail.technical_pdf_url && (
+                    <button
+                      onClick={() => window.open(selectedReportDetail.technical_pdf_url, '_blank')}
+                      className={styles.pdfBtn}
+                    >
+                      <Icons.FileText />
+                      Technical Report
+                    </button>
+                  )}
+                  {selectedReportDetail.clinician_pdf_url && (
+                    <button
+                      onClick={() => window.open(selectedReportDetail.clinician_pdf_url, '_blank')}
+                      className={styles.pdfBtn}
+                    >
+                      <Icons.FileText />
+                      Clinician Report
+                    </button>
+                  )}
+                  {!selectedReportDetail.patient_pdf_url && !selectedReportDetail.technical_pdf_url && !selectedReportDetail.clinician_pdf_url && (
+                    <p style={{color: '#666', fontStyle: 'italic'}}>No PDF reports available yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => setShowReportDetailModal(false)}
                 className={styles.primaryBtn}
               >
                 Close
