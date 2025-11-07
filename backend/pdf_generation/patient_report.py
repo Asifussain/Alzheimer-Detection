@@ -8,272 +8,305 @@ from .technical_report import format_metric_for_pdf
 class PatientPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "Your AI EEG Pattern Report"
+        self.report_title = "EEG Pattern Analysis Report - Patient Copy"
         self.primary_color = (74, 144, 226)
         self.highlight_color_alz = (231, 76, 60)
         self.highlight_color_norm = (46, 204, 113)
 
-def build_patient_pdf_report_content(pdf: PatientPDFReport, prediction_data, 
-                                     similarity_data, consistency_metrics, 
+def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
+                                     similarity_data, consistency_metrics,
                                      similarity_plot_data):
+    """
+    Build patient-friendly PDF report with comprehensive medical information
+
+    Args:
+        pdf: PatientPDFReport instance
+        comprehensive_data: Dict with all medical data (hospital, patient, doctor, radiologist, prediction, session)
+        similarity_data: Similarity analysis results
+        consistency_metrics: Model consistency metrics
+        similarity_plot_data: Base64 encoded similarity plot
+    """
     try:
+        # Store comprehensive data in PDF object for use by utility methods
+        pdf.comprehensive_data = comprehensive_data
+        prediction_data = comprehensive_data.get('prediction', {})
+        hospital_data = comprehensive_data.get('hospital')
+
         pdf.add_page()
-        
-        # Section 1: Analysis Summary
-        pdf.section_title("Analysis Summary")
-        created_at_str = 'N/A'
-        if prediction_data.get('created_at'):
-            try: 
-                created_at_str = pd.to_datetime(prediction_data['created_at']).strftime('%B %d, %Y')
-            except: 
-                created_at_str = str(prediction_data['created_at'])
-        
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(60, 7, "File Analyzed:", 0, 0, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.cell(0, 7, prediction_data.get('filename', 'N/A'), 0, 1, 'L')
-        
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(60, 7, "Date of Analysis:", 0, 0, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.cell(0, 7, created_at_str, 0, 1, 'L')
-        pdf.ln(10)
 
-        pdf.set_font('Helvetica', 'B', 11)
-        pdf.set_text_color(*pdf.primary_color)
-        pdf.cell(0, 7, "[i] About This Report", 0, 1, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.ln(2)
-        
-        pdf.cell(0, 6, "This report uses Artificial Intelligence (AI) to analyze patterns in your brainwave (EEG) activity.", 0, 1, 'L')
-        pdf.cell(0, 6, "The AI compares your EEG patterns to those learned from many examples.", 0, 1, 'L')
-        pdf.ln(2)
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.cell(10, 6, "•", 0, 0, 'L')
-        pdf.cell(0, 6, "IMPORTANT: This is an informational tool to help your doctor. It is NOT a medical diagnosis.", 0, 1, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.cell(10, 6, "", 0, 0, 'L')
-        pdf.cell(0, 6, "Please discuss these results with your healthcare provider.", 0, 1, 'L')
-        pdf.ln(8)
+        # Professional Hospital Header
+        if hospital_data:
+            pdf.add_hospital_header(hospital_data)
 
-        # Section 2: AI's Main Finding
-        pdf.section_title("AI's Main Finding: Pattern Assessment")
+        # Report Metadata Section
+        pdf.add_report_metadata_section("EEG PATTERN ANALYSIS REPORT")
+        pdf.ln(2)
+
+        # Patient Demographics
+        pdf.add_patient_demographics_section()
+
+        # Referring Doctor Information
+        pdf.add_medical_professional_info(role="doctor")
+
+        # EEG Session Details
+        pdf.add_session_technical_details()
+
+        # Analysis performed by
+        pdf.add_medical_professional_info(role="radiologist")
+
+        # Main Findings Section - Force new page for clean layout
+        pdf.add_page()
+        pdf.section_title("Analysis Results & Findings")
+
         prediction_label = prediction_data.get('prediction', 'Not Determined')
         pred_display_text = "Pattern assessment inconclusive"
         pred_color = pdf.text_color_dark
+        interpretation_text = ""
 
         if prediction_label == "Alzheimer's":
             pred_display_text = "Patterns Suggestive of Alzheimer's Characteristics"
             pred_color = pdf.highlight_color_alz
+            interpretation_text = "The AI analysis found brain wave patterns that are similar to those typically seen in individuals with Alzheimer's disease."
         elif prediction_label == "Normal":
             pred_display_text = "Normal Brainwave Patterns Observed"
             pred_color = pdf.highlight_color_norm
-        
-        pdf.set_font('Helvetica', '', 11)
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.cell(0, 7, "The AI analyzed your EEG and found that the patterns are most similar to:", 0, 1, 'L')
-        pdf.ln(5)
-        
-        pdf.set_font('Helvetica', 'B', 13)
-        pdf.set_text_color(*pred_color)
-        x = pdf.get_x()
-        y = pdf.get_y()
-        pdf.rect(x + 10, y, pdf.w - 30, 12, 'D')
-        pdf.set_xy(x + 10, y + 2)
-        pdf.cell(pdf.w - 30, 8, pred_display_text, 0, 1, 'C')
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.ln(8)
+            interpretation_text = "The AI analysis found brain wave patterns that are similar to typical healthy brain activity."
 
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_text_color(*pdf.text_color_dark)
+        pdf.cell(0, 5, "Primary Finding:", 0, 1, 'L')
+        pdf.ln(3)
+
+        # Finding Box
+        box_x = pdf.l_margin
+        box_y = pdf.get_y()
+        box_width = pdf.w - pdf.l_margin - pdf.r_margin
+        box_height = 11
+
+        pdf.set_draw_color(*pred_color)
+        pdf.set_line_width(0.7)
+        pdf.rect(box_x, box_y, box_width, box_height, 'D')
+        pdf.set_line_width(0.2)
+
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_text_color(*pred_color)
+        pdf.set_xy(box_x, box_y + 3)
+        pdf.cell(box_width, 5, pred_display_text, 0, 0, 'C')
+
+        pdf.set_y(box_y + box_height + 3)
+        pdf.set_text_color(*pdf.text_color_normal)
+
+        # Interpretation
+        if interpretation_text:
+            pdf.set_font('Helvetica', '', 9)
+            pdf.set_text_color(*pdf.text_color_dark)
+            pdf.multi_cell(0, 5, sanitize_for_helvetica(interpretation_text), align='L')
+            pdf.ln(4)
+
+        # Model Confidence Level
         probabilities = prediction_data.get('probabilities')
-        confidence_text = "AI confidence score for this finding is not available."
         if isinstance(probabilities, list) and len(probabilities) == 2:
             try:
                 conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
                 conf_val = probabilities[conf_val_idx] * 100
-                confidence_text = f"The AI is {conf_val:.0f}% confident that the patterns it found align with the finding above (based on the first segment of your EEG data)."
+
+                pdf.set_font('Helvetica', 'B', 9)
+                pdf.set_text_color(*pdf.primary_color)
+                pdf.cell(0, 5, "Model Confidence Level:", 0, 1, 'L')
+                pdf.ln(2)
+
+                pdf.set_font('Helvetica', '', 9)
+                pdf.set_text_color(*pdf.text_color_normal)
+                confidence_text = f"The AI model is {conf_val:.1f}% confident in this finding based on EEG pattern analysis."
+                pdf.multi_cell(0, 5, sanitize_for_helvetica(confidence_text), align='L')
+                pdf.ln(4)
             except Exception as e:
                 print(f"Error formatting confidence: {e}")
-        
-        pdf.set_font('Helvetica', 'B', 11)
-        pdf.set_text_color(*pdf.primary_color)
-        pdf.cell(0, 7, "[T] AI's Confidence Level", 0, 1, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(*pdf.text_color_normal)
-        pdf.ln(2)
-        pdf.cell(0, 6, confidence_text, 0, 1, 'L')
-        pdf.ln(8)
 
-        # Section 3: AI's Internal Consistency Check
-        pdf.section_title("AI's Internal Consistency Check")
-        
+        # Internal Consistency Check
+        if pdf.get_y() > pdf.h - 60:
+            pdf.add_page()
+
+        pdf.ln(3)
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_text_color(*pdf.secondary_color)
+        pdf.cell(0, 5, "How Reliable is This Finding?", 0, 1, 'L')
+        pdf.ln(3)
+
         if consistency_metrics and not consistency_metrics.get('error') and isinstance(consistency_metrics.get('num_trials'), int) and consistency_metrics.get('num_trials', 0) > 0:
             num_segments = consistency_metrics.get('num_trials', 'multiple')
-            
-            pdf.set_font('Helvetica', 'B', 11)
-            pdf.set_text_color(*pdf.primary_color)
-            pdf.cell(0, 7, "[M] Understanding AI's Consistency", 0, 1, 'L')
-            pdf.set_font('Helvetica', '', 10)
-            pdf.set_text_color(*pdf.text_color_normal)
-            pdf.ln(2)
-            
-            pdf.cell(0, 6, f"To double-check its findings, the AI looked at your EEG data in {num_segments} smaller pieces (segments).", 0, 1, 'L')
-            pdf.cell(0, 6, "This helps assess how stable the AI's finding was across your entire recording.", 0, 1, 'L')
-            pdf.cell(0, 6, "Here's a simple breakdown:", 0, 1, 'L')
-            pdf.ln(3)
-            
             accuracy_val = format_metric_for_pdf(consistency_metrics.get('accuracy'), 'percent', 0)
-            pdf.cell(5, 6, "•", 0, 0, 'L')
-            pdf.set_font('Helvetica', 'B', 10)
-            pdf.cell(0, 6, f"Overall Consistency (Accuracy): {accuracy_val}", 0, 1, 'L')
-            pdf.set_font('Helvetica', '', 10)
-            pdf.cell(5, 6, "•", 0, 0, 'L')
-            pdf.cell(0, 6, "This shows how often the AI's checks on the small pieces matched its main finding for your whole EEG sample.", 0, 1, 'L')
-            pdf.ln(2)
 
-            if prediction_label == "Alzheimer's":
-                sensitivity_val = format_metric_for_pdf(consistency_metrics.get('recall_sensitivity'), 'percent', 0)
-                precision_val = format_metric_for_pdf(consistency_metrics.get('precision'), 'percent', 0)
-                f1_val = format_metric_for_pdf(consistency_metrics.get('f1_score'), 'float', 2)
-                
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.set_font('Helvetica', 'B', 10)
-                pdf.cell(0, 6, f"Finding Alzheimer's-like Patterns (Sensitivity): {sensitivity_val}", 0, 1, 'L')
-                pdf.set_font('Helvetica', '', 10)
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.cell(0, 6, "If segments showed Alzheimer's-like patterns (based on the main finding), the AI found them this often.", 0, 1, 'L')
-                pdf.ln(2)
-                
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.set_font('Helvetica', 'B', 10)
-                pdf.cell(0, 6, f"Confirming Alzheimer's-like Patterns (Precision): {precision_val}", 0, 1, 'L')
-                pdf.set_font('Helvetica', '', 10)
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.cell(0, 6, "When the AI said a segment was Alzheimer's-like, it was consistent with the main finding this often.", 0, 1, 'L')
-                pdf.ln(2)
-                
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.set_font('Helvetica', 'B', 10)
-                pdf.cell(0, 6, f"Balanced Score for Alzheimer's Patterns (F1-Score): {f1_val}", 0, 1, 'L')
-                pdf.set_font('Helvetica', '', 10)
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.cell(0, 6, "A combined score (0 to 1, higher is better) reflecting how well the AI balanced finding and confirming these patterns.", 0, 1, 'L')
-                pdf.ln(2)
-            else:
-                specificity_val = format_metric_for_pdf(consistency_metrics.get('specificity'), 'percent', 0)
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.set_font('Helvetica', 'B', 10)
-                pdf.cell(0, 6, f"Finding Normal Patterns (Specificity): {specificity_val}", 0, 1, 'L')
-                pdf.set_font('Helvetica', '', 10)
-                pdf.cell(5, 6, "•", 0, 0, 'L')
-                pdf.cell(0, 6, "If Normal patterns were present in segments (based on the main finding), the AI correctly identified them this often.", 0, 1, 'L')
-                pdf.ln(2)
-            
-            pdf.cell(5, 6, "•", 0, 0, 'L')
-            pdf.set_font('Helvetica', 'B', 10)
-            pdf.cell(0, 6, f"Number of Segments Checked: {num_segments}", 0, 1, 'L')
             pdf.set_font('Helvetica', '', 10)
-            pdf.cell(5, 6, "•", 0, 0, 'L')
-            pdf.cell(0, 6, "Higher percentages and scores in these checks generally suggest the AI was consistent in what it observed throughout your EEG sample.", 0, 1, 'L')
-            
-        elif consistency_metrics and consistency_metrics.get('message'):
-            pdf.set_font('Helvetica', 'I', 9)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, f"Consistency check: {consistency_metrics['message']}", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
+
+            consistency_explanation = [
+                f"To verify its findings, the AI analyzed your EEG data in **{num_segments} smaller segments**.",
+                f"The AI found **consistent patterns** in {accuracy_val} of these segments.",
+                "Higher consistency suggests the finding is more stable across your entire brain wave recording.",
+                ("bullet", "A high consistency score (>85%) indicates the pattern was consistently present throughout the recording."),
+                ("bullet", "A moderate score (70-85%) suggests the pattern was present but with some variation."),
+                ("bullet", "A lower score (<70%) may indicate inconsistent patterns and should be interpreted with caution.")
+            ]
+
+            pdf.add_explanation_box(
+                "Understanding Consistency",
+                consistency_explanation,
+                icon_char="",
+                bg_color=(248, 252, 255),
+                font_size_text=9
+            )
         else:
             pdf.set_font('Helvetica', 'I', 9)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, "Detailed internal consistency checks were not applicable or did not yield specific metrics for this sample.", 0, 1, 'L')
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, "Detailed consistency metrics not available for this analysis.", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
-        pdf.ln(10)
 
-        # Section 4: Brainwave Shape Comparison
-        if pdf.get_y() > pdf.h - 120: 
+        pdf.ln(5)
+
+        # Brainwave Shape Comparison
+        if pdf.get_y() > pdf.h - 120:
             pdf.add_page()
-        
-        if similarity_data and not similarity_data.get('error') and similarity_plot_data:
-            plotted_ch_idx = similarity_data.get('plotted_channel_index')
-            plot_title_sim = f"Comparing Your Brainwave Shape (from Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'})"
-            pdf.add_image_section(plot_title_sim, similarity_plot_data)
 
-            sim_interp_text_main = "The AI found that your sample's brainwave shapes showed "
+        if similarity_data and not similarity_data.get('error') and similarity_plot_data:
+            pdf.section_title("How Your Brain Waves Compare")
+
+            pdf.set_font('Helvetica', '', 9)
+            pdf.set_text_color(*pdf.text_color_normal)
+            pdf.multi_cell(0, 5,
+                "The AI compared the shape and pattern of your brain waves to reference patterns from previous studies. "
+                "This helps verify the main finding by looking at how similar your brain wave patterns are to known patterns.",
+                align='L')
+            pdf.ln(6)
+
+            plotted_ch_idx = similarity_data.get('plotted_channel_index')
+            plot_title = f"Brain Wave Pattern Comparison (Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'})"
+            pdf.add_image_section(plot_title, similarity_plot_data)
+
+            # Similarity interpretation
             overall_sim = similarity_data.get('overall_similarity', '')
-            if "Higher Similarity to Alzheimer's Pattern" in overall_sim:
-                sim_interp_text_main += "more resemblance to the Alzheimer's reference patterns."
-            elif "Higher Similarity to Normal Pattern" in overall_sim:
-                sim_interp_text_main += "more resemblance to the Normal reference patterns."
-            else:
-                sim_interp_text_main += "a mixed or inconclusive resemblance when compared to the reference patterns."
-            
-            sim_interpretation_from_data = similarity_data.get('interpretation', "").split("Disclaimer:")[0].replace("Similarity Analysis (DTW):", "").replace("Overall Assessment:", "").strip()
-            additional_details = f"Additional Details: {sim_interpretation_from_data}" if sim_interpretation_from_data else ""
-            
-            pdf.set_font('Helvetica', 'B', 11)
-            pdf.set_text_color(*pdf.primary_color)
-            pdf.cell(0, 7, "[D] What This Graph Shows", 0, 1, 'L')
-            pdf.set_font('Helvetica', '', 10)
-            pdf.set_text_color(*pdf.text_color_normal)
-            pdf.ln(2)
-            pdf.cell(0, 6, sim_interp_text_main, 0, 1, 'L')
-            if additional_details:
-                pdf.cell(0, 6, additional_details, 0, 1, 'L')
-            
+            if overall_sim:
+                pdf.set_font('Helvetica', '', 9)
+                pdf.set_text_color(*pdf.text_color_dark)
+
+                if "Higher Similarity to Alzheimer's Pattern" in overall_sim:
+                    sim_text = "Your brain wave patterns showed greater similarity to the Alzheimer's reference patterns in our database."
+                elif "Higher Similarity to Normal Pattern" in overall_sim:
+                    sim_text = "Your brain wave patterns showed greater similarity to the normal healthy brain reference patterns in our database."
+                else:
+                    sim_text = "Your brain wave patterns showed mixed similarity when compared to reference patterns."
+
+                pdf.multi_cell(0, 5, sanitize_for_helvetica(sim_text), align='L')
+                pdf.ln(4)
         else:
-            pdf.section_title("Comparing Your Brainwave Shape")
+            pdf.section_title("Brain Wave Pattern Comparison")
             pdf.set_font('Helvetica', 'I', 9)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, "The brainwave shape comparison graph is not available for this report.", 0, 1, 'L')
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, "Brainwave shape comparison visualization is not available for this report.", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
+
         pdf.ln(10)
 
-        # Section 5: Important Information & Next Steps
-        pdf.section_title("Important Information & Your Next Steps")
-        
-        pdf.set_font('Helvetica', 'B', 11)
-        pdf.set_text_color(139, 69, 19)
-        pdf.cell(0, 7, "[!] Please Discuss This Report With Your Doctor", 0, 1, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(101, 67, 33)
-        pdf.ln(2)
-        
-        pdf.cell(0, 6, "This AI report is an informational tool based on EEG patterns. It is NOT a medical diagnosis.", 0, 1, 'L')
-        pdf.ln(2)
-        pdf.cell(0, 6, "Only a qualified healthcare professional can diagnose medical conditions. They will consider this", 0, 1, 'L')
-        pdf.cell(0, 6, "report along with your full medical history and other tests.", 0, 1, 'L')
-        pdf.ln(2)
-        
-        pdf.cell(5, 6, "•", 0, 0, 'L')
+        # What Do These Results Mean?
+        if pdf.get_y() > pdf.h - 80:
+            pdf.add_page()
+
+        pdf.section_title("What Do These Results Mean For Me?")
+
+        meaning_points = [
+            ("bullet", "**This is NOT a diagnosis** - Only your doctor can diagnose medical conditions after considering your complete medical history, symptoms, and other tests."),
+            ("bullet", "**This is a screening tool** - The AI helps identify brain wave patterns that may need further medical evaluation."),
+            ("bullet", f"**Your result: {pred_display_text}** - This means the AI found patterns in your brain waves that are similar to the indicated category."),
+            ("bullet", "**Further evaluation may be needed** - Your doctor will determine if additional tests or follow-up appointments are necessary."),
+        ]
+
+        pdf.add_explanation_box(
+            "Important Points",
+            meaning_points,
+            icon_char="",
+            bg_color=(255, 250, 240),
+            title_color=(184, 134, 11)
+        )
+
+        pdf.ln(8)
+
+        # Next Steps
+        pdf.section_title("Your Next Steps")
+
         pdf.set_font('Helvetica', 'B', 10)
-        pdf.cell(0, 6, f"Key Takeaway: The AI analysis suggests your EEG patterns are most similar to {sanitize_for_helvetica(pred_display_text)}.", 0, 1, 'L')
+        pdf.set_text_color(*pdf.text_color_dark)
+        pdf.cell(0, 6, "What Should I Do Now?", 0, 1, 'L')
         pdf.ln(2)
-        
+
+        next_steps = [
+            ("bullet", "**Schedule an appointment** with your doctor to discuss these results in detail."),
+            ("bullet", "**Bring this report** to your doctor's appointment for their review."),
+            ("bullet", "**Prepare questions** about what these findings mean for your health and care plan."),
+            ("bullet", "**Follow your doctor's advice** regarding any additional tests or treatment recommendations."),
+            ("bullet", "**Don't panic** - Many factors affect brain wave patterns, and your doctor will provide proper context.")
+        ]
+
+        pdf.add_explanation_box(
+            "",
+            next_steps,
+            icon_char="",
+            bg_color=(240, 255, 240),
+            font_size_text=9.5
+        )
+
+        pdf.ln(8)
+
+        # Questions to Ask Your Doctor
+        if pdf.get_y() > pdf.h - 70:
+            pdf.add_page()
+
         pdf.set_font('Helvetica', 'B', 10)
-        pdf.cell(5, 6, "•", 0, 0, 'L')
-        pdf.cell(0, 6, "Recommended Next Steps:", 0, 1, 'L')
-        pdf.set_font('Helvetica', '', 10)
-        pdf.cell(15, 6, "◦", 0, 0, 'L')
-        pdf.cell(0, 6, "Share this entire report with your doctor or a neurologist.", 0, 1, 'L')
-        pdf.cell(15, 6, "◦", 0, 0, 'L')
-        pdf.cell(0, 6, "Discuss any health concerns and follow their medical advice.", 0, 1, 'L')
-        pdf.cell(15, 6, "◦", 0, 0, 'L')
-        pdf.cell(0, 6, "Ask your doctor to explain what these findings mean in the context of your overall health.", 0, 1, 'L')
-        
+        pdf.set_text_color(*pdf.secondary_color)
+        pdf.cell(0, 6, "Suggested Questions for Your Doctor:", 0, 1, 'L')
+        pdf.ln(2)
+
+        questions = [
+            "What do these EEG results mean in the context of my symptoms and medical history?",
+            "Do I need any additional tests or evaluations?",
+            "What are the next steps in my care plan?",
+            "Are there any lifestyle changes or treatments you recommend?",
+            "How often should I have follow-up appointments?",
+            "Should family members be concerned or get tested?"
+        ]
+
+        pdf.set_font('Helvetica', '', 9)
+        pdf.set_text_color(*pdf.text_color_dark)
+        for i, question in enumerate(questions, 1):
+            current_y = pdf.get_y()
+            pdf.set_xy(pdf.l_margin, current_y)
+            pdf.cell(8, 5, f"{i}.", 0, 0, 'L')
+            pdf.set_x(pdf.l_margin + 8)
+            pdf.multi_cell(pdf.w - pdf.l_margin - pdf.r_margin - 8, 5, sanitize_for_helvetica(question), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(0.5)
+
+        pdf.ln(8)
+
+        # Medical Disclaimer
+        pdf.add_medical_disclaimer(disclaimer_type="patient")
+
+        # Signature Section
+        pdf.add_signature_section()
+
+        # Footer note
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.cell(0, 5, "This is an official medical report. Please keep it for your records.", 0, 1, 'C')
         pdf.set_text_color(*pdf.text_color_normal)
-        
+
     except Exception as e:
-        print(f"Error building Patient PDF content: {e}")
+        print(f"Critical Error building Patient PDF content: {e}")
         traceback.print_exc()
         try:
-            if pdf.page_no() == 0: 
+            if pdf.page_no() == 0:
                 pdf.add_page()
-            elif pdf.get_y() > pdf.h - 30: 
+            elif pdf.get_y() > pdf.h - 30:
                 pdf.add_page()
-            
+
             pdf.set_font("Helvetica", 'B', 12)
             pdf.set_text_color(255, 0, 0)
             x = pdf.get_x()

@@ -57,6 +57,147 @@ def get_prediction_and_eeg(prediction_id: str):
         traceback.print_exc()
         return (prediction_rec if prediction_rec else None), None, f"Error accessing/processing data: {str(e)}"
 
+def get_comprehensive_report_data(prediction_id: str):
+    """
+    Fetches comprehensive data for medical report generation including:
+    - Prediction/analysis results
+    - Complete hospital information
+    - Complete patient demographics and medical history
+    - Complete doctor information
+    - Complete radiologist/technician information
+    - EEG session details (if available)
+    """
+    supabase = get_supabase_client()
+    print(f"DB Helper: Fetching comprehensive report data for prediction ID: {prediction_id}")
+
+    try:
+        # Fetch prediction record
+        prediction_res = supabase.table('predictions').select('*').eq('id', prediction_id).maybe_single().execute()
+
+        if not prediction_res.data:
+            return None, "Prediction record not found"
+
+        prediction_data = prediction_res.data
+        comprehensive_data = {
+            'prediction': prediction_data,
+            'hospital': None,
+            'patient': None,
+            'patient_profile': None,
+            'doctor': None,
+            'doctor_profile': None,
+            'radiologist': None,
+            'radiologist_profile': None,
+            'session': None,
+            'blood_group': None,
+            'doctor_qualification': None,
+            'radiologist_qualification': None
+        }
+
+        # Fetch Hospital Information
+        hospital_id = prediction_data.get('hospital_id')
+        if hospital_id:
+            try:
+                hospital_res = supabase.table('hospitals').select('*').eq('id', hospital_id).maybe_single().execute()
+                if hospital_res.data:
+                    comprehensive_data['hospital'] = hospital_res.data
+                    print(f"DB Helper: Hospital data fetched for {hospital_res.data.get('name')}")
+            except Exception as e:
+                print(f"DB Helper Warning: Could not fetch hospital data: {e}")
+
+        # Fetch Patient Information
+        patient_id = prediction_data.get('patient_id')
+        if patient_id:
+            try:
+                # Fetch user profile
+                patient_user_res = supabase.table('user_profiles').select('*').eq('id', patient_id).maybe_single().execute()
+                if patient_user_res.data:
+                    comprehensive_data['patient'] = patient_user_res.data
+
+                # Fetch patient profile
+                patient_profile_res = supabase.table('patient_profiles').select('*').eq('user_id', patient_id).maybe_single().execute()
+                if patient_profile_res.data:
+                    comprehensive_data['patient_profile'] = patient_profile_res.data
+
+                    # Fetch blood group if available
+                    blood_group_id = patient_profile_res.data.get('blood_group_id')
+                    if blood_group_id:
+                        blood_group_res = supabase.table('blood_groups').select('*').eq('id', blood_group_id).maybe_single().execute()
+                        if blood_group_res.data:
+                            comprehensive_data['blood_group'] = blood_group_res.data.get('blood_type')
+
+                print(f"DB Helper: Patient data fetched for {patient_user_res.data.get('full_name', 'Unknown')}")
+            except Exception as e:
+                print(f"DB Helper Warning: Could not fetch patient data: {e}")
+
+        # Fetch Doctor Information
+        doctor_id = prediction_data.get('doctor_id')
+        if doctor_id:
+            try:
+                # Fetch user profile
+                doctor_user_res = supabase.table('user_profiles').select('*').eq('id', doctor_id).maybe_single().execute()
+                if doctor_user_res.data:
+                    comprehensive_data['doctor'] = doctor_user_res.data
+
+                # Fetch doctor profile
+                doctor_profile_res = supabase.table('doctor_profiles').select('*').eq('user_id', doctor_id).maybe_single().execute()
+                if doctor_profile_res.data:
+                    comprehensive_data['doctor_profile'] = doctor_profile_res.data
+
+                    # Fetch qualification if available
+                    qual_id = doctor_profile_res.data.get('qualification_id')
+                    if qual_id:
+                        qual_res = supabase.table('qualifications').select('*').eq('id', qual_id).maybe_single().execute()
+                        if qual_res.data:
+                            comprehensive_data['doctor_qualification'] = qual_res.data
+
+                print(f"DB Helper: Doctor data fetched for {doctor_user_res.data.get('full_name', 'Unknown')}")
+            except Exception as e:
+                print(f"DB Helper Warning: Could not fetch doctor data: {e}")
+
+        # Fetch Radiologist/Technician Information
+        radiologist_id = prediction_data.get('radiologist_id') or prediction_data.get('technician_id')
+        if radiologist_id:
+            try:
+                # Fetch user profile
+                radiologist_user_res = supabase.table('user_profiles').select('*').eq('id', radiologist_id).maybe_single().execute()
+                if radiologist_user_res.data:
+                    comprehensive_data['radiologist'] = radiologist_user_res.data
+
+                # Try to fetch radiologist profile
+                radiologist_profile_res = supabase.table('radiologist_profiles').select('*').eq('user_id', radiologist_id).maybe_single().execute()
+                if radiologist_profile_res.data:
+                    comprehensive_data['radiologist_profile'] = radiologist_profile_res.data
+
+                    # Fetch qualification if available
+                    qual_id = radiologist_profile_res.data.get('qualification_id')
+                    if qual_id:
+                        qual_res = supabase.table('qualifications').select('*').eq('id', qual_id).maybe_single().execute()
+                        if qual_res.data:
+                            comprehensive_data['radiologist_qualification'] = qual_res.data
+
+                print(f"DB Helper: Radiologist data fetched for {radiologist_user_res.data.get('full_name', 'Unknown')}")
+            except Exception as e:
+                print(f"DB Helper Warning: Could not fetch radiologist data: {e}")
+
+        # Try to fetch EEG session information if session_code exists
+        session_code = prediction_data.get('session_code')
+        if session_code:
+            try:
+                session_res = supabase.table('eeg_sessions').select('*').eq('session_code', session_code).maybe_single().execute()
+                if session_res.data:
+                    comprehensive_data['session'] = session_res.data
+                    print(f"DB Helper: EEG session data fetched for session {session_code}")
+            except Exception as e:
+                print(f"DB Helper Warning: Could not fetch session data: {e}")
+
+        print(f"DB Helper: Successfully fetched comprehensive report data")
+        return comprehensive_data, None
+
+    except Exception as e:
+        print(f"DB Helper Error fetching comprehensive data for prediction ID {prediction_id}: {e}")
+        traceback.print_exc()
+        return None, f"Error fetching comprehensive report data: {str(e)}"
+
 def cleanup_storage_on_error(bucket_name: str, path: str):
     """
     Removes an object from the specified Supabase storage bucket.

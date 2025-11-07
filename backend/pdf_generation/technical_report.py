@@ -9,9 +9,12 @@ from utils import sanitize_for_helvetica
 class TechnicalPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "Technical EEG Analysis Report"
+        self.report_title = "Technical EEG Analysis Report - Radiologist Copy"
+        self.primary_color = (40, 60, 80)
+        self.secondary_color = (52, 152, 219)
 
 def format_metric_for_pdf(value, type='float', precision=1):
+    """Format metric values for PDF display"""
     if value is None or (isinstance(value, float) and (pd.isna(value) or not pd.Series(value).notna().all())):
         return 'N/A'
     try:
@@ -23,54 +26,110 @@ def format_metric_for_pdf(value, type='float', precision=1):
     except (ValueError, TypeError):
         return 'N/A'
 
-def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data, stats_data,
+def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_data, stats_data,
                                        similarity_data, consistency_metrics,
                                        ts_img_data, psd_img_data, similarity_plot_data):
+    """
+    Build technical/radiologist PDF report with comprehensive medical and technical information
+
+    Args:
+        pdf: TechnicalPDFReport instance
+        comprehensive_data: Dict with all medical data (hospital, patient, doctor, radiologist, prediction, session)
+        stats_data: EEG statistics
+        similarity_data: Similarity analysis results
+        consistency_metrics: Model consistency metrics
+        ts_img_data: Time series plot base64
+        psd_img_data: PSD plot base64
+        similarity_plot_data: Similarity plot base64
+    """
     page_width = pdf.w - pdf.l_margin - pdf.r_margin
 
     try:
-        pdf.add_page()
-        pdf.section_title("Analysis Details")
-        pdf.key_value_pair("Filename", prediction_data.get('filename', 'N/A'))
+        # Store comprehensive data in PDF object
+        pdf.comprehensive_data = comprehensive_data
+        prediction_data = comprehensive_data.get('prediction', {})
+        hospital_data = comprehensive_data.get('hospital')
 
+        pdf.add_page()
+
+        # Professional Hospital Header
+        if hospital_data:
+            pdf.add_hospital_header(hospital_data)
+
+        # Report Metadata Section
+        pdf.add_report_metadata_section("TECHNICAL EEG ANALYSIS REPORT")
+        pdf.ln(3)
+
+        # Patient Demographics
+        pdf.add_patient_demographics_section()
+
+        # Referring Physician
+        pdf.add_medical_professional_info(role="doctor")
+
+        # EEG Session Technical Details
+        pdf.add_session_technical_details()
+
+        # Analysis Performed By
+        pdf.add_medical_professional_info(role="radiologist")
+
+        # ML Analysis Summary
+        pdf.section_title("AI Model Analysis Summary")
+
+        prediction_label = prediction_data.get('prediction', 'N/A')
+        analysis_type = prediction_data.get('analysis_type', 'binary')
+
+        pdf.key_value_pair("Classification Result", prediction_label)
+        pdf.key_value_pair("Analysis Type", analysis_type.upper())
+
+        # Model Confidence
+        probabilities = prediction_data.get('probabilities')
+        if isinstance(probabilities, list) and len(probabilities) == 2:
+            try:
+                prob_str = f"Normal: {format_metric_for_pdf(probabilities[0], 'percent', 2)} | Alzheimer's: {format_metric_for_pdf(probabilities[1], 'percent', 2)}"
+                pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=55)
+
+                # Dominant class confidence
+                max_conf = max(probabilities) * 100
+                pdf.key_value_pair("Primary Classification Confidence", f"{max_conf:.2f}%")
+            except Exception as e:
+                print(f"Error formatting probabilities: {e}")
+                pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)))
+        elif probabilities:
+            pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)))
+
+        # Analysis timestamp
         created_at = prediction_data.get('created_at')
-        date_str = 'N/A'
         if created_at:
             try:
                 dt_obj = pd.to_datetime(created_at)
-                date_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC') if dt_obj.tzinfo else dt_obj.strftime('%Y-%m-%d %H:%M:%S (Unknown TZ)')
-            except Exception:
-                date_str = str(created_at)
-        pdf.key_value_pair("Analyzed On", date_str)
-        pdf.ln(5)
+                date_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC')
+                pdf.key_value_pair("Analysis Completed", date_str)
+            except:
+                pdf.key_value_pair("Analysis Completed", str(created_at))
 
-        pdf.section_title("ML Prediction & Internal Consistency")
-        prediction_label = prediction_data.get('prediction', 'N/A')
-        pdf.key_value_pair("Overall Prediction", prediction_label)
+        pdf.ln(8)
 
-        probabilities = prediction_data.get('probabilities')
-        prob_str = 'N/A'
-        if isinstance(probabilities, list) and len(probabilities) == 2:
-            try:
-                prob_str = f"Normal: {format_metric_for_pdf(probabilities[0], 'percent', 1)}, Alzheimer's: {format_metric_for_pdf(probabilities[1], 'percent', 1)}"
-            except Exception:
-                prob_str = sanitize_for_helvetica(str(probabilities))
-        elif probabilities is not None:
-            prob_str = sanitize_for_helvetica(str(probabilities))
-        pdf.key_value_pair("Confidence (Initial Segment)", prob_str)
+        # Internal Consistency Metrics
+        pdf.section_title("Model Internal Consistency Analysis")
+
+        pdf.add_explanation_box(
+            "About Consistency Metrics",
+            [
+                "The following metrics reflect model stability across EEG segments **within this sample**.",
+                "These are **internal consistency checks**, NOT diagnostic accuracy against ground truth.",
+                "High consistency indicates stable pattern recognition throughout the recording.",
+                "Metrics calculated by comparing segment-level predictions to the overall file prediction."
+            ],
+            icon_char="",
+            bg_color=(240, 248, 255),
+            font_size_text=8.5
+        )
         pdf.ln(5)
 
         if consistency_metrics and not consistency_metrics.get('error') and consistency_metrics.get('num_trials', 0) > 0:
-            pdf.set_font('Helvetica', 'B', 11)
-            pdf.cell(0, 6, "Internal Consistency Metrics:", ln=1)
-            pdf.ln(2)
-            pdf.set_font('Helvetica', 'I', 9)
-            pdf.set_text_color(100, 100, 100)
-            pdf.multi_cell(0, 5, "(Compares segment predictions against the overall prediction for this file. Reflects model stability on this sample, not diagnostic accuracy against external ground truth.)", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
-            pdf.set_text_color(*pdf.text_color_normal)
-            pdf.ln(2)
-
             metrics = consistency_metrics
+
+            # Metrics in cards
             col_width = page_width / 2 - 2
 
             def add_metric_row(metric1_args, metric2_args=None):
@@ -79,123 +138,277 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, prediction_data,
                 if metric2_args:
                     pdf.set_y(current_y)
                     pdf.metric_card(*metric2_args)
-                pdf.ln(28)
+                else:
+                    # Reset X for next row if only one card
+                    pdf.set_x(pdf.l_margin)
+                pdf.ln(25)
 
             add_metric_row(
-                ("Accuracy", format_metric_for_pdf(metrics.get('accuracy'), 'percent', 1), "", "Overall segment agreement"),
-                ("Precision (Alzheimer's)", format_metric_for_pdf(metrics.get('precision'), 'float', 3), "", "TP / (TP+FP) for Alz class")
+                ("Overall Accuracy", format_metric_for_pdf(metrics.get('accuracy'), 'percent', 1), "", "Segment agreement rate"),
+                ("Segments Analyzed", str(metrics.get('num_trials', 'N/A')), "", "Total EEG segments processed")
             )
+
             add_metric_row(
-                ("Recall/Sensitivity (Alzheimer's)", format_metric_for_pdf(metrics.get('recall_sensitivity'), 'float', 3), "", "TP / (TP+FN) for Alz class"),
-                ("Specificity (Normal)", format_metric_for_pdf(metrics.get('specificity'), 'float', 3), "", "TN / (TN+FP) for Normal class")
+                ("Precision (Alz)", format_metric_for_pdf(metrics.get('precision'), 'float', 3), "", "TP/(TP+FP) for Alzheimer's"),
+                ("Recall/Sensitivity (Alz)", format_metric_for_pdf(metrics.get('recall_sensitivity'), 'float', 3), "", "TP/(TP+FN) for Alzheimer's")
             )
+
             add_metric_row(
-                ("F1-Score (Alzheimer's)", format_metric_for_pdf(metrics.get('f1_score'), 'float', 3), "", "Harmonic mean (Precision & Recall)"),
-                ("Segments Analyzed", str(metrics.get('num_trials', 'N/A')), "", "Number of EEG segments processed")
+                ("Specificity (Normal)", format_metric_for_pdf(metrics.get('specificity'), 'float', 3), "", "TN/(TN+FP) for Normal"),
+                ("F1-Score (Alz)", format_metric_for_pdf(metrics.get('f1_score'), 'float', 3), "", "Harmonic mean P & R")
             )
+
+            # Confusion Matrix Details
+            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_text_color(*pdf.text_color_dark)
+            pdf.cell(0, 6, "Confusion Matrix (Internal Consistency):", ln=1)
+            pdf.ln(1)
 
             pdf.set_font('Helvetica', '', 9)
-            pdf.set_text_color(100, 100, 100)
+            pdf.set_text_color(*pdf.text_color_light)
             cm_ref = metrics.get('majority_label_used_as_reference', '?')
-            cm_ref_label = "Alzheimer's" if cm_ref == 1 else "Normal" if cm_ref == 0 else "?"
-            conf_matrix_str = (
-                f"(Confusion Matrix Ref: '{cm_ref_label}') "
-                f"TP:{metrics.get('true_positives','?')} | TN:{metrics.get('true_negatives','?')} | "
-                f"FP:{metrics.get('false_positives','?')} | FN:{metrics.get('false_negatives','?')}"
-            )
-            pdf.multi_cell(0, 5, conf_matrix_str, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            cm_ref_label = "Alzheimer's" if cm_ref == 1 else "Normal" if cm_ref == 0 else "Unknown"
+
+            conf_matrix_data = [
+                f"Reference Prediction: {cm_ref_label}",
+                f"True Positives (TP): {metrics.get('true_positives', 'N/A')} | True Negatives (TN): {metrics.get('true_negatives', 'N/A')}",
+                f"False Positives (FP): {metrics.get('false_positives', 'N/A')} | False Negatives (FN): {metrics.get('false_negatives', 'N/A')}"
+            ]
+
+            for line in conf_matrix_data:
+                pdf.cell(5)
+                pdf.cell(0, 5, sanitize_for_helvetica(line), ln=1)
+
             pdf.set_text_color(*pdf.text_color_normal)
+            pdf.ln(3)
+
         elif consistency_metrics and consistency_metrics.get('message'):
             pdf.set_font('Helvetica', 'I', 10)
-            pdf.write_multiline(f"(Consistency: {consistency_metrics['message']})", indent=5)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, f"Consistency Check: {consistency_metrics['message']}", ln=1)
+            pdf.set_text_color(*pdf.text_color_normal)
         else:
             pdf.set_font('Helvetica', 'I', 10)
-            pdf.write_multiline("(Internal consistency metrics not calculated or not applicable.)", indent=5)
-        pdf.ln(5)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, "Internal consistency metrics not calculated or not applicable for this recording.", ln=1)
+            pdf.set_text_color(*pdf.text_color_normal)
 
+        pdf.ln(8)
+
+        # DTW Similarity Analysis
         if pdf.get_y() > pdf.h - 80:
             pdf.add_page()
 
-        pdf.section_title("Signal Shape Similarity Analysis (DTW)")
+        pdf.section_title("Dynamic Time Warping (DTW) Similarity Analysis")
+
         if similarity_data and not similarity_data.get('error'):
-            pdf.write_multiline(similarity_data.get('interpretation', 'No similarity interpretation available.'), indent=5)
-            pdf.ln(2)
+            pdf.set_font('Helvetica', '', 9)
+            pdf.set_text_color(*pdf.text_color_dark)
+
+            interpretation = similarity_data.get('interpretation', 'No interpretation available.')
+            # Remove disclaimer part for technical report
+            interpretation_clean = interpretation.split("Disclaimer:")[0].strip()
+            pdf.multi_cell(0, 5, sanitize_for_helvetica(interpretation_clean), align='L')
+            pdf.ln(3)
+
             if similarity_plot_data:
                 plotted_ch_idx = similarity_data.get('plotted_channel_index')
-                plot_title_sim = f"Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else '?'} Comparison Plot:"
-                pdf.add_image_section(plot_title_sim, similarity_plot_data)
-            else:
-                pdf.set_font("Helvetica",'I',10)
-                pdf.cell(0,10,"(Similarity plot not generated or invalid)", ln=1)
-        else:
-            err_msg_sim = similarity_data.get('error', 'Unknown') if similarity_data else 'data not available'
-            pdf.set_font("Helvetica",'I',10)
-            pdf.write_multiline(f"(Similarity Analysis Error: {err_msg_sim})", indent=5)
-        pdf.ln(5)
+                plot_title = f"DTW Waveform Comparison - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'N/A'}"
+                pdf.add_image_section(plot_title, similarity_plot_data)
 
+                # Technical DTW metrics if available
+                dtw_alz = similarity_data.get('dtw_distance_to_alz')
+                dtw_norm = similarity_data.get('dtw_distance_to_norm')
+
+                if dtw_alz is not None and dtw_norm is not None:
+                    pdf.set_font('Helvetica', 'B', 9)
+                    pdf.set_text_color(*pdf.text_color_dark)
+                    pdf.cell(0, 6, "DTW Distance Metrics:", ln=1)
+                    pdf.ln(1)
+
+                    pdf.set_font('Helvetica', '', 9)
+                    pdf.key_value_pair("Distance to Alzheimer's Reference", f"{dtw_alz:.4f}", key_width=60)
+                    pdf.key_value_pair("Distance to Normal Reference", f"{dtw_norm:.4f}", key_width=60)
+                    pdf.ln(2)
+            else:
+                pdf.set_font('Helvetica', 'I', 9)
+                pdf.set_text_color(*pdf.text_color_light)
+                pdf.cell(0, 6, "(Similarity visualization not generated)", ln=1)
+                pdf.set_text_color(*pdf.text_color_normal)
+        else:
+            err_msg = similarity_data.get('error', 'Data not available') if similarity_data else 'Analysis not performed'
+            pdf.set_font('Helvetica', 'I', 9)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, f"DTW Analysis Error: {err_msg}", ln=1)
+            pdf.set_text_color(*pdf.text_color_normal)
+
+        pdf.ln(8)
+
+        # Descriptive Statistics
         if pdf.get_y() > pdf.h - 60:
             pdf.add_page()
 
-        pdf.section_title("Descriptive Statistics")
-        if stats_data and not stats_data.get('error'):
-            pdf.set_font("Helvetica",'B',11)
-            pdf.cell(0,6,"Average Relative Band Power (%):", ln=1)
-            pdf.ln(1)
-            pdf.set_font("Helvetica",'',10)
-            avg_power = stats_data.get('avg_band_power',{})
-            band_found=False
-            if avg_power:
-                for band, powers in avg_power.items():
-                    rel_power = powers.get('relative')
-                    band_found |= (rel_power is not None)
-                    pdf.key_value_pair(f"- {band.capitalize()}", format_metric_for_pdf(rel_power, 'percent', 2), key_width=35)
-            if not band_found:
-                pdf.set_font("Helvetica",'I',10)
-                pdf.cell(10)
-                pdf.cell(0,5,"(No band power data)", ln=1)
-            pdf.ln(3)
+        pdf.section_title("EEG Descriptive Statistics & Band Power Analysis")
 
+        if stats_data and not stats_data.get('error'):
+            # Band Power Analysis
+            pdf.set_font('Helvetica', 'B', 11)
+            pdf.set_text_color(*pdf.text_color_dark)
+            pdf.cell(0, 6, "Average Relative Band Power Distribution:", ln=1)
+            pdf.ln(2)
+
+            avg_power = stats_data.get('avg_band_power', {})
+            if avg_power:
+                # Display in table format
+                pdf.set_font('Helvetica', '', 9)
+
+                bands_data = []
+                for band_name, powers in avg_power.items():
+                    rel_power = powers.get('relative')
+                    abs_power = powers.get('absolute')
+                    if rel_power is not None:
+                        rel_str = format_metric_for_pdf(rel_power, 'percent', 2)
+                        abs_str = format_metric_for_pdf(abs_power, 'float', 4) if abs_power is not None else 'N/A'
+                        bands_data.append((band_name.capitalize(), rel_str, abs_str))
+
+                if bands_data:
+                    # Header
+                    pdf.set_font('Helvetica', 'B', 9)
+                    pdf.set_fill_color(230, 230, 230)
+                    pdf.cell(40, 6, "Band", 1, 0, 'C', True)
+                    pdf.cell(50, 6, "Relative Power", 1, 0, 'C', True)
+                    pdf.cell(50, 6, "Absolute Power (uV^2)", 1, 1, 'C', True)
+
+                    # Data rows
+                    pdf.set_font('Helvetica', '', 9)
+                    for band, rel_pwr, abs_pwr in bands_data:
+                        pdf.cell(40, 6, band, 1, 0, 'L')
+                        pdf.cell(50, 6, rel_pwr, 1, 0, 'C')
+                        pdf.cell(50, 6, abs_pwr, 1, 1, 'C')
+
+                    pdf.ln(3)
+                else:
+                    pdf.set_font('Helvetica', 'I', 9)
+                    pdf.set_text_color(*pdf.text_color_light)
+                    pdf.cell(0, 5, "(No band power data available)", ln=1)
+                    pdf.set_text_color(*pdf.text_color_normal)
+            else:
+                pdf.set_font('Helvetica', 'I', 9)
+                pdf.set_text_color(*pdf.text_color_light)
+                pdf.cell(0, 5, "(Band power analysis not available)", ln=1)
+                pdf.set_text_color(*pdf.text_color_normal)
+
+            pdf.ln(5)
+
+            # Channel-wise Standard Deviation
             std_devs = stats_data.get('std_dev_per_channel')
             if std_devs:
-                pdf.set_font("Helvetica",'B',11)
-                pdf.cell(0,6,"Standard Deviation per Channel (µV):", ln=1)
+                pdf.set_font('Helvetica', 'B', 10)
+                pdf.set_text_color(*pdf.text_color_dark)
+                pdf.cell(0, 6, "Channel-wise Signal Standard Deviation (microV):", ln=1)
                 pdf.ln(1)
-                std_dev_str = ", ".join([format_metric_for_pdf(s, 'float', 2) for s in std_devs])
-                pdf.set_font("Helvetica",'',9)
-                pdf.write_multiline(std_dev_str, indent=2)
+
+                pdf.set_font('Helvetica', '', 9)
+                std_dev_str = ", ".join([f"Ch{i+1}: {format_metric_for_pdf(s, 'float', 2)}" for i, s in enumerate(std_devs)])
+                pdf.multi_cell(0, 5, sanitize_for_helvetica(std_dev_str), align='L')
+                pdf.ln(3)
+
         else:
-            err_msg_stats = stats_data.get('error', 'Unknown') if stats_data else 'data not available'
-            pdf.set_font("Helvetica",'I',10)
-            pdf.write_multiline(f"(Statistics Error: {err_msg_stats})", indent=5)
-        pdf.ln(5)
+            err_msg = stats_data.get('error', 'Unknown') if stats_data else 'Not available'
+            pdf.set_font('Helvetica', 'I', 9)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.cell(0, 6, f"Statistics Error: {err_msg}", ln=1)
+            pdf.set_text_color(*pdf.text_color_normal)
+
+        pdf.ln(8)
+
+        # EEG Visualizations
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
+
+        pdf.section_title("EEG Signal Visualizations")
+
+        pdf.add_image_section("Stacked Time Series - Multi-channel EEG Traces", ts_img_data)
 
         if pdf.get_y() > pdf.h - 100:
             pdf.add_page()
-        pdf.add_image_section("Stacked Time Series", ts_img_data)
 
-        if pdf.get_y() > pdf.h - 100:
-            pdf.add_page()
-        pdf.add_image_section("Average Power Spectral Density (PSD)", psd_img_data)
+        pdf.add_image_section("Average Power Spectral Density (PSD) - Frequency Domain Analysis", psd_img_data)
 
-        pdf.ln(10)
-        if pdf.get_y() > pdf.h - 30:
+        pdf.ln(8)
+
+        # Clinical Interpretation Guidelines
+        if pdf.get_y() > pdf.h - 70:
             pdf.add_page()
+
+        pdf.section_title("Clinical Interpretation & Recommendations")
+
+        interp_guidelines = [
+            ("bullet", "**Algorithmic Support Tool**: This AI analysis serves as a decision support tool and should not replace clinical judgment."),
+            ("bullet", "**Clinical Correlation Required**: Results must be interpreted within the full clinical context including patient history, symptoms, cognitive assessments, and other imaging studies."),
+            ("bullet", "**Pattern Recognition Limitations**: AI models recognize statistical patterns learned from training data. Unusual presentations may not be accurately classified."),
+            ("bullet", "**Quality Considerations**: Analysis assumes adequate signal quality. Artifacts, technical issues, or non-standard montages may affect results."),
+            ("bullet", "**Follow-up Recommendations**: Consider correlation with MRI/CT imaging, neuropsychological testing, and longitudinal monitoring as clinically indicated.")
+        ]
+
+        pdf.add_explanation_box(
+            "Important Clinical Notes",
+            interp_guidelines,
+            icon_char="",
+            bg_color=(255, 250, 240),
+            font_size_text=9
+        )
+
+        pdf.ln(8)
+
+        # Technical Methodology
+        if pdf.get_y() > pdf.h - 60:
+            pdf.add_page()
+
+        pdf.section_title("Methodology & Technical Details")
+
+        methodology_points = [
+            ("bullet", "**AI Model**: Deep learning-based EEG classification using ADformer (Alzheimer's Detection Transformer) architecture."),
+            ("bullet", "**Analysis Pipeline**: Multi-trial prediction with majority voting, internal consistency validation, and DTW-based similarity assessment."),
+            ("bullet", "**Frequency Analysis**: Band power computation (Delta, Theta, Alpha, Beta, Gamma) using Welch's method with appropriate windowing."),
+            ("bullet", "**Signal Processing**: Standard preprocessing including filtering, artifact detection, and normalization per neurophysiological guidelines."),
+            ("bullet", "**Reference Database**: Model trained on validated EEG datasets with confirmed clinical diagnoses.")
+        ]
+
+        pdf.add_explanation_box(
+            "Technical Specifications",
+            methodology_points,
+            icon_char="",
+            bg_color=(248, 248, 255),
+            font_size_text=8.5
+        )
+
+        pdf.ln(8)
+
+        # Medical Disclaimer
+        pdf.add_medical_disclaimer(disclaimer_type="technical")
+
+        # Signature Section
+        pdf.add_signature_section()
+
+        # Report footer
         pdf.set_font('Helvetica', 'I', 8)
-        pdf.set_text_color(128,128,128)
-        pdf.multi_cell(0, 5, "This AI-driven report is for informational and technical review purposes. It is not a substitute for professional medical diagnosis. All interpretations require clinical correlation.", align='C')
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.cell(0, 5, "CONFIDENTIAL MEDICAL DOCUMENT - AUTHORIZED PERSONNEL ONLY", 0, 1, 'C')
         pdf.set_text_color(*pdf.text_color_normal)
 
     except Exception as pdf_build_e:
-        print(f"Error building Technical PDF content: {pdf_build_e}")
+        print(f"Critical Error building Technical PDF content: {pdf_build_e}")
         traceback.print_exc()
         try:
             if pdf.page_no() == 0:
                 pdf.add_page()
             elif pdf.get_y() > pdf.h - 30:
                 pdf.add_page()
-            pdf.set_font("Helvetica",'B',12)
-            pdf.set_text_color(255,0,0)
-            pdf.multi_cell(0,10,f"Critical Error Building PDF Content:\n{sanitize_for_helvetica(str(pdf_build_e))}",align='C')
+
+            pdf.set_font("Helvetica", 'B', 12)
+            pdf.set_text_color(255, 0, 0)
+            pdf.multi_cell(0, 10, f"Critical Error Building PDF Content:\n{sanitize_for_helvetica(str(pdf_build_e))}", align='C')
             pdf.set_text_color(*pdf.text_color_normal)
         except Exception as pdf_err_fallback:
             print(f"Fallback error writing to Technical PDF failed: {pdf_err_fallback}")

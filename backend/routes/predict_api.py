@@ -15,7 +15,7 @@ from config import (
     DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH
 )
 from utils import NpEncoder
-from database import get_prediction_and_eeg, cleanup_storage_on_error
+from database import get_prediction_and_eeg, get_comprehensive_report_data, cleanup_storage_on_error
 from ml_runner import run_model
 from visualization import (
     generate_stacked_timeseries_image,
@@ -87,7 +87,28 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
                     supabase.storage.from_(REPORT_ASSET_BUCKET).upload(path=filename_s3, file=img_bytes, file_options={"content-type": "image/png", "upsert": "true"})
                     uploaded_asset_urls[url_key] = supabase.storage.from_(REPORT_ASSET_BUCKET).get_public_url(filename_s3)
                 except Exception as e: report_generation_errors.append(f"{url_key} Upload Fail")
-        # Generate and upload PDF reports
+        # Fetch comprehensive medical data for professional reports
+        print(f"Fetching comprehensive medical data for report generation...")
+        comprehensive_data, comp_error = get_comprehensive_report_data(prediction_id)
+        if comp_error:
+            print(f"WARNING: Could not fetch comprehensive data: {comp_error}")
+            # Fallback to basic prediction data if comprehensive data fetch fails
+            comprehensive_data = {
+                'prediction': prediction_data_for_report,
+                'hospital': None,
+                'patient': None,
+                'patient_profile': None,
+                'doctor': None,
+                'doctor_profile': None,
+                'radiologist': None,
+                'radiologist_profile': None,
+                'session': None,
+                'blood_group': None,
+                'doctor_qualification': None,
+                'radiologist_qualification': None
+            }
+
+        # Generate and upload PDF reports with comprehensive data
         pdf_types = [
             ("technical", TechnicalPDFReport, build_technical_pdf_report_content),
             ("patient", PatientPDFReport, build_patient_pdf_report_content),
@@ -99,9 +120,11 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
             try:
                 pdf_doc = PdfClass()
                 pdf_doc.alias_nb_pages()
-                builder_args = [pdf_doc, prediction_data_for_report, stats_json, similarity_results, consistency_metrics, ts_img_base64, psd_img_base64, similarity_plot_base64]
+                # Use new comprehensive data structure for all report types
                 if pdf_type == "patient":
-                    builder_args = [pdf_doc, prediction_data_for_report, similarity_results, consistency_metrics, similarity_plot_base64]
+                    builder_args = [pdf_doc, comprehensive_data, similarity_results, consistency_metrics, similarity_plot_base64]
+                else:
+                    builder_args = [pdf_doc, comprehensive_data, stats_json, similarity_results, consistency_metrics, ts_img_base64, psd_img_base64, similarity_plot_base64]
                 builder(*builder_args)
                 pdf_bytes = bytes(pdf_doc.output())
                 supabase.storage.from_(REPORT_ASSET_BUCKET).upload(path=pdf_filename_s3, file=pdf_bytes, file_options={"content-type": "application/pdf", "upsert": "true"})
