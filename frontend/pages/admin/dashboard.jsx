@@ -110,6 +110,12 @@ const Icons = {
       <path d="m21 21-4.35-4.35"/>
     </svg>
   ),
+  Eye: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  ),
   Filter: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
@@ -137,6 +143,83 @@ const Icons = {
   ChevronUp: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  ),
+  // Custom Professional Healthcare SVGs
+  BrainAI: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 3C9.5 3 7.5 4.5 7 6.5C6 6.2 5 6.5 4.5 7.5C4 8.5 4.5 9.8 5.5 10.2C5.2 11 5 12 5 13C5 15 6 16.8 7.5 17.8C7.2 18.5 7.5 19.5 8.5 19.8C9.5 20.1 10.5 19.5 10.8 18.5C11.2 18.7 11.6 18.8 12 18.8C12.4 18.8 12.8 18.7 13.2 18.5C13.5 19.5 14.5 20.1 15.5 19.8C16.5 19.5 16.8 18.5 16.5 17.8C18 16.8 19 15 19 13C19 12 18.8 11 18.5 10.2C19.5 9.8 20 8.5 19.5 7.5C19 6.5 18 6.2 17 6.5C16.5 4.5 14.5 3 12 3Z" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="12" cy="11" r="1" fill="currentColor"/>
+      <circle cx="9.5" cy="13" r="0.8" fill="currentColor"/>
+      <circle cx="14.5" cy="13" r="0.8" fill="currentColor"/>
+      <path d="M10 9.5C10 9.5 10.5 10 12 10C13.5 10 14 9.5 14 9.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  EEGWave: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 12 L6 12 L8 6 L10 18 L12 9 L14 15 L16 12 L18 12 L21 12" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="3" cy="12" r="1" fill="currentColor"/>
+      <circle cx="21" cy="12" r="1" fill="currentColor"/>
+    </svg>
+  ),
+  MedicalShield: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 2L4 6V11C4 16 7 20.5 12 22C17 20.5 20 16 20 11V6L12 2Z" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 8V13M12 16H12.01" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Pulse: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M2 12h4l3-9 4 18 3-9h4" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="19" cy="12" r="1" fill="currentColor"/>
+    </svg>
+  ),
+  MedicalScan: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="3" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 9h18M9 3v18" strokeLinecap="round"/>
+      <circle cx="15" cy="15" r="2" strokeWidth="1.5"/>
+      <path d="M16.5 16.5L19 19" strokeLinecap="round" strokeWidth="1.5"/>
+    </svg>
+  ),
+  Analysis: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 4.5c2.5 1.2 4.3 3.7 4.5 6.5" strokeLinecap="round" strokeOpacity="0.5"/>
+      <path d="M19.5 16c-1.2 2.5-3.7 4.3-6.5 4.5" strokeLinecap="round" strokeOpacity="0.5"/>
+    </svg>
+  ),
+  DoctorBadge: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 11v3M10.5 12.5h3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  ReportClipboard: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="6" y="4" width="12" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M10 10h4M10 14h4M10 18h2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Lightning: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinecap="round" strokeLinejoin="round" fill="currentColor" fillOpacity="0.1"/>
+    </svg>
+  ),
+  Sparkles: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3" strokeLinecap="round"/>
+      <path d="M16.5 7.5l-1.5 1.5m-6 6l-1.5 1.5m0-12l1.5 1.5m6 6l1.5 1.5" strokeLinecap="round" strokeOpacity="0.6"/>
+    </svg>
+  ),
+  Target: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="6" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="2" fill="currentColor"/>
     </svg>
   ),
 };
@@ -293,6 +376,18 @@ function AdminDashboard() {
         if (data.pendingUsers) setPendingUsers(data.pendingUsers);
         if (data.stats) setDashboardStats(data.stats);
 
+        // Restore reports data and mark as fetched
+        if (data.reports) {
+          setAllReports(data.reports);
+          dataFetchedRef.current.reports = true;
+          console.log('📊 Restored reports from cache:', data.reports.length);
+        }
+
+        // Restore detection stats
+        if (data.detectionStats) {
+          setDetectionStats(data.detectionStats);
+        }
+
         setIsLoading(false);
         console.log('📦 Restored data from sessionStorage - NO RELOAD!');
       } catch (e) {
@@ -366,13 +461,21 @@ function AdminDashboard() {
         setAllDoctors(doctors || []);
         setAllRadiologists(radiologists || []);
 
+        const unassignedCount = (patients || []).filter(p => !p.patient_profiles?.[0]?.assigned_doctor_id).length;
+        console.log('📊 Patient assignment stats:', {
+          totalPatients: patients?.length,
+          unassignedCount,
+          assignedCount: patients?.length - unassignedCount,
+          samplePatientWithDoctor: patients?.find(p => p.patient_profiles?.[0]?.assigned_doctor_id)
+        });
+
         setDashboardStats({
           totalUsers: stats?.totalUsers || 0,
           pendingApprovals: (stats?.pendingPatients || 0) + (stats?.pendingDoctors || 0) + (stats?.pendingRadiologists || 0),
           activePatients: stats?.activePatients || 0,
           activeDoctors: stats?.activeDoctors || 0,
           activeRadiologists: stats?.activeRadiologists || 0,
-          unassignedPatients: (patients || []).filter(p => !p.patient_profiles?.[0]?.assigned_doctor_id).length,
+          unassignedPatients: unassignedCount,
         });
 
         // Mark as fetched to prevent re-fetching
@@ -675,14 +778,31 @@ function AdminDashboard() {
       setAllReports(enrichedReports);
 
       // Calculate detection stats
+      const detectionStatsObj = { alzheimers: 0, normal: 0 };
       if (enrichedReports && enrichedReports.length > 0) {
         const alzCount = enrichedReports.filter(r => r.prediction?.toLowerCase().includes('alz')).length;
         const normalCount = enrichedReports.filter(r => r.prediction?.toLowerCase().includes('normal')).length;
-        setDetectionStats({ alzheimers: alzCount, normal: normalCount });
+        detectionStatsObj.alzheimers = alzCount;
+        detectionStatsObj.normal = normalCount;
+        setDetectionStats(detectionStatsObj);
       }
 
       // Mark as fetched
       dataFetchedRef.current.reports = true;
+
+      // Update sessionStorage cache with reports data
+      const existingCache = sessionStorage.getItem('admin_dashboard_data');
+      if (existingCache) {
+        try {
+          const cacheData = JSON.parse(existingCache);
+          cacheData.reports = enrichedReports;
+          cacheData.detectionStats = detectionStatsObj;
+          sessionStorage.setItem('admin_dashboard_data', JSON.stringify(cacheData));
+          console.log('💾 Saved reports to sessionStorage - ready for instant restore!');
+        } catch (e) {
+          console.error('Failed to update cache with reports:', e);
+        }
+      }
     } catch (error) {
       console.error('Error fetching reports:', error);
       setAllReports([]);
@@ -1476,69 +1596,6 @@ function AdminDashboard() {
                     )}
                   </div>
                 </div>
-
-                {/* Patient Assignment Donut Chart */}
-                <div className={styles.chartCard}>
-                  <h3 className={styles.chartTitle}>Patient Assignment Status</h3>
-                  <div className={styles.donutChartContainer}>
-                    <svg viewBox="0 0 200 200" className={styles.donutChart}>
-                      {(() => {
-                        const assigned = dashboardStats.activePatients - dashboardStats.unassignedPatients;
-                        const unassigned = dashboardStats.unassignedPatients;
-                        const total = assigned + unassigned;
-
-                        if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#666">No patients</text>;
-
-                        const assignedPercent = (assigned / total) * 100;
-                        const unassignedPercent = (unassigned / total) * 100;
-
-                        const createDonutArc = (startPercent, percent, radius, thickness, color) => {
-                          const startAngle = (startPercent / 100) * 360 - 90;
-                          const endAngle = ((startPercent + percent) / 100) * 360 - 90;
-
-                          const startRad = startAngle * Math.PI / 180;
-                          const endRad = endAngle * Math.PI / 180;
-
-                          const x1Outer = 100 + radius * Math.cos(startRad);
-                          const y1Outer = 100 + radius * Math.sin(startRad);
-                          const x2Outer = 100 + radius * Math.cos(endRad);
-                          const y2Outer = 100 + radius * Math.sin(endRad);
-
-                          const innerRadius = radius - thickness;
-                          const x1Inner = 100 + innerRadius * Math.cos(endRad);
-                          const y1Inner = 100 + innerRadius * Math.sin(endRad);
-                          const x2Inner = 100 + innerRadius * Math.cos(startRad);
-                          const y2Inner = 100 + innerRadius * Math.sin(startRad);
-
-                          const largeArc = percent > 50 ? 1 : 0;
-
-                          return `M ${x1Outer} ${y1Outer} A ${radius} ${radius} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
-                        };
-
-                        return (
-                          <>
-                            <path d={createDonutArc(0, assignedPercent, 80, 25, '#10b981')} fill="#10b981" opacity="0.9" />
-                            <path d={createDonutArc(assignedPercent, unassignedPercent, 80, 25, '#ef4444')} fill="#ef4444" opacity="0.9" />
-                            <text x="100" y="95" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">
-                              {((assigned / total) * 100).toFixed(0)}%
-                            </text>
-                            <text x="100" y="115" textAnchor="middle" fill="#94a3b8" fontSize="12">Assigned</text>
-                          </>
-                        );
-                      })()}
-                    </svg>
-                    <div className={styles.donutLegend}>
-                      <div className={styles.legendItem}>
-                        <span className={styles.legendColor} style={{background: '#10b981'}}></span>
-                        <span>Assigned ({dashboardStats.activePatients - dashboardStats.unassignedPatients})</span>
-                      </div>
-                      <div className={styles.legendItem}>
-                        <span className={styles.legendColor} style={{background: '#ef4444'}}></span>
-                        <span>Unassigned ({dashboardStats.unassignedPatients})</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Recent Activity Feed */}
@@ -1620,13 +1677,25 @@ function AdminDashboard() {
                     </div>
 
                     <div className={styles.assignedDoctorSection}>
-                      <h4>Assigned Doctors ({assignedDoctors.length})</h4>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                        <h4 style={{margin: 0}}>Assigned Doctors ({assignedDoctors.length})</h4>
+                        <button
+                          onClick={() => {
+                            setSelectedPatient(selectedPatientDetail);
+                            setShowAssignModal(true);
+                          }}
+                          className={styles.assignBtnCompact}
+                        >
+                          <Icons.UserPlus style={{width: '14px', height: '14px'}} />
+                          Assign Doctor
+                        </button>
+                      </div>
                       {assignedDoctors.length > 0 ? (
                         <div className={styles.doctorsList}>
                           {assignedDoctors.map((doctor, index) => (
                             <div key={doctor.id || index} className={styles.doctorInfo}>
-                              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                                <div>
+                              <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between'}}>
+                                <div style={{flex: 1}}>
                                   <p><strong>Name:</strong> {doctor.full_name}</p>
                                   <p><strong>Email:</strong> {doctor.email}</p>
                                   {doctor.phone && <p><strong>Phone:</strong> {doctor.phone}</p>}
@@ -1636,17 +1705,65 @@ function AdminDashboard() {
                                     </p>
                                   )}
                                 </div>
-                                {index === 0 && (
-                                  <span style={{
-                                    fontSize: '0.75rem',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    padding: '0.25rem 0.5rem',
-                                    borderRadius: '4px'
-                                  }}>
-                                    Primary
-                                  </span>
-                                )}
+                                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end'}}>
+                                  {index === 0 && (
+                                    <span style={{
+                                      fontSize: '0.75rem',
+                                      backgroundColor: '#3b82f6',
+                                      color: 'white',
+                                      padding: '0.25rem 0.5rem',
+                                      borderRadius: '4px'
+                                    }}>
+                                      Primary
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`Unassign Dr. ${doctor.full_name} from this patient?`)) return;
+
+                                      try {
+                                        const { data: { session } } = await supabase.auth.getSession();
+                                        const response = await fetch('/api/admin/unassign-doctor', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Authorization': `Bearer ${session.access_token}`,
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({
+                                            patient_id: selectedPatientDetail.id,
+                                            doctor_id: doctor.id
+                                          })
+                                        });
+
+                                        const result = await response.json();
+                                        if (result.success) {
+                                          alert('Doctor unassigned successfully!');
+                                          fetchAssignedDoctors(selectedPatientDetail.id);
+                                          dataFetchedRef.current.dashboard = false;
+                                        } else {
+                                          alert(result.error || 'Failed to unassign doctor');
+                                        }
+                                      } catch (error) {
+                                        console.error('Unassign error:', error);
+                                        alert('Failed to unassign doctor');
+                                      }
+                                    }}
+                                    style={{
+                                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '0.4rem 0.8rem',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.3s',
+                                      boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)'
+                                    }}
+                                  >
+                                    Unassign
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1817,14 +1934,17 @@ function AdminDashboard() {
                               <p><strong>Age:</strong> {age} years</p>
                               <p><strong>Blood Group:</strong> {profile?.blood_groups?.blood_type || 'N/A'}</p>
                               <p><strong>Phone:</strong> {patient.phone}</p>
-                              <p><strong>Doctor:</strong> {profile?.assigned_doctor?.user_profiles?.full_name || 'Unassigned'}</p>
                             </div>
-                            {!profile?.assigned_doctor_id && (
-                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtn}>
+                            <div style={{display: 'flex', gap: '0.5rem', width: '100%'}}>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtn} style={{flex: 1}}>
                                 <Icons.UserPlus />
                                 Assign Doctor
                               </button>
-                            )}
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); fetchAssignedDoctors(patient.id); }} className={styles.viewDoctorsBtn} style={{flex: 1}}>
+                                <Icons.Eye style={{width: '16px', height: '16px'}} />
+                                View Doctors
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -1851,18 +1971,21 @@ function AdminDashboard() {
                             <div className={styles.compactLeft}>
                               <h4>{patient.full_name}</h4>
                               <span className={styles.compactMeta}>
-                                {patient.unique_identifier} • Age: {age} • {profile?.blood_groups?.blood_type || 'N/A'} • Dr. {profile?.assigned_doctor?.user_profiles?.full_name || 'Unassigned'}
+                                {patient.unique_identifier} • Age: {age} • {profile?.blood_groups?.blood_type || 'N/A'}
                               </span>
                             </div>
                             <div className={styles.compactRight}>
                               <span className={`${styles.statusBadgeSmall} ${styles[patient.account_status?.toLowerCase()]}`}>
                                 {patient.account_status}
                               </span>
-                              {!profile?.assigned_doctor_id && (
-                                <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtn} style={{padding: '0.5rem 1rem', fontSize: '0.85rem'}}>
-                                  Assign
-                                </button>
-                              )}
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowAssignModal(true); }} className={styles.assignBtnCompact}>
+                                <Icons.UserPlus style={{width: '14px', height: '14px'}} />
+                                Assign
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedPatientDetail({ ...patient, profile }); setDetailView('patient'); fetchPatientReports(patient.id); fetchAssignedDoctors(patient.id); }} className={styles.viewDoctorsBtnCompact}>
+                                <Icons.Eye style={{width: '14px', height: '14px'}} />
+                                View Doctors
+                              </button>
                             </div>
                           </div>
                         );
