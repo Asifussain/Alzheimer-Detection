@@ -57,6 +57,7 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
         # Main Findings Section - Force new page for clean layout
         pdf.add_page()
         pdf.section_title("Analysis Results & Findings")
+        pdf.ln(2)
 
         prediction_label = prediction_data.get('prediction', 'Not Determined')
         pred_display_text = "Pattern assessment inconclusive"
@@ -74,7 +75,7 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
 
         pdf.set_font('Helvetica', 'B', 9)
         pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(0, 5, "Primary Finding:", 0, 1, 'L')
+        pdf.cell(0, 6, "Primary Finding:", 0, 1, 'L')
         pdf.ln(3)
 
         # Finding Box
@@ -100,8 +101,8 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
         if interpretation_text:
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_dark)
-            pdf.multi_cell(0, 5, sanitize_for_helvetica(interpretation_text), align='L')
-            pdf.ln(4)
+            pdf.multi_cell(0, 6, sanitize_for_helvetica(interpretation_text), align='L', max_line_height=6)
+            pdf.ln(8)
 
         # Model Confidence Level
         probabilities = prediction_data.get('probabilities')
@@ -112,25 +113,25 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
 
                 pdf.set_font('Helvetica', 'B', 9)
                 pdf.set_text_color(*pdf.primary_color)
-                pdf.cell(0, 5, "Model Confidence Level:", 0, 1, 'L')
+                pdf.cell(0, 6, "Model Confidence Level:", 0, 1, 'L')
                 pdf.ln(2)
 
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(*pdf.text_color_normal)
                 confidence_text = f"The AI model is {conf_val:.1f}% confident in this finding based on EEG pattern analysis."
-                pdf.multi_cell(0, 5, sanitize_for_helvetica(confidence_text), align='L')
-                pdf.ln(4)
+                pdf.multi_cell(0, 5.5, sanitize_for_helvetica(confidence_text), align='L')
+                pdf.ln(5)
             except Exception as e:
                 print(f"Error formatting confidence: {e}")
 
         # Internal Consistency Check
-        if pdf.get_y() > pdf.h - 60:
+        if pdf.get_y() > pdf.h - 65:
             pdf.add_page()
 
-        pdf.ln(3)
+        pdf.ln(4)
         pdf.set_font('Helvetica', 'B', 9)
         pdf.set_text_color(*pdf.secondary_color)
-        pdf.cell(0, 5, "How Reliable is This Finding?", 0, 1, 'L')
+        pdf.cell(0, 6, "How Reliable is This Finding?", 0, 1, 'L')
         pdf.ln(3)
 
         if consistency_metrics and not consistency_metrics.get('error') and isinstance(consistency_metrics.get('num_trials'), int) and consistency_metrics.get('num_trials', 0) > 0:
@@ -162,22 +163,23 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             pdf.cell(0, 6, "Detailed consistency metrics not available for this analysis.", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(5)
+        pdf.ln(10)
 
-        # Brainwave Shape Comparison
-        if pdf.get_y() > pdf.h - 120:
+        # Brainwave Shape Comparison - ensure enough space for title + description + image
+        if pdf.get_y() > pdf.h - 130:
             pdf.add_page()
 
         if similarity_data and not similarity_data.get('error') and similarity_plot_data:
             pdf.section_title("How Your Brain Waves Compare")
+            pdf.ln(2)
 
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_normal)
-            pdf.multi_cell(0, 5,
+            pdf.multi_cell(0, 5.5,
                 "The AI compared the shape and pattern of your brain waves to reference patterns from previous studies. "
                 "This helps verify the main finding by looking at how similar your brain wave patterns are to known patterns.",
                 align='L')
-            pdf.ln(6)
+            pdf.ln(8)
 
             plotted_ch_idx = similarity_data.get('plotted_channel_index')
             plot_title = f"Brain Wave Pattern Comparison (Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'})"
@@ -186,18 +188,19 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             # Similarity interpretation
             overall_sim = similarity_data.get('overall_similarity', '')
             if overall_sim:
+                pdf.ln(2)
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(*pdf.text_color_dark)
 
                 if "Higher Similarity to Alzheimer's Pattern" in overall_sim:
-                    sim_text = "Your brain wave patterns showed greater similarity to the Alzheimer's reference patterns in our database."
+                    sim_text = "Your brain wave patterns showed greater similarity to the Alzheimer's reference patterns."
                 elif "Higher Similarity to Normal Pattern" in overall_sim:
-                    sim_text = "Your brain wave patterns showed greater similarity to the normal healthy brain reference patterns in our database."
+                    sim_text = "Your brain wave patterns showed greater similarity to the normal healthy brain reference patterns."
                 else:
                     sim_text = "Your brain wave patterns showed mixed similarity when compared to reference patterns."
 
-                pdf.multi_cell(0, 5, sanitize_for_helvetica(sim_text), align='L')
-                pdf.ln(4)
+                pdf.multi_cell(0, 5.5, sanitize_for_helvetica(sim_text), align='L')
+                pdf.ln(5)
         else:
             pdf.section_title("Brain Wave Pattern Comparison")
             pdf.set_font('Helvetica', 'I', 9)
@@ -205,13 +208,14 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             pdf.cell(0, 6, "Brainwave shape comparison visualization is not available for this report.", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(10)
+        pdf.ln(8)
 
         # What Do These Results Mean?
-        if pdf.get_y() > pdf.h - 80:
+        if pdf.get_y() > pdf.h - 85:
             pdf.add_page()
 
         pdf.section_title("What Do These Results Mean For Me?")
+        pdf.ln(2)
 
         meaning_points = [
             ("bullet", "**This is NOT a diagnosis** - Only your doctor can diagnose medical conditions after considering your complete medical history, symptoms, and other tests."),
@@ -228,10 +232,14 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             title_color=(184, 134, 11)
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Next Steps
+        if pdf.get_y() > pdf.h - 75:
+            pdf.add_page()
+
         pdf.section_title("Your Next Steps")
+        pdf.ln(2)
 
         pdf.set_font('Helvetica', 'B', 10)
         pdf.set_text_color(*pdf.text_color_dark)
@@ -254,16 +262,16 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             font_size_text=9.5
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Questions to Ask Your Doctor
-        if pdf.get_y() > pdf.h - 70:
+        if pdf.get_y() > pdf.h - 75:
             pdf.add_page()
 
         pdf.set_font('Helvetica', 'B', 10)
         pdf.set_text_color(*pdf.secondary_color)
         pdf.cell(0, 6, "Suggested Questions for Your Doctor:", 0, 1, 'L')
-        pdf.ln(2)
+        pdf.ln(3)
 
         questions = [
             "What do these EEG results mean in the context of my symptoms and medical history?",
@@ -277,14 +285,18 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
         pdf.set_font('Helvetica', '', 9)
         pdf.set_text_color(*pdf.text_color_dark)
         for i, question in enumerate(questions, 1):
+            # Check space before each question
+            if pdf.get_y() > pdf.h - 25:
+                pdf.add_page()
+
             current_y = pdf.get_y()
             pdf.set_xy(pdf.l_margin, current_y)
-            pdf.cell(8, 5, f"{i}.", 0, 0, 'L')
+            pdf.cell(8, 5.5, f"{i}.", 0, 0, 'L')
             pdf.set_x(pdf.l_margin + 8)
-            pdf.multi_cell(pdf.w - pdf.l_margin - pdf.r_margin - 8, 5, sanitize_for_helvetica(question), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(0.5)
+            pdf.multi_cell(pdf.w - pdf.l_margin - pdf.r_margin - 8, 5.5, sanitize_for_helvetica(question), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Medical Disclaimer
         pdf.add_medical_disclaimer(disclaimer_type="patient")

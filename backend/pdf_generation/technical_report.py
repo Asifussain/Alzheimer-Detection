@@ -74,28 +74,35 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
 
         # ML Analysis Summary
         pdf.section_title("AI Model Analysis Summary")
+        pdf.ln(2)
 
         prediction_label = prediction_data.get('prediction', 'N/A')
         analysis_type = prediction_data.get('analysis_type', 'binary')
 
-        pdf.key_value_pair("Classification Result", prediction_label)
-        pdf.key_value_pair("Analysis Type", analysis_type.upper())
+        pdf.key_value_pair("Classification Result", prediction_label, key_width=50)
+        pdf.ln(1)
+        pdf.key_value_pair("Analysis Type", analysis_type.upper(), key_width=50)
+        pdf.ln(1)
 
         # Model Confidence
         probabilities = prediction_data.get('probabilities')
         if isinstance(probabilities, list) and len(probabilities) == 2:
             try:
                 prob_str = f"Normal: {format_metric_for_pdf(probabilities[0], 'percent', 2)} | Alzheimer's: {format_metric_for_pdf(probabilities[1], 'percent', 2)}"
-                pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=55)
+                pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=60)
+                pdf.ln(1)
 
                 # Dominant class confidence
                 max_conf = max(probabilities) * 100
-                pdf.key_value_pair("Primary Classification Confidence", f"{max_conf:.2f}%")
+                pdf.key_value_pair("Primary Classification Confidence", f"{max_conf:.2f}%", key_width=60)
+                pdf.ln(1)
             except Exception as e:
                 print(f"Error formatting probabilities: {e}")
-                pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)))
+                pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)), key_width=50)
+                pdf.ln(1)
         elif probabilities:
-            pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)))
+            pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)), key_width=50)
+            pdf.ln(1)
 
         # Analysis timestamp
         created_at = prediction_data.get('created_at')
@@ -103,14 +110,20 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             try:
                 dt_obj = pd.to_datetime(created_at)
                 date_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC')
-                pdf.key_value_pair("Analysis Completed", date_str)
+                pdf.key_value_pair("Analysis Completed", date_str, key_width=50)
+                pdf.ln(1)
             except:
-                pdf.key_value_pair("Analysis Completed", str(created_at))
+                pdf.key_value_pair("Analysis Completed", str(created_at), key_width=50)
+                pdf.ln(1)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Internal Consistency Metrics
+        if pdf.get_y() > pdf.h - 60:
+            pdf.add_page()
+
         pdf.section_title("Model Internal Consistency Analysis")
+        pdf.ln(2)
 
         pdf.add_explanation_box(
             "About Consistency Metrics",
@@ -193,13 +206,14 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             pdf.cell(0, 6, "Internal consistency metrics not calculated or not applicable for this recording.", ln=1)
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # DTW Similarity Analysis
-        if pdf.get_y() > pdf.h - 80:
+        if pdf.get_y() > pdf.h - 110:
             pdf.add_page()
 
         pdf.section_title("Dynamic Time Warping (DTW) Similarity Analysis")
+        pdf.ln(2)
 
         if similarity_data and not similarity_data.get('error'):
             pdf.set_font('Helvetica', '', 9)
@@ -208,10 +222,25 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             interpretation = similarity_data.get('interpretation', 'No interpretation available.')
             # Remove disclaimer part for technical report
             interpretation_clean = interpretation.split("Disclaimer:")[0].strip()
-            pdf.multi_cell(0, 5, sanitize_for_helvetica(interpretation_clean), align='L')
-            pdf.ln(3)
+
+            # Split into lines to handle bullet points properly
+            lines = interpretation_clean.split('\n')
+            for line in lines:
+                line_text = line.strip()
+                if line_text:
+                    # Check if current line will fit
+                    if pdf.get_y() > pdf.h - 15:
+                        pdf.add_page()
+                    pdf.multi_cell(0, 6, sanitize_for_helvetica(line_text), align='L', max_line_height=6, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.ln(1.5)
+
+            pdf.ln(2)
 
             if similarity_plot_data:
+                # Check space before adding image
+                if pdf.get_y() > pdf.h - 100:
+                    pdf.add_page()
+
                 plotted_ch_idx = similarity_data.get('plotted_channel_index')
                 plot_title = f"DTW Waveform Comparison - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'N/A'}"
                 pdf.add_image_section(plot_title, similarity_plot_data)
@@ -221,14 +250,16 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
                 dtw_norm = similarity_data.get('dtw_distance_to_norm')
 
                 if dtw_alz is not None and dtw_norm is not None:
+                    pdf.ln(2)
                     pdf.set_font('Helvetica', 'B', 9)
                     pdf.set_text_color(*pdf.text_color_dark)
                     pdf.cell(0, 6, "DTW Distance Metrics:", ln=1)
-                    pdf.ln(1)
+                    pdf.ln(2)
 
                     pdf.set_font('Helvetica', '', 9)
-                    pdf.key_value_pair("Distance to Alzheimer's Reference", f"{dtw_alz:.4f}", key_width=60)
-                    pdf.key_value_pair("Distance to Normal Reference", f"{dtw_norm:.4f}", key_width=60)
+                    pdf.key_value_pair("Distance to Alzheimer's Reference", f"{dtw_alz:.4f}", key_width=65)
+                    pdf.ln(1)
+                    pdf.key_value_pair("Distance to Normal Reference", f"{dtw_norm:.4f}", key_width=65)
                     pdf.ln(2)
             else:
                 pdf.set_font('Helvetica', 'I', 9)
@@ -242,20 +273,21 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             pdf.cell(0, 6, f"DTW Analysis Error: {err_msg}", ln=1)
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Descriptive Statistics
-        if pdf.get_y() > pdf.h - 60:
+        if pdf.get_y() > pdf.h - 65:
             pdf.add_page()
 
         pdf.section_title("EEG Descriptive Statistics & Band Power Analysis")
+        pdf.ln(2)
 
         if stats_data and not stats_data.get('error'):
             # Band Power Analysis
-            pdf.set_font('Helvetica', 'B', 11)
+            pdf.set_font('Helvetica', 'B', 10)
             pdf.set_text_color(*pdf.text_color_dark)
             pdf.cell(0, 6, "Average Relative Band Power Distribution:", ln=1)
-            pdf.ln(2)
+            pdf.ln(3)
 
             avg_power = stats_data.get('avg_band_power', {})
             if avg_power:
@@ -320,28 +352,35 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             pdf.cell(0, 6, f"Statistics Error: {err_msg}", ln=1)
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # EEG Visualizations
-        if pdf.get_y() > pdf.h - 100:
+        if pdf.get_y() > pdf.h - 120:
             pdf.add_page()
 
         pdf.section_title("EEG Signal Visualizations")
+        pdf.ln(2)
+
+        # Check space before first image
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
 
         pdf.add_image_section("Stacked Time Series - Multi-channel EEG Traces", ts_img_data)
 
-        if pdf.get_y() > pdf.h - 100:
+        # Check space before second image
+        if pdf.get_y() > pdf.h - 95:
             pdf.add_page()
 
         pdf.add_image_section("Average Power Spectral Density (PSD) - Frequency Domain Analysis", psd_img_data)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Clinical Interpretation Guidelines
-        if pdf.get_y() > pdf.h - 70:
+        if pdf.get_y() > pdf.h - 75:
             pdf.add_page()
 
         pdf.section_title("Clinical Interpretation & Recommendations")
+        pdf.ln(2)
 
         interp_guidelines = [
             ("bullet", "**Algorithmic Support Tool**: This AI analysis serves as a decision support tool and should not replace clinical judgment."),
@@ -356,16 +395,18 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             interp_guidelines,
             icon_char="",
             bg_color=(255, 250, 240),
-            font_size_text=9
+            font_size_text=8.5,
+            line_h=4.8
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Technical Methodology
-        if pdf.get_y() > pdf.h - 60:
+        if pdf.get_y() > pdf.h - 65:
             pdf.add_page()
 
         pdf.section_title("Methodology & Technical Details")
+        pdf.ln(2)
 
         methodology_points = [
             ("bullet", "**AI Model**: Deep learning-based EEG classification using ADformer (Alzheimer's Detection Transformer) architecture."),
@@ -380,10 +421,11 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
             methodology_points,
             icon_char="",
             bg_color=(248, 248, 255),
-            font_size_text=8.5
+            font_size_text=8.5,
+            line_h=4.8
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Medical Disclaimer
         pdf.add_medical_disclaimer(disclaimer_type="technical")

@@ -2,6 +2,7 @@ import base64
 import io
 import pandas as pd
 import traceback
+from fpdf import XPos, YPos
 from .base_report import BasePDFReport
 from utils import sanitize_for_helvetica
 from .technical_report import format_metric_for_pdf
@@ -59,18 +60,25 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             allergies = patient_profile.get('allergies')
 
             if medical_history or current_medications or allergies:
+                # Check if we have enough space
+                if pdf.get_y() > pdf.h - 70:
+                    pdf.add_page()
+
                 pdf.section_title("Medical History & Context")
+                pdf.ln(2)
 
                 if medical_history and str(medical_history).strip():
-                    pdf.key_value_pair("Medical History", str(medical_history), key_width=40)
+                    pdf.key_value_pair("Medical History", str(medical_history), key_width=45)
+                    pdf.ln(1)
 
                 if current_medications and str(current_medications).strip():
-                    pdf.key_value_pair("Current Medications", str(current_medications), key_width=40)
+                    pdf.key_value_pair("Current Medications", str(current_medications), key_width=45)
+                    pdf.ln(1)
 
                 if allergies and str(allergies).strip():
-                    pdf.key_value_pair("Allergies", str(allergies), key_width=40)
+                    pdf.key_value_pair("Allergies", str(allergies), key_width=45)
 
-                pdf.ln(3)
+                pdf.ln(4)
 
         # Referring Physician Information (if different from current viewer)
         pdf.add_medical_professional_info(role="doctor")
@@ -82,7 +90,12 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
         pdf.add_medical_professional_info(role="radiologist")
 
         # Clinical Findings Summary
+        # Check space for clinical findings section
+        if pdf.get_y() > pdf.h - 60:
+            pdf.add_page()
+
         pdf.section_title("Clinical Findings")
+        pdf.ln(2)
 
         prediction_label = prediction_data.get('prediction', 'Not Determined')
         analysis_type = prediction_data.get('analysis_type', 'binary')
@@ -107,13 +120,9 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                 "No significant deviations from expected normal patterns were detected."
             )
 
-        # Check space for finding section
-        if pdf.get_y() > pdf.h - 50:
-            pdf.add_page()
-
         pdf.set_font('Helvetica', 'B', 9)
         pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(0, 5, "Primary Classification:", 0, 1, 'L')
+        pdf.cell(0, 6, "Primary Classification:", 0, 1, 'L')
         pdf.ln(2)
 
         # Finding box - aligned to margins
@@ -139,14 +148,13 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
         if clinical_significance:
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_dark)
-            pdf.multi_cell(0, 5, sanitize_for_helvetica(clinical_significance), align='L')
-            pdf.ln(5)
+            pdf.multi_cell(0, 6, sanitize_for_helvetica(clinical_significance), align='L', max_line_height=6)
+            pdf.ln(12)
 
         # Model Confidence & Reliability
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.set_text_color(*pdf.secondary_color)
-        pdf.cell(0, 5, "Model Confidence & Reliability:", 0, 1, 'L')
-        pdf.ln(3)
+        # Check space before this section
+        if pdf.get_y() > pdf.h - 50:
+            pdf.add_page()
 
         probabilities = prediction_data.get('probabilities')
         if isinstance(probabilities, list) and len(probabilities) == 2:
@@ -154,10 +162,12 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                 conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
                 conf_val = probabilities[conf_val_idx] * 100
 
-                pdf.key_value_pair("Primary Classification Confidence", f"{conf_val:.1f}%", key_width=55)
+                pdf.key_value_pair("Primary Classification Confidence", f"{conf_val:.1f}%", key_width=60)
+                pdf.ln(1)
                 pdf.key_value_pair("Confidence Distribution",
                                  f"Normal: {probabilities[0]*100:.1f}% | Alzheimer's: {probabilities[1]*100:.1f}%",
-                                 key_width=55)
+                                 key_width=60)
+                pdf.ln(1)
             except Exception as e:
                 print(f"Error formatting confidence: {e}")
 
@@ -168,8 +178,10 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                 accuracy = consistency_metrics.get('accuracy', 0)
                 accuracy_pct = format_metric_for_pdf(accuracy, 'percent', 0)
 
-                pdf.key_value_pair("Internal Consistency", accuracy_pct, key_width=55)
-                pdf.key_value_pair("Segments Analyzed", f"{num_trials} EEG segments", key_width=55)
+                pdf.key_value_pair("Internal Consistency", accuracy_pct, key_width=60)
+                pdf.ln(1)
+                pdf.key_value_pair("Segments Analyzed", f"{num_trials} EEG segments", key_width=60)
+                pdf.ln(1)
 
                 if accuracy >= 0.85:
                     reliability = "High reliability - stable pattern recognition across recording"
@@ -178,19 +190,22 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                 else:
                     reliability = "Low reliability - interpret with caution, correlate with clinical findings"
 
-                pdf.key_value_pair("Interpretation", reliability, key_width=55)
+                pdf.key_value_pair("Interpretation", reliability, key_width=60)
+                pdf.ln(1)
             elif consistency_metrics.get('message'):
-                pdf.key_value_pair("Internal Consistency", consistency_metrics.get('message'), key_width=55)
+                pdf.key_value_pair("Internal Consistency", consistency_metrics.get('message'), key_width=60)
+                pdf.ln(1)
         else:
-            pdf.key_value_pair("Internal Consistency", "Not assessed", key_width=55)
+            pdf.key_value_pair("Internal Consistency", "Not assessed", key_width=60)
 
-        pdf.ln(5)
+        pdf.ln(6)
 
         # EEG Pattern Characteristics
-        if pdf.get_y() > pdf.h - 80:
+        if pdf.get_y() > pdf.h - 85:
             pdf.add_page()
 
         pdf.section_title("EEG Pattern Characteristics & Waveform Analysis")
+        pdf.ln(2)
 
         if similarity_data and not similarity_data.get('error'):
             interpretation = similarity_data.get('interpretation', '')
@@ -200,8 +215,19 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             if interpretation_clean:
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(*pdf.text_color_dark)
-                pdf.multi_cell(0, 5, sanitize_for_helvetica(interpretation_clean), align='L')
-                pdf.ln(3)
+
+                # Split into lines to handle bullet points properly
+                lines = interpretation_clean.split('\n')
+                for line in lines:
+                    line_text = line.strip()
+                    if line_text:
+                        # Check if current line will fit
+                        if pdf.get_y() > pdf.h - 15:
+                            pdf.add_page()
+                        pdf.multi_cell(0, 6, sanitize_for_helvetica(line_text), align='L', max_line_height=6, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.ln(1.5)
+
+                pdf.ln(2)
 
             if similarity_plot_data:
                 plotted_ch_idx = similarity_data.get('plotted_channel_index')
@@ -213,19 +239,20 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             pdf.cell(0, 6, "Detailed waveform characteristic analysis not available.", ln=1)
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Frequency Spectrum Analysis
-        if pdf.get_y() > pdf.h - 70:
+        if pdf.get_y() > pdf.h - 75:
             pdf.add_page()
 
         pdf.section_title("Brainwave Frequency Analysis")
+        pdf.ln(2)
 
         if stats_data and not stats_data.get('error') and stats_data.get('avg_band_power'):
             pdf.set_font('Helvetica', '', 10)
             pdf.set_text_color(*pdf.text_color_dark)
             pdf.cell(0, 6, "Relative Distribution of EEG Frequency Bands:", 0, 1, 'L')
-            pdf.ln(2)
+            pdf.ln(3)
 
             avg_power = stats_data.get('avg_band_power', {})
             band_descriptions = {
@@ -243,33 +270,38 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                     band_desc = band_descriptions.get(band_name.lower(), 'Brain activity')
 
                     pdf.set_font('Helvetica', 'B', 9)
-                    pdf.cell(35, 5, f"{band_name.capitalize()}:", 0, 0, 'L')
+                    pdf.cell(35, 5.5, f"{band_name.capitalize()}:", 0, 0, 'L')
                     pdf.set_font('Helvetica', '', 9)
-                    pdf.cell(20, 5, rel_str, 0, 0, 'L')
+                    pdf.cell(20, 5.5, rel_str, 0, 0, 'L')
                     pdf.set_font('Helvetica', 'I', 8)
                     pdf.set_text_color(*pdf.text_color_light)
-                    pdf.cell(0, 5, f"({band_desc})", 0, 1, 'L')
+                    pdf.cell(0, 5.5, f"({band_desc})", 0, 1, 'L')
                     pdf.set_text_color(*pdf.text_color_dark)
 
-            pdf.ln(3)
+            pdf.ln(4)
         else:
             pdf.set_font('Helvetica', 'I', 9)
             pdf.set_text_color(*pdf.text_color_light)
             pdf.cell(0, 6, "Frequency band analysis not available.", ln=1)
             pdf.set_text_color(*pdf.text_color_normal)
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # EEG Visualizations - ensure heading stays with content
-        if pdf.get_y() > pdf.h - 110:
+        if pdf.get_y() > pdf.h - 120:
             pdf.add_page()
 
         pdf.section_title("EEG Signal Visualizations")
+        pdf.ln(2)
+
+        # Check if we have enough space for first image
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
 
         pdf.add_image_section("Multi-channel EEG Traces", ts_img_data)
 
         # Check space for second image
-        if pdf.get_y() > pdf.h - 90:
+        if pdf.get_y() > pdf.h - 95:
             pdf.add_page()
 
         pdf.add_image_section("Power Spectral Density - Frequency Domain", psd_img_data)
@@ -277,10 +309,11 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
         pdf.ln(6)
 
         # Clinical Recommendations
-        if pdf.get_y() > pdf.h - 80:
+        if pdf.get_y() > pdf.h - 85:
             pdf.add_page()
 
         pdf.section_title("Clinical Recommendations & Next Steps")
+        pdf.ln(2)
 
         recommendations = []
 
@@ -317,10 +350,10 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             font_size_text=9
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Important Clinical Considerations
-        if pdf.get_y() > pdf.h - 70:
+        if pdf.get_y() > pdf.h - 75:
             pdf.add_page()
 
         clinical_considerations = [
@@ -336,11 +369,12 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             clinical_considerations,
             icon_char="",
             bg_color=(255, 250, 240),
-            font_size_text=9,
-            title_color=(184, 134, 11)
+            font_size_text=8.5,
+            title_color=(184, 134, 11),
+            line_h=4.8
         )
 
-        pdf.ln(8)
+        pdf.ln(6)
 
         # Medical Disclaimer
         pdf.add_medical_disclaimer(disclaimer_type="standard")

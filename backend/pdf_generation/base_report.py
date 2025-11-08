@@ -69,30 +69,31 @@ class BasePDFReport(FPDF):
 
     def section_title(self, title_text: str):
         try:
-            # Prevent orphaned section titles - ensure at least 25mm space after title
-            if self.get_y() > self.h - 35:
+            # Prevent orphaned section titles - ensure at least 30mm space after title
+            if self.get_y() > self.h - 40:
                 self.add_page()
 
-            self.set_font('Helvetica', 'B', 13)
+            self.set_font('Helvetica', 'B', 12)
             self.set_fill_color(80, 227, 194)
             self.set_text_color(10, 15, 26)
-            self.cell(0, 8, " " + sanitize_for_helvetica(title_text), border='B', align='L', fill=True, ln=1)
+            self.cell(0, 9, " " + sanitize_for_helvetica(title_text), border='B', align='L', fill=True, ln=1)
             self.set_text_color(*self.text_color_normal)
-            self.ln(4)
+            self.ln(5)
         except Exception as e:
             print(f"PDF Section Title Error for '{title_text}': {e}")
 
     def key_value_pair(self, key: str, value, key_width=50):
         try:
             # Check if we need a new page to avoid orphaned content
-            if self.get_y() > self.h - 20:
+            if self.get_y() > self.h - 25:
                 self.add_page()
 
+            current_y = self.get_y()
             self.set_font('Helvetica', 'B', 9)
             self.set_text_color(*self.text_color_dark)
 
             # Key on left
-            self.cell(key_width, 5, sanitize_for_helvetica(str(key))+":", 0, 0, 'L')
+            self.cell(key_width, 6, sanitize_for_helvetica(str(key))+":", 0, 0, 'L')
 
             # Value on right
             self.set_font('Helvetica', '', 9)
@@ -104,12 +105,13 @@ class BasePDFReport(FPDF):
 
             # Check if value fits in one line
             if self.get_string_width(value_text) <= value_width:
-                self.cell(value_width, 5, value_text, 0, 1, 'L')
+                self.cell(value_width, 6, value_text, 0, 1, 'L')
             else:
-                # Multi-line value
-                self.multi_cell(value_width, 5, value_text, 0, 'L')
+                # Multi-line value - save position and render properly
+                value_x = self.get_x()
+                self.multi_cell(value_width, 6, value_text, 0, 'L', max_line_height=6)
 
-            self.ln(1)
+            self.ln(1.5)
         except Exception as e:
             print(f"PDF Key/Value Error for key '{key}': {e}")
 
@@ -192,44 +194,74 @@ class BasePDFReport(FPDF):
     def add_image_section(self, title: str, image_data_base64: str):
         import base64
         import io
-        image_height_estimate = 65  # Reduced from 75
-        title_height_estimate = 10 if title else 0
-        # Check if we need a new page for the image
-        if self.get_y() + title_height_estimate + image_height_estimate > self.h - self.b_margin - 10:
+        from PIL import Image
+
+        # Check if we need a new page BEFORE doing anything
+        if self.get_y() > self.h - 100:  # Conservative check - images need lots of space
             self.add_page()
+
         if title:
             self.set_font('Helvetica', 'B', 9)
             self.set_text_color(*self.text_color_dark)
             self.cell(0, 6, sanitize_for_helvetica(title), ln=1, align='L')
             self.ln(2)
+
         if image_data_base64 and isinstance(image_data_base64, str) and image_data_base64.startswith('data:image/png;base64,'):
             try:
                 img_bytes = base64.b64decode(image_data_base64.split(',', 1)[1])
                 img_file = io.BytesIO(img_bytes)
+
+                # Get ACTUAL image dimensions
+                try:
+                    pil_img = Image.open(io.BytesIO(img_bytes))
+                    img_width_px, img_height_px = pil_img.size
+                    pil_img.close()
+                except:
+                    # Fallback if PIL fails
+                    img_width_px, img_height_px = 800, 600
+
+                # Calculate display dimensions maintaining aspect ratio
                 page_content_width = self.w - 2 * self.page_margin
-                img_display_width = page_content_width * 0.90  # Reduced from 0.92
+                img_display_width = page_content_width * 0.90  # 90% of page width
+
+                # Calculate actual height based on aspect ratio
+                aspect_ratio = img_height_px / img_width_px if img_width_px > 0 else 0.75
+                img_display_height = img_display_width * aspect_ratio
+
+                # Check if image fits on current page
+                if self.get_y() + img_display_height > self.h - self.b_margin - 5:
+                    self.add_page()
+
                 x_pos = self.l_margin + (page_content_width - img_display_width) / 2
                 current_y = self.get_y()
+
+                # Add image
+                img_file.seek(0)
                 self.image(img_file, x=x_pos, y=current_y, w=img_display_width)
                 img_file.close()
-                # Move Y position past the image
-                self.set_y(current_y + image_height_estimate)
-                self.ln(4)
+
+                # Move Y position past the ACTUAL image height
+                self.set_y(current_y + img_display_height + 2)
+                self.ln(3)
             except Exception as e:
                 error_text = f"(Error embedding image '{sanitize_for_helvetica(title)}': {sanitize_for_helvetica(str(e)[:50])})"
                 self.write_paragraph(error_text, font_style='I')
                 print(f"PDF Image Embed Error for '{title}': {e}")
+                import traceback
+                traceback.print_exc()
         else:
             if title:
                  self.write_paragraph(sanitize_for_helvetica("(Image data not available)"), font_style='I', indent=5)
-        self.ln(3)
+        self.ln(2)
 
     def add_explanation_box(self, title: str, text_lines: list, icon_char: str = "",
                             bg_color=None, title_color=None, text_color_override=None,
-                            font_size_text=9, line_h=4.5):
+                            font_size_text=9, line_h=5.5):
+        from fpdf import XPos, YPos
         try:
-            # Check space
-            if self.get_y() > self.h - 60:
+            # Check space - need more room for boxes
+            estimated_min_height = 15 + (len(text_lines) * 10)
+            if self.get_y() > self.h - estimated_min_height - 10:
                 self.add_page()
 
             self.ln(2)
@@ -244,94 +276,94 @@ class BasePDFReport(FPDF):
                 self.cell(0, 6, sanitize_for_helvetica(title), 0, 1, 'L')
                 self.ln(1)
 
-            # Calculate box content
+            # Calculate box parameters
             box_start_y = self.get_y()
             box_x = self.l_margin
             box_width = self.w - self.l_margin - self.r_margin
-            content_x = box_x + 4
-            content_width = box_width - 8
+            content_x = box_x + 5
+            content_width = box_width - 10
 
-            # Estimate height by rendering text
-            temp_y = box_start_y + 3
+            # Render content using multi_cell for proper text wrapping
+            self.set_y(box_start_y + 4)
+
             for item in text_lines:
                 is_list_item = isinstance(item, tuple) and item[0] == "bullet"
                 actual_text = item[1] if is_list_item else item
-
-                # Clean text
-                clean_text = sanitize_for_helvetica(str(actual_text)).replace("**", "")
-
-                # Calculate text height
-                self.set_font('Helvetica', '', font_size_text)
-                text_width_needed = content_width - (8 if is_list_item else 0)
-
-                # Estimate lines needed
-                char_width = self.get_string_width("A")
-                chars_per_line = int(text_width_needed / char_width)
-                num_lines = max(1, len(clean_text) / chars_per_line)
-                temp_y += (num_lines * line_h) + 1
-
-            box_height = temp_y - box_start_y + 3
-
-            # Draw box
-            self.set_fill_color(*current_bg_color)
-            self.set_draw_color(200, 200, 200)
-            self.set_line_width(0.3)
-            self.rect(box_x, box_start_y, box_width, box_height, 'DF')
-            self.set_line_width(0.2)
-
-            # Render content
-            self.set_y(box_start_y + 3)
-
-            for item in text_lines:
-                current_y = self.get_y()
-                is_list_item = isinstance(item, tuple) and item[0] == "bullet"
-                actual_text = item[1] if is_list_item else item
-
-                self.set_x(content_x)
+                text_str = sanitize_for_helvetica(str(actual_text))
 
                 if is_list_item:
-                    # Bullet point
                     self.set_font('Helvetica', '', font_size_text)
                     self.set_text_color(*current_text_color)
-                    bullet_x = self.get_x()
-                    self.cell(4, line_h, "-", 0, 0, 'L')
-                    self.set_x(bullet_x + 6)
-                    text_width = content_width - 6
-                else:
-                    text_width = content_width
 
-                # Render text with bold support
-                text_str = sanitize_for_helvetica(str(actual_text))
-                parts = text_str.split("**")
+                    # Handle bold text (**text**)
+                    if "**" in text_str:
+                        # Custom rendering for bold
+                        current_y = self.get_y()
+                        self.set_x(content_x)
+                        self.cell(4, line_h, "-", 0, 0, 'L')
+                        self.set_x(content_x + 6)
 
-                x_pos = self.get_x()
-                for i, part in enumerate(parts):
-                    if not part:
-                        continue
-                    is_bold = (i % 2 == 1)
-                    self.set_font('Helvetica', 'B' if is_bold else '', font_size_text)
-                    self.set_text_color(*current_text_color)
-
-                    # Calculate if text fits on current line
-                    part_width = self.get_string_width(part)
-                    remaining_width = content_x + text_width - x_pos
-
-                    if part_width > remaining_width and x_pos > content_x + 6:
-                        # Move to next line
-                        self.ln(line_h)
-                        self.set_x(content_x if not is_list_item else content_x + 6)
+                        parts = text_str.split("**")
                         x_pos = self.get_x()
+                        text_width = content_width - 6
 
-                    self.cell(part_width, line_h, part, 0, 0, 'L')
-                    x_pos += part_width
+                        for i, part in enumerate(parts):
+                            if not part:
+                                continue
+                            is_bold = (i % 2 == 1)
+                            self.set_font('Helvetica', 'B' if is_bold else '', font_size_text)
 
-                self.ln(line_h + 0.5)
+                            part_width = self.get_string_width(part)
+                            if x_pos + part_width > content_x + text_width:
+                                self.ln(line_h)
+                                self.set_x(content_x + 6)
+                                x_pos = self.get_x()
 
-            self.set_y(box_start_y + box_height + 2)
+                            self.cell(part_width, line_h, part, 0, 0, 'L')
+                            x_pos += part_width
+
+                        self.set_xy(self.l_margin, self.get_y() + line_h + 1.5)
+                    else:
+                        # Simple bullet with multi_cell
+                        current_y = self.get_y()
+                        self.set_x(content_x)
+                        self.cell(4, line_h, "-", 0, 0, 'L')
+                        self.set_xy(content_x + 6, current_y)
+                        self.multi_cell(content_width - 6, line_h, text_str, align='L', max_line_height=line_h, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        self.ln(1.5)
+                else:
+                    # Regular text (non-bullet)
+                    self.set_x(content_x)
+                    self.set_font('Helvetica', '', font_size_text)
+                    self.set_text_color(*current_text_color)
+                    self.multi_cell(content_width, line_h, text_str, align='L', max_line_height=line_h, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    self.ln(1.5)
+
+            # Get actual content height
+            content_end_y = self.get_y()
+            actual_box_height = content_end_y - box_start_y + 4
+
+            # Check if box would go off page - if so, add page and re-render
+            if box_start_y + actual_box_height > self.h - self.b_margin:
+                self.add_page()
+                # Don't re-render, just note that box is incomplete
+                self.set_text_color(*self.text_color_normal)
+                return
+
+            # Draw box border (not filled, so text shows through)
+            self.set_draw_color(200, 200, 200)
+            self.set_line_width(0.3)
+            self.rect(box_x, box_start_y, box_width, actual_box_height, 'D')
+            self.set_line_width(0.2)
+
+            # Position after box
+            self.set_y(content_end_y + 2)
             self.set_text_color(*self.text_color_normal)
 
         except Exception as e:
             print(f"Error in add_explanation_box: {e}")
+            import traceback
+            traceback.print_exc()
             self.ln(5)
 
     def calculate_age(self, date_of_birth):
@@ -690,7 +722,7 @@ class BasePDFReport(FPDF):
             start_y = self.get_y()
 
             # Check if we need a new page
-            if start_y > self.h - 50:
+            if start_y > self.h - 55:
                 self.add_page()
                 start_y = self.get_y()
 
@@ -720,11 +752,22 @@ class BasePDFReport(FPDF):
 
             disclaimer_text = disclaimers.get(disclaimer_type, disclaimers["standard"])
 
-            # Estimate box height
-            estimated_height = 8 + len(disclaimer_text) * 7
+            # Calculate actual height needed by rendering text first
+            temp_y = start_y + 8
+            content_width = self.w - self.l_margin - self.r_margin - 10
 
-            # Draw box
-            self.rect(self.l_margin, start_y, self.w - self.l_margin - self.r_margin, estimated_height, 'D')
+            self.set_font('Helvetica', '', 8)
+            for point in disclaimer_text:
+                text_content = f"* {sanitize_for_helvetica(point)}"
+                # Estimate lines needed for this point
+                text_width = self.get_string_width(text_content)
+                lines_needed = max(1, int(text_width / content_width) + 1)
+                temp_y += (lines_needed * 4.8) + 1
+
+            actual_height = temp_y - start_y + 4
+
+            # Draw box with actual height
+            self.rect(self.l_margin, start_y, self.w - self.l_margin - self.r_margin, actual_height, 'D')
 
             self.set_y(start_y + 3)
             self.set_x(self.l_margin + 3)
@@ -733,6 +776,7 @@ class BasePDFReport(FPDF):
             self.set_font('Helvetica', 'B', 9)
             self.set_text_color(139, 69, 19)
             self.cell(0, 5, "IMPORTANT MEDICAL DISCLAIMER", 0, 1, 'C')
+            self.ln(1)
 
             # Disclaimer points
             self.set_font('Helvetica', '', 8)
@@ -740,11 +784,12 @@ class BasePDFReport(FPDF):
 
             for point in disclaimer_text:
                 self.set_x(self.l_margin + 5)
-                self.multi_cell(self.w - self.l_margin - self.r_margin - 10, 4.5,
+                self.multi_cell(self.w - self.l_margin - self.r_margin - 10, 4.8,
                               f"* {sanitize_for_helvetica(point)}",
                               align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                self.ln(0.5)
 
-            self.set_y(start_y + estimated_height + 2)
+            self.set_y(start_y + actual_height + 2)
             self.set_text_color(*self.text_color_normal)
             self.ln(3)
         except Exception as e:
