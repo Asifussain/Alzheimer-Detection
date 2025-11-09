@@ -105,14 +105,21 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
         finding_color = pdf.text_color_dark
         clinical_significance = ""
 
-        if prediction_label == "Alzheimer's":
+        if prediction_label == "Alzheimer's" or prediction_label == "AD":
             primary_finding_text = "EEG Patterns Suggestive of Alzheimer's Disease"
             finding_color = (192, 57, 43)
             clinical_significance = (
                 "The AI analysis identified EEG patterns consistent with those typically observed in Alzheimer's disease. "
                 "These findings may indicate neurodegenerative changes affecting brain electrical activity."
             )
-        elif prediction_label == "Normal":
+        elif prediction_label == "MCI":
+            primary_finding_text = "EEG Patterns Suggestive of Mild Cognitive Impairment"
+            finding_color = (243, 156, 18)  # Orange color for MCI
+            clinical_significance = (
+                "The AI analysis identified EEG patterns consistent with those typically observed in Mild Cognitive Impairment (MCI). "
+                "These findings may indicate early changes in brain electrical activity that warrant further clinical evaluation and monitoring."
+            )
+        elif prediction_label == "Normal" or prediction_label == "CN":
             primary_finding_text = "Normal EEG Pattern"
             finding_color = (39, 174, 96)
             clinical_significance = (
@@ -157,17 +164,31 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
             pdf.add_page()
 
         probabilities = prediction_data.get('probabilities')
-        if isinstance(probabilities, list) and len(probabilities) == 2:
+        if isinstance(probabilities, list):
             try:
-                conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
-                conf_val = probabilities[conf_val_idx] * 100
+                if len(probabilities) == 2:
+                    # Binary classification
+                    conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
+                    conf_val = probabilities[conf_val_idx] * 100
 
-                pdf.key_value_pair("Primary Classification Confidence", f"{conf_val:.1f}%", key_width=60)
-                pdf.ln(1)
-                pdf.key_value_pair("Confidence Distribution",
-                                 f"Normal: {probabilities[0]*100:.1f}% | Alzheimer's: {probabilities[1]*100:.1f}%",
-                                 key_width=60)
-                pdf.ln(1)
+                    pdf.key_value_pair("Primary Classification Confidence", f"{conf_val:.1f}%", key_width=60)
+                    pdf.ln(1)
+                    pdf.key_value_pair("Confidence Distribution",
+                                     f"Normal: {probabilities[0]*100:.1f}% | Alzheimer's: {probabilities[1]*100:.1f}%",
+                                     key_width=60)
+                    pdf.ln(1)
+                elif len(probabilities) == 3:
+                    # Multiclass classification
+                    label_map = {"CN": 0, "MCI": 1, "AD": 2}
+                    conf_val_idx = label_map.get(prediction_label, 0)
+                    conf_val = probabilities[conf_val_idx] * 100
+
+                    pdf.key_value_pair("Primary Classification Confidence", f"{conf_val:.1f}%", key_width=60)
+                    pdf.ln(1)
+                    pdf.key_value_pair("Confidence Distribution",
+                                     f"CN: {probabilities[0]*100:.1f}% | MCI: {probabilities[1]*100:.1f}% | AD: {probabilities[2]*100:.1f}%",
+                                     key_width=60)
+                    pdf.ln(1)
             except Exception as e:
                 print(f"Error formatting confidence: {e}")
 
@@ -208,9 +229,11 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
         pdf.ln(2)
 
         if similarity_data and not similarity_data.get('error'):
+            classification_type = similarity_data.get('classification_type', 'binary')
+
             interpretation = similarity_data.get('interpretation', '')
             # Clean interpretation text
-            interpretation_clean = interpretation.split("Disclaimer:")[0].replace("Similarity Analysis (DTW):", "").replace("Overall Assessment:", "").strip()
+            interpretation_clean = interpretation.split("Disclaimer:")[0].replace("Similarity Analysis (DTW):", "").replace("Multiclass Similarity Analysis (DTW):", "").replace("Overall Assessment:", "").strip()
 
             if interpretation_clean:
                 pdf.set_font('Helvetica', '', 9)
@@ -231,7 +254,13 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
 
             if similarity_plot_data:
                 plotted_ch_idx = similarity_data.get('plotted_channel_index')
-                plot_title = f"Representative EEG Waveform Comparison (Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'})"
+
+                # Different titles based on classification type
+                if classification_type == 'multiclass':
+                    plot_title = f"Representative EEG Waveform Comparison - Multiclass (CN vs MCI vs AD) - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'}"
+                else:
+                    plot_title = f"Representative EEG Waveform Comparison - Binary (Normal vs Alzheimer's) - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'Selected'}"
+
                 pdf.add_image_section(plot_title, similarity_plot_data)
         else:
             pdf.set_font('Helvetica', 'I', 9)
@@ -317,7 +346,7 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
 
         recommendations = []
 
-        if prediction_label == "Alzheimer's":
+        if prediction_label == "Alzheimer's" or prediction_label == "AD":
             recommendations = [
                 ("bullet", "**Comprehensive Clinical Evaluation**: Conduct thorough neurological examination and cognitive assessment (e.g., MMSE, MoCA)."),
                 ("bullet", "**Neuroimaging Correlation**: Consider MRI or PET scan to assess structural and functional brain changes."),
@@ -327,7 +356,18 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
                 ("bullet", "**Longitudinal Monitoring**: Consider follow-up EEG and cognitive assessments to track progression."),
                 ("bullet", "**Specialist Referral**: Referral to neurology or memory clinic may be appropriate for specialized evaluation.")
             ]
-        elif prediction_label == "Normal":
+        elif prediction_label == "MCI":
+            recommendations = [
+                ("bullet", "**Comprehensive Cognitive Assessment**: Conduct detailed neuropsychological testing to characterize specific cognitive domains affected."),
+                ("bullet", "**Neuroimaging Studies**: Consider MRI to assess hippocampal atrophy and PET scan for amyloid/tau pathology if available."),
+                ("bullet", "**Differential Diagnosis**: Rule out reversible causes (medications, sleep disorders, depression, metabolic issues)."),
+                ("bullet", "**Cardiovascular Risk Management**: Address vascular risk factors (hypertension, diabetes, hyperlipidemia)."),
+                ("bullet", "**Lifestyle Interventions**: Recommend cognitive engagement, physical exercise, Mediterranean diet, and social activity."),
+                ("bullet", "**Regular Monitoring**: Schedule follow-up assessments every 6-12 months to monitor for progression to dementia."),
+                ("bullet", "**Patient & Family Education**: Discuss MCI prognosis, progression risk, and importance of early intervention."),
+                ("bullet", "**Clinical Trial Consideration**: Evaluate eligibility for MCI intervention trials if appropriate.")
+            ]
+        elif prediction_label == "Normal" or prediction_label == "CN":
             recommendations = [
                 ("bullet", "**Clinical Correlation**: Interpret normal EEG findings in context of patient symptoms and clinical presentation."),
                 ("bullet", "**Follow-up if Symptomatic**: If patient has cognitive concerns despite normal EEG, consider additional diagnostic workup."),

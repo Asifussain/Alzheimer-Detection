@@ -11,9 +11,15 @@ import base64
 import traceback
 
 # Default reference files and channel index
+# Binary classification (old files in backend root)
 DEFAULT_ALZHEIMER_REF_FILE = 'feature_07.npy'
 DEFAULT_NORMAL_REF_FILE = 'feature_35.npy'
-DEFAULT_MCI_REF_FILE = 'feature_mci.npy'
+
+# Multiclass classification (new files in representative folder)
+DEFAULT_MULTICLASS_CN_REF_FILE = 'representative/cn repr.npy'
+DEFAULT_MULTICLASS_MCI_REF_FILE = 'representative/mci repr.npy'
+DEFAULT_MULTICLASS_AD_REF_FILE = 'representative/ad repr.npy'
+
 DEFAULT_CHANNEL_INDEX_TO_PLOT = 0
 
 def configure_plot_style():
@@ -319,11 +325,11 @@ def run_multiclass_similarity_analysis(sample_file_path, cn_ref_file_path=None, 
 
     script_dir = os.path.dirname(__file__)
     if cn_ref_file_path is None:
-        cn_ref_file_path = os.path.join(script_dir, DEFAULT_NORMAL_REF_FILE)
+        cn_ref_file_path = os.path.join(script_dir, DEFAULT_MULTICLASS_CN_REF_FILE)
     if mci_ref_file_path is None:
-        mci_ref_file_path = os.path.join(script_dir, DEFAULT_MCI_REF_FILE)
+        mci_ref_file_path = os.path.join(script_dir, DEFAULT_MULTICLASS_MCI_REF_FILE)
     if ad_ref_file_path is None:
-        ad_ref_file_path = os.path.join(script_dir, DEFAULT_ALZHEIMER_REF_FILE)
+        ad_ref_file_path = os.path.join(script_dir, DEFAULT_MULTICLASS_AD_REF_FILE)
 
     sample_data = load_and_prepare_eeg(sample_file_path, "User Sample")
     cn_ref_data = load_and_prepare_eeg(cn_ref_file_path, "CN Reference")
@@ -382,6 +388,14 @@ def run_multiclass_similarity_analysis(sample_file_path, cn_ref_file_path=None, 
         analysis_results['mci_closer_count'] = mci_closer
         analysis_results['ad_closer_count'] = ad_closer
         analysis_results['error_channels_count'] = error_channels
+
+        # Calculate average DTW distances for reporting
+        valid_cn_dists = [r['dist_cn'] for r in valid_results if r.get('dist_cn') is not None]
+        valid_mci_dists = [r['dist_mci'] for r in valid_results if r.get('dist_mci') is not None]
+        valid_ad_dists = [r['dist_ad'] for r in valid_results if r.get('dist_ad') is not None]
+        analysis_results['dtw_distance_to_cn'] = np.mean(valid_cn_dists) if valid_cn_dists else None
+        analysis_results['dtw_distance_to_mci'] = np.mean(valid_mci_dists) if valid_mci_dists else None
+        analysis_results['dtw_distance_to_ad'] = np.mean(valid_ad_dists) if valid_ad_dists else None
 
         if error_channels == n_channels:
             analysis_results['overall_similarity'] = "Error during comparison"
@@ -510,6 +524,12 @@ def run_similarity_analysis(sample_file_path, alz_ref_file_path=None, norm_ref_f
         analysis_results['normal_closer_count'] = norm_closer
         analysis_results['alz_closer_count'] = alz_closer
         analysis_results['error_channels_count'] = error_channels
+
+        # Calculate average DTW distances for reporting
+        valid_norm_dists = [r['dist_norm'] for r in valid_results if r.get('dist_norm') is not None]
+        valid_alz_dists = [r['dist_alz'] for r in valid_results if r.get('dist_alz') is not None]
+        analysis_results['dtw_distance_to_norm'] = np.mean(valid_norm_dists) if valid_norm_dists else None
+        analysis_results['dtw_distance_to_alz'] = np.mean(valid_alz_dists) if valid_alz_dists else None
 
         if error_channels == n_channels:
             analysis_results['overall_similarity'] = "Error during comparison"

@@ -64,11 +64,15 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
         pred_color = pdf.text_color_dark
         interpretation_text = ""
 
-        if prediction_label == "Alzheimer's":
+        if prediction_label == "Alzheimer's" or prediction_label == "AD":
             pred_display_text = "Patterns Suggestive of Alzheimer's Characteristics"
             pred_color = pdf.highlight_color_alz
             interpretation_text = "The AI analysis found brain wave patterns that are similar to those typically seen in individuals with Alzheimer's disease."
-        elif prediction_label == "Normal":
+        elif prediction_label == "MCI":
+            pred_display_text = "Patterns Suggestive of Mild Cognitive Impairment"
+            pred_color = (243, 156, 18)  # Orange color for MCI
+            interpretation_text = "The AI analysis found brain wave patterns that are similar to those seen in individuals with Mild Cognitive Impairment (MCI), which represents early changes in brain activity."
+        elif prediction_label == "Normal" or prediction_label == "CN":
             pred_display_text = "Normal Brainwave Patterns Observed"
             pred_color = pdf.highlight_color_norm
             interpretation_text = "The AI analysis found brain wave patterns that are similar to typical healthy brain activity."
@@ -106,21 +110,31 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
 
         # Model Confidence Level
         probabilities = prediction_data.get('probabilities')
-        if isinstance(probabilities, list) and len(probabilities) == 2:
+        if isinstance(probabilities, list):
             try:
-                conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
-                conf_val = probabilities[conf_val_idx] * 100
+                if len(probabilities) == 2:
+                    # Binary classification
+                    conf_val_idx = 1 if prediction_label == "Alzheimer's" else 0
+                    conf_val = probabilities[conf_val_idx] * 100
+                elif len(probabilities) == 3:
+                    # Multiclass classification
+                    label_map = {"CN": 0, "MCI": 1, "AD": 2}
+                    conf_val_idx = label_map.get(prediction_label, 0)
+                    conf_val = probabilities[conf_val_idx] * 100
+                else:
+                    conf_val = None
 
-                pdf.set_font('Helvetica', 'B', 9)
-                pdf.set_text_color(*pdf.primary_color)
-                pdf.cell(0, 6, "Model Confidence Level:", 0, 1, 'L')
-                pdf.ln(2)
+                if conf_val is not None:
+                    pdf.set_font('Helvetica', 'B', 9)
+                    pdf.set_text_color(*pdf.primary_color)
+                    pdf.cell(0, 6, "Model Confidence Level:", 0, 1, 'L')
+                    pdf.ln(2)
 
-                pdf.set_font('Helvetica', '', 9)
-                pdf.set_text_color(*pdf.text_color_normal)
-                confidence_text = f"The AI model is {conf_val:.1f}% confident in this finding based on EEG pattern analysis."
-                pdf.multi_cell(0, 5.5, sanitize_for_helvetica(confidence_text), align='L')
-                pdf.ln(5)
+                    pdf.set_font('Helvetica', '', 9)
+                    pdf.set_text_color(*pdf.text_color_normal)
+                    confidence_text = f"The AI model is {conf_val:.1f}% confident in this finding based on EEG pattern analysis."
+                    pdf.multi_cell(0, 5.5, sanitize_for_helvetica(confidence_text), align='L')
+                    pdf.ln(5)
             except Exception as e:
                 print(f"Error formatting confidence: {e}")
 
@@ -170,15 +184,27 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
             pdf.add_page()
 
         if similarity_data and not similarity_data.get('error') and similarity_plot_data:
+            classification_type = similarity_data.get('classification_type', 'binary')
+
             pdf.section_title("How Your Brain Waves Compare")
             pdf.ln(2)
 
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_normal)
-            pdf.multi_cell(0, 5.5,
-                "The AI compared the shape and pattern of your brain waves to reference patterns from previous studies. "
-                "This helps verify the main finding by looking at how similar your brain wave patterns are to known patterns.",
-                align='L')
+
+            if classification_type == 'multiclass':
+                comparison_text = (
+                    "The AI compared the shape and pattern of your brain waves to three reference patterns from previous studies: "
+                    "Normal (CN), Mild Cognitive Impairment (MCI), and Alzheimer's Disease (AD). "
+                    "This helps verify the main finding by looking at how similar your brain wave patterns are to each known pattern."
+                )
+            else:
+                comparison_text = (
+                    "The AI compared the shape and pattern of your brain waves to reference patterns from previous studies. "
+                    "This helps verify the main finding by looking at how similar your brain wave patterns are to known patterns."
+                )
+
+            pdf.multi_cell(0, 5.5, sanitize_for_helvetica(comparison_text), align='L')
             pdf.ln(8)
 
             plotted_ch_idx = similarity_data.get('plotted_channel_index')
@@ -192,7 +218,14 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(*pdf.text_color_dark)
 
-                if "Higher Similarity to Alzheimer's Pattern" in overall_sim:
+                # Handle both binary and multiclass interpretations
+                if "Higher Similarity to AD Pattern" in overall_sim:
+                    sim_text = "Your brain wave patterns showed greater similarity to the Alzheimer's Disease (AD) reference patterns."
+                elif "Higher Similarity to MCI Pattern" in overall_sim:
+                    sim_text = "Your brain wave patterns showed greater similarity to the Mild Cognitive Impairment (MCI) reference patterns."
+                elif "Higher Similarity to CN Pattern" in overall_sim:
+                    sim_text = "Your brain wave patterns showed greater similarity to the Cognitively Normal (CN) reference patterns."
+                elif "Higher Similarity to Alzheimer's Pattern" in overall_sim:
                     sim_text = "Your brain wave patterns showed greater similarity to the Alzheimer's reference patterns."
                 elif "Higher Similarity to Normal Pattern" in overall_sim:
                     sim_text = "Your brain wave patterns showed greater similarity to the normal healthy brain reference patterns."
