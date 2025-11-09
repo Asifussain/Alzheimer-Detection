@@ -12,7 +12,7 @@ from celery_utils import celery_app
 from supabase_client_setup import get_supabase_client
 from config import (
     UPLOAD_FOLDER, RAW_EEG_BUCKET, REPORT_ASSET_BUCKET,
-    DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH
+    DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH, MCI_REF_PATH
 )
 from utils import NpEncoder
 from database import get_prediction_and_eeg, get_comprehensive_report_data, cleanup_storage_on_error
@@ -22,7 +22,7 @@ from visualization import (
     generate_average_psd_image,
     generate_descriptive_stats
 )
-from similarity_analyzer import run_similarity_analysis
+from similarity_analyzer import run_similarity_analysis, run_multiclass_similarity_analysis
 from pdf_generation import (
    TechnicalPDFReport, build_technical_pdf_report_content,
    PatientPDFReport, build_patient_pdf_report_content,
@@ -37,7 +37,7 @@ def decode_base64_image_for_upload(base64_string):
     except (IndexError, TypeError, base64.binascii.Error): return None
 
 @celery_app.task(name='predict_api.run_full_analysis_task')
-def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_for_plot, original_filename):
+def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_for_plot, original_filename, classification_type='binary'):
     # Main background task for running ML and generating reports
     supabase = get_supabase_client()
     asset_prefix = f"report_assets/{prediction_id}"
@@ -52,10 +52,20 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
         with open(temp_filepath_in_worker, 'wb') as f:
             f.write(base64.b64decode(encoded_file_content))
         # Run ML model
-        ml_output_file_path = run_model(temp_filepath_in_worker)
+        ml_output_file_path = run_model(temp_filepath_in_worker, classification_type)
         if not os.path.exists(ml_output_file_path): raise FileNotFoundError(f"ML output at {ml_output_file_path} not found.")
         with open(ml_output_file_path, 'r') as f: ml_output_data = json.load(f)
-        prediction_label = "Alzheimer's" if ml_output_data.get('majority_prediction') == 1 else "Normal"
+
+        # Map prediction to label based on classification type
+        majority_pred_value = ml_output_data.get('majority_prediction')
+        if classification_type == 'multiclass':
+            # Multiclass: 0=CN (Cognitively Normal), 1=MCI (Mild Cognitive Impairment), 2=AD (Alzheimer's Disease)
+            class_labels = {0: "CN (Normal)", 1: "MCI", 2: "AD"}
+            prediction_label = class_labels.get(majority_pred_value, "Unknown")
+        else:
+            # Binary: 0=Normal, 1=Alzheimer's
+            prediction_label = "Alzheimer's" if majority_pred_value == 1 else "Normal"
+
         consistency_metrics = ml_output_data.get('consistency_metrics')
         ml_update_payload = {
             "prediction": prediction_label, "probabilities": ml_output_data.get('probabilities'),
@@ -71,7 +81,13 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
         stats_json = generate_descriptive_stats(eeg_data, DEFAULT_FS)
         ts_img_base64 = generate_stacked_timeseries_image(eeg_data, DEFAULT_FS)
         psd_img_base64 = generate_average_psd_image(eeg_data, DEFAULT_FS)
-        similarity_results = run_similarity_analysis(temp_filepath_in_worker, ALZ_REF_PATH, NORM_REF_PATH, channel_index_for_plot)
+
+        # Run appropriate similarity analysis based on classification type
+        if classification_type == 'multiclass':
+            similarity_results = run_multiclass_similarity_analysis(temp_filepath_in_worker, NORM_REF_PATH, MCI_REF_PATH, ALZ_REF_PATH, channel_index_for_plot)
+        else:
+            similarity_results = run_similarity_analysis(temp_filepath_in_worker, ALZ_REF_PATH, NORM_REF_PATH, channel_index_for_plot)
+
         similarity_plot_base64 = similarity_results.get('plot_base64') if isinstance(similarity_results, dict) else None
         uploaded_asset_urls = {}
         # Upload generated images to storage
@@ -162,6 +178,7 @@ def predict_route():
     radiologist_id = request.form.get('radiologist_id')  # Optional
     uploaded_by_role = request.form.get('uploaded_by_role')
     channel_index_str = request.form.get('channel_index', '0')
+    classification_type = request.form.get('classification_type', 'binary')  # 'binary' or 'multiclass'
     if not patient_id or not doctor_id or not hospital_id:
         return jsonify({'error': 'patient_id, doctor_id, and hospital_id required'}), 400
     try:
@@ -192,6 +209,7 @@ def predict_route():
             "status": "Pending",
             "prediction": "Processing...",
             "eeg_data_url": raw_eeg_storage_path,
+            "classification_type": classification_type,  # Store classification type for later interpretation
             # NEW: Metadata for role-based filtering
             "patient_id": patient_id,
             "doctor_id": doctor_id,
@@ -204,7 +222,7 @@ def predict_route():
         if hasattr(insert_res, 'error') and insert_res.error:
             raise Exception(f"DB insert failed: {insert_res.error.message}")
         # Start background analysis task
-        run_full_analysis_task.delay(prediction_id, encoded_file_content, channel_index_for_plot, filename)
+        run_full_analysis_task.delay(prediction_id, encoded_file_content, channel_index_for_plot, filename, classification_type)
         return jsonify({"prediction_id": prediction_id}), 202
     except Exception as e:
         traceback.print_exc()

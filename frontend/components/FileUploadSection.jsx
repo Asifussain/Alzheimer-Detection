@@ -11,6 +11,7 @@ export default function FileUploadSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileName, setFileName] = useState('Input EEG data (.npy)');
   const [selectedChannel, setSelectedChannel] = useState(1);
+  const [classificationType, setClassificationType] = useState('binary'); // 'binary' or 'multiclass'
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, session } = useAuth();
   const router = useRouter();
@@ -73,6 +74,7 @@ export default function FileUploadSection() {
     formData.append('file', selectedFile);
     formData.append('user_id', user.id);
     formData.append('channel_index', channelNum - 1);
+    formData.append('classification_type', classificationType);
 
     try {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
@@ -142,6 +144,38 @@ export default function FileUploadSection() {
         >
           {isSubmitting ? 'Analysing...' : 'Analyse'}
         </button>
+      </div>
+
+      <div className={dashStyles.classificationTypeSelector} style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+        <label className={dashStyles.channelLabel} style={{ display: 'block', marginBottom: '0.5rem' }}>
+          Classification Type:
+        </label>
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="classificationType"
+              value="binary"
+              checked={classificationType === 'binary'}
+              onChange={(e) => setClassificationType(e.target.value)}
+              disabled={isSubmitting || !user || !session}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ color: 'var(--text-primary)', fontSize: '1rem' }}>Binary (Normal vs Alzheimer's)</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="classificationType"
+              value="multiclass"
+              checked={classificationType === 'multiclass'}
+              onChange={(e) => setClassificationType(e.target.value)}
+              disabled={isSubmitting || !user || !session}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ color: 'var(--text-primary)', fontSize: '1rem' }}>Multi-class (4 Classes)</span>
+          </label>
+        </div>
       </div>
 
       <div className={dashStyles.channelSelector}>

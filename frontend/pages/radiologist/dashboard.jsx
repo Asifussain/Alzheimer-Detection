@@ -106,7 +106,8 @@ function RadiologistDashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState({
     file: null,
-    channelIndex: 0 // 0-18 for 19 channels
+    channelIndex: 0, // 0-18 for 19 channels
+    classificationType: 'binary' // 'binary' or 'multiclass'
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -304,6 +305,7 @@ function RadiologistDashboard() {
       formData.append('doctor_id', doctorUserId);
       formData.append('hospital_id', userProfile.hospital_id);
       formData.append('uploaded_by_role', userProfile.role);
+      formData.append('classification_type', uploadData.classificationType);
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5001';
       const predictResponse = await fetch(`${backendUrl}/api/predict`, {
@@ -327,7 +329,8 @@ function RadiologistDashboard() {
       setShowUploadModal(false);
       setUploadData({
         file: null,
-        channelIndex: 0
+        channelIndex: 0,
+        classificationType: 'binary'
       });
 
       // Refresh dashboard data
@@ -982,6 +985,37 @@ function RadiologistDashboard() {
                       <p>{uploadData.file ? uploadData.file.name : 'Click to select .npy file'}</p>
                     </div>
                   </label>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Classification Type</label>
+                  <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="classificationType"
+                        value="binary"
+                        checked={uploadData.classificationType === 'binary'}
+                        onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
+                        disabled={isUploading}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>Binary (Normal vs Alzheimer's)</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="classificationType"
+                        value="multiclass"
+                        checked={uploadData.classificationType === 'multiclass'}
+                        onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
+                        disabled={isUploading}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>Multi-class (4 Classes)</span>
+                    </label>
+                  </div>
+                  <small className={styles.helpText}>Choose between binary classification or 4-class classification (Normal, MCI, Mild AD, Moderate AD)</small>
                 </div>
 
                 <div className={styles.formGroup}>

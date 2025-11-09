@@ -13,6 +13,7 @@ import traceback
 # Default reference files and channel index
 DEFAULT_ALZHEIMER_REF_FILE = 'feature_07.npy'
 DEFAULT_NORMAL_REF_FILE = 'feature_35.npy'
+DEFAULT_MCI_REF_FILE = 'feature_mci.npy'
 DEFAULT_CHANNEL_INDEX_TO_PLOT = 0
 
 def configure_plot_style():
@@ -95,7 +96,7 @@ def load_and_prepare_eeg(file_path, file_desc):
         return None
 
 def calculate_channel_similarities(sample_data, norm_ref_data, alz_ref_data):
-    """Compute DTW distances for each channel."""
+    """Compute DTW distances for each channel (Binary classification)."""
     if sample_data is None or norm_ref_data is None or alz_ref_data is None:
         print("Error: One or more input datasets are None in calculate_channel_similarities.")
         return []
@@ -159,8 +160,80 @@ def calculate_channel_similarities(sample_data, norm_ref_data, alz_ref_data):
     print("Finished DTW calculations.")
     return results
 
+def calculate_multiclass_channel_similarities(sample_data, cn_ref_data, mci_ref_data, ad_ref_data):
+    """Compute DTW distances for each channel (Multiclass: CN, MCI, AD)."""
+    if sample_data is None or cn_ref_data is None or mci_ref_data is None or ad_ref_data is None:
+        print("Error: One or more input datasets are None in calculate_multiclass_channel_similarities.")
+        return []
+    if not (sample_data.shape == cn_ref_data.shape == mci_ref_data.shape == ad_ref_data.shape):
+        print(f"Error: Data shapes mismatch. Sample={sample_data.shape}, CN={cn_ref_data.shape}, MCI={mci_ref_data.shape}, AD={ad_ref_data.shape}")
+        return []
+
+    n_samples, n_channels = sample_data.shape
+    results = []
+
+    print(f"Calculating multiclass DTW similarities for {n_channels} channels...")
+    for i in range(n_channels):
+        sample_ch = sample_data[:, i]
+        cn_ref_ch = cn_ref_data[:, i]
+        mci_ref_ch = mci_ref_data[:, i]
+        ad_ref_ch = ad_ref_data[:, i]
+
+        # Z-score normalization
+        sample_ch_norm = zscore(sample_ch) if np.std(sample_ch) > 1e-9 else sample_ch - np.mean(sample_ch)
+        cn_ref_ch_norm = zscore(cn_ref_ch) if np.std(cn_ref_ch) > 1e-9 else cn_ref_ch - np.mean(cn_ref_ch)
+        mci_ref_ch_norm = zscore(mci_ref_ch) if np.std(mci_ref_ch) > 1e-9 else mci_ref_ch - np.mean(mci_ref_ch)
+        ad_ref_ch_norm = zscore(ad_ref_ch) if np.std(ad_ref_ch) > 1e-9 else ad_ref_ch - np.mean(ad_ref_ch)
+
+        dist_cn = np.inf
+        dist_mci = np.inf
+        dist_ad = np.inf
+        closer_to = "Error"
+
+        try:
+            dist_cn = dtw.distance_fast(sample_ch_norm.astype(np.double), cn_ref_ch_norm.astype(np.double), use_pruning=True)
+            dist_mci = dtw.distance_fast(sample_ch_norm.astype(np.double), mci_ref_ch_norm.astype(np.double), use_pruning=True)
+            dist_ad = dtw.distance_fast(sample_ch_norm.astype(np.double), ad_ref_ch_norm.astype(np.double), use_pruning=True)
+            # Find closest class
+            distances = {'CN': dist_cn, 'MCI': dist_mci, 'AD': dist_ad}
+            closer_to = min(distances, key=distances.get)
+        except ImportError:
+            print(f"Info: C implementation of DTW not found. Using slower Python version for channel {i+1}.")
+            try:
+                dist_cn = dtw.distance(sample_ch_norm, cn_ref_ch_norm)
+                dist_mci = dtw.distance(sample_ch_norm, mci_ref_ch_norm)
+                dist_ad = dtw.distance(sample_ch_norm, ad_ref_ch_norm)
+                distances = {'CN': dist_cn, 'MCI': dist_mci, 'AD': dist_ad}
+                closer_to = min(distances, key=distances.get)
+            except Exception as e_std:
+                print(f"Error: Standard DTW failed for channel {i+1}: {e_std}")
+        except Exception as e_fast:
+            print(f"Warning: dtw.distance_fast failed for channel {i+1} ({e_fast}). Trying standard DTW.")
+            try:
+                dist_cn = dtw.distance(sample_ch_norm, cn_ref_ch_norm)
+                dist_mci = dtw.distance(sample_ch_norm, mci_ref_ch_norm)
+                dist_ad = dtw.distance(sample_ch_norm, ad_ref_ch_norm)
+                distances = {'CN': dist_cn, 'MCI': dist_mci, 'AD': dist_ad}
+                closer_to = min(distances, key=distances.get)
+            except Exception as e_std:
+                print(f"Error: Standard DTW also failed for channel {i+1}: {e_std}")
+
+        results.append({
+            'channel': i,
+            'dist_cn': float(dist_cn) if np.isfinite(dist_cn) else None,
+            'dist_mci': float(dist_mci) if np.isfinite(dist_mci) else None,
+            'dist_ad': float(dist_ad) if np.isfinite(dist_ad) else None,
+            'closer_to': closer_to
+        })
+
+        if (i + 1) % 5 == 0 or i == n_channels - 1:
+            print(f"  Processed channel {i+1}/{n_channels}...")
+
+    print("Finished multiclass DTW calculations.")
+    return results
+
 def plot_single_channel_comparison(sample_ch, norm_ref_ch, alz_ref_ch, channel_index):
-    """Plot one channel's normalized signals for comparison."""
+    """Plot one channel's normalized signals for comparison (Binary)."""
     configure_plot_style()
     fig, ax = plt.subplots(figsize=(12, 5))
 
@@ -191,6 +264,40 @@ def plot_single_channel_comparison(sample_ch, norm_ref_ch, alz_ref_ch, channel_i
                 transform=ax.transAxes, color='red', fontsize=12, wrap=True)
     return fig
 
+def plot_multiclass_channel_comparison(sample_ch, cn_ref_ch, mci_ref_ch, ad_ref_ch, channel_index):
+    """Plot one channel's normalized signals for comparison (Multiclass: CN, MCI, AD)."""
+    configure_plot_style()
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    try:
+        n_samples = len(sample_ch)
+        time = np.arange(n_samples)
+
+        s_norm = zscore(sample_ch) if np.std(sample_ch) > 1e-9 else sample_ch - np.mean(sample_ch)
+        cn_norm = zscore(cn_ref_ch) if np.std(cn_ref_ch) > 1e-9 else cn_ref_ch - np.mean(cn_ref_ch)
+        mci_norm = zscore(mci_ref_ch) if np.std(mci_ref_ch) > 1e-9 else mci_ref_ch - np.mean(mci_ref_ch)
+        ad_norm = zscore(ad_ref_ch) if np.std(ad_ref_ch) > 1e-9 else ad_ref_ch - np.mean(ad_ref_ch)
+
+        ax.plot(time, s_norm, color='#FFFFFF', lw=2.0, label='Your Sample (Normalized)', zorder=4)
+        ax.plot(time, cn_norm, color='#3498db', lw=1.5, linestyle='--', alpha=0.85, label='CN Ref. (Normalized)', zorder=3)
+        ax.plot(time, mci_norm, color='#f39c12', lw=1.5, linestyle='-.', alpha=0.85, label='MCI Ref. (Normalized)', zorder=2)
+        ax.plot(time, ad_norm, color='#e74c3c', lw=1.5, linestyle=':', alpha=0.85, label='AD Ref. (Normalized)', zorder=1)
+
+        ax.set_xlabel("Time (samples)", fontsize=11)
+        ax.set_ylabel("Signal Shape (Z-score)", fontsize=11)
+        ax.set_title(f"Channel {channel_index + 1}: Multiclass Signal Comparison (CN vs MCI vs AD)", fontsize=14, weight='bold', color='#EEEEEE')
+        ax.legend(loc='upper right', fontsize=10)
+        ax.tick_params(axis='both', which='major', labelsize=10)
+        ax.margins(x=0.02)
+        plt.tight_layout()
+    except Exception as plot_err:
+        print(f"Error during plotting channel {channel_index + 1}: {plot_err}")
+        traceback.print_exc()
+        ax.text(0.5, 0.5, f"Error plotting channel {channel_index + 1}",
+                horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes, color='red', fontsize=12, wrap=True)
+    return fig
+
 def fig_to_base64(fig):
     """Convert Matplotlib figure to base64 PNG string."""
     if fig is None: return None
@@ -206,8 +313,132 @@ def fig_to_base64(fig):
     finally:
         plt.close(fig)
 
+def run_multiclass_similarity_analysis(sample_file_path, cn_ref_file_path=None, mci_ref_file_path=None, ad_ref_file_path=None, channel_to_plot=DEFAULT_CHANNEL_INDEX_TO_PLOT):
+    """Main analysis for multiclass (CN, MCI, AD): load data, compute similarities, plot, and return results."""
+    print("--- Starting Multiclass EEG Similarity Analysis ---")
+
+    script_dir = os.path.dirname(__file__)
+    if cn_ref_file_path is None:
+        cn_ref_file_path = os.path.join(script_dir, DEFAULT_NORMAL_REF_FILE)
+    if mci_ref_file_path is None:
+        mci_ref_file_path = os.path.join(script_dir, DEFAULT_MCI_REF_FILE)
+    if ad_ref_file_path is None:
+        ad_ref_file_path = os.path.join(script_dir, DEFAULT_ALZHEIMER_REF_FILE)
+
+    sample_data = load_and_prepare_eeg(sample_file_path, "User Sample")
+    cn_ref_data = load_and_prepare_eeg(cn_ref_file_path, "CN Reference")
+    mci_ref_data = load_and_prepare_eeg(mci_ref_file_path, "MCI Reference")
+    ad_ref_data = load_and_prepare_eeg(ad_ref_file_path, "AD Reference")
+
+    analysis_results = {
+        'error': None,
+        'channel_results': [],
+        'cn_closer_count': 0,
+        'mci_closer_count': 0,
+        'ad_closer_count': 0,
+        'error_channels_count': 0,
+        'total_channels': 19,
+        'overall_similarity': 'Error',
+        'interpretation': '',
+        'plot_base64': None,
+        'plotted_channel_index': None,
+        'classification_type': 'multiclass'
+    }
+
+    if sample_data is None or cn_ref_data is None or mci_ref_data is None or ad_ref_data is None:
+        error_msg = "Error: Could not load one or more reference datasets."
+        analysis_results.update({'error': error_msg, 'interpretation': error_msg})
+        print(error_msg)
+        return analysis_results
+
+    n_samples, n_channels = sample_data.shape
+    analysis_results['total_channels'] = n_channels
+
+    if not (sample_data.shape == cn_ref_data.shape == mci_ref_data.shape == ad_ref_data.shape):
+        error_msg = f"Error: Data shapes incompatible. Sample: {sample_data.shape}, CN: {cn_ref_data.shape}, MCI: {mci_ref_data.shape}, AD: {ad_ref_data.shape}"
+        analysis_results.update({'error': error_msg, 'interpretation': error_msg})
+        print(error_msg)
+        return analysis_results
+
+    print(f"\nData loaded. Comparing {n_channels} channels, {n_samples} samples each.")
+
+    if not isinstance(channel_to_plot, int) or not (0 <= channel_to_plot < n_channels):
+        print(f"Warning: Invalid channel index '{channel_to_plot}'. Defaulting to channel {DEFAULT_CHANNEL_INDEX_TO_PLOT + 1}.")
+        channel_to_plot = DEFAULT_CHANNEL_INDEX_TO_PLOT
+    analysis_results['plotted_channel_index'] = channel_to_plot
+
+    try:
+        print("\n--- Calculating Multiclass Similarity (DTW Distance) ---")
+        channel_results = calculate_multiclass_channel_similarities(sample_data, cn_ref_data, mci_ref_data, ad_ref_data)
+        analysis_results['channel_results'] = channel_results
+
+        valid_results = [r for r in channel_results if r.get('closer_to') != "Error"]
+        cn_closer = sum(1 for r in valid_results if r.get('closer_to') == 'CN')
+        mci_closer = sum(1 for r in valid_results if r.get('closer_to') == 'MCI')
+        ad_closer = sum(1 for r in valid_results if r.get('closer_to') == 'AD')
+        error_channels = n_channels - len(valid_results)
+
+        analysis_results['cn_closer_count'] = cn_closer
+        analysis_results['mci_closer_count'] = mci_closer
+        analysis_results['ad_closer_count'] = ad_closer
+        analysis_results['error_channels_count'] = error_channels
+
+        if error_channels == n_channels:
+            analysis_results['overall_similarity'] = "Error during comparison"
+        else:
+            max_count = max(cn_closer, mci_closer, ad_closer)
+            if cn_closer == max_count:
+                analysis_results['overall_similarity'] = "Higher Similarity to CN Pattern"
+            elif mci_closer == max_count:
+                analysis_results['overall_similarity'] = "Higher Similarity to MCI Pattern"
+            else:
+                analysis_results['overall_similarity'] = "Higher Similarity to AD Pattern"
+
+        interp = f"Multiclass Similarity Analysis (DTW):\n"
+        interp += f"- Overall Assessment: {analysis_results['overall_similarity']}\n"
+        if n_channels > 0:
+            interp += f"- Channels More Similar to CN Ref: {cn_closer} ({cn_closer/n_channels*100:.1f}%)\n"
+            interp += f"- Channels More Similar to MCI Ref: {mci_closer} ({mci_closer/n_channels*100:.1f}%)\n"
+            interp += f"- Channels More Similar to AD Ref: {ad_closer} ({ad_closer/n_channels*100:.1f}%)\n"
+            if error_channels > 0:
+                interp += f"- Channels with Errors during DTW: {error_channels}\n"
+        interp += "\nDisclaimer: This analysis compares overall signal shapes using Dynamic Time Warping (DTW) against reference patterns and does not constitute a medical diagnosis. Results indicate pattern similarity, not disease presence. Consult a healthcare professional for diagnosis."
+        analysis_results['interpretation'] = interp
+
+        print("\n--- Multiclass Similarity Summary ---")
+        print(f"Overall Assessment: {analysis_results['overall_similarity']}")
+        print(f"Channels closer to CN: {cn_closer}/{n_channels}")
+        print(f"Channels closer to MCI: {mci_closer}/{n_channels}")
+        print(f"Channels closer to AD: {ad_closer}/{n_channels}")
+        if error_channels > 0: print(f"Channels with DTW errors: {error_channels}/{n_channels}")
+
+        print(f"\n--- Generating Multiclass Plot for Channel {channel_to_plot + 1} ---")
+        fig_channel = plot_multiclass_channel_comparison(
+            sample_data[:, channel_to_plot],
+            cn_ref_data[:, channel_to_plot],
+            mci_ref_data[:, channel_to_plot],
+            ad_ref_data[:, channel_to_plot],
+            channel_to_plot
+        )
+        analysis_results['plot_base64'] = fig_to_base64(fig_channel)
+        if analysis_results['plot_base64']:
+            print(f" -> Multiclass plot for Channel {channel_to_plot + 1} generated.")
+        else:
+            print(f" -> Plot generation failed for Channel {channel_to_plot + 1}.")
+            analysis_results['error'] = analysis_results['error'] or "Plot generation failed"
+
+    except Exception as e:
+        error_msg = f"An error occurred during multiclass similarity analysis: {e}"
+        print(f"\n{error_msg}")
+        traceback.print_exc()
+        analysis_results['error'] = error_msg
+        analysis_results['interpretation'] = f"Multiclass similarity analysis failed: {e}"
+
+    print("\n--- Multiclass Similarity Analysis Complete ---")
+    return analysis_results
+
 def run_similarity_analysis(sample_file_path, alz_ref_file_path=None, norm_ref_file_path=None, channel_to_plot=DEFAULT_CHANNEL_INDEX_TO_PLOT):
-    """Main analysis: load data, compute similarities, plot, and return results."""
+    """Main analysis: load data, compute similarities, plot, and return results (Binary classification)."""
     print("--- Starting EEG Similarity Analysis ---")
 
     script_dir = os.path.dirname(__file__)
@@ -230,7 +461,8 @@ def run_similarity_analysis(sample_file_path, alz_ref_file_path=None, norm_ref_f
         'overall_similarity': 'Error',
         'interpretation': '',
         'plot_base64': None,
-        'plotted_channel_index': None
+        'plotted_channel_index': None,
+        'classification_type': 'binary'
     }
 
     if sample_data is None:

@@ -9,15 +9,35 @@ SIDDHI_PATH = os.path.join(ML_RUNNER_DIR, 'SIDDHI')
 if SIDDHI_PATH not in sys.path:
     sys.path.insert(0, SIDDHI_PATH)
 
-def run_model(filepath_to_process: str):
+def run_model(filepath_to_process: str, classification_type: str = 'binary'):
     """
     Runs the SIDDHI ML model script as a subprocess.
+    Args:
+        filepath_to_process: Path to the .npy file to process
+        classification_type: 'binary' or 'multiclass'
     """
     print(f"ML Runner: Executing ML model for: {filepath_to_process}")
-    
+    print(f"Classification Type: {classification_type}")
+
     siddhi_absolute_path = SIDDHI_PATH
     absolute_filepath_for_ml = os.path.abspath(filepath_to_process)
     expected_output_json_in_siddhi = os.path.join(siddhi_absolute_path, 'output.json')
+
+    # Configure parameters based on classification type
+    if classification_type == 'multiclass':
+        model_id = 'ADFD-Indep'
+        data_type = 'ADFDIndep'
+        num_classes = '3'  # CN, MCI, AD
+        seq_len = '96'  # Multiclass uses 96 timepoints
+        patch_len_list = '2,2,2,4,4,4'
+        up_dim_list = '19,38,76,152'
+    else:  # binary
+        model_id = 'ADSZ-Indep'
+        data_type = 'ADSZIndep'
+        num_classes = '2'  # Normal, Alzheimer's
+        seq_len = '128'  # Binary uses 128 timepoints
+        patch_len_list = '4'
+        up_dim_list = '19'
 
     if not os.path.isdir(siddhi_absolute_path):
         raise FileNotFoundError(f"SIDDHI directory not found at: {siddhi_absolute_path}")
@@ -37,31 +57,31 @@ def run_model(filepath_to_process: str):
 
     try:
         cmd = [
-            'python', 'run.py', 
-            '--task_name', 'classification', 
-            '--is_training', '0', 
-            '--model_id', 'ADSZ-Indep', 
-            '--model', 'ADformer', 
-            '--data', 'ADSZIndep', 
-            '--e_layers', '6', 
+            'python', 'run.py',
+            '--task_name', 'classification',
+            '--is_training', '0',
+            '--model_id', model_id,
+            '--model', 'ADformer',
+            '--data', data_type,
+            '--e_layers', '6',
             '--batch_size', '1',
-            '--d_model', '128', 
-            '--d_ff', '256', 
-            '--enc_in', '19', 
-            '--num_class', '2', 
-            '--seq_len', '128', 
+            '--d_model', '128',
+            '--d_ff', '256',
+            '--enc_in', '19',
+            '--num_class', num_classes,
+            '--seq_len', seq_len,  # Use dynamic seq_len based on classification type
             '--input_file', absolute_filepath_for_ml,
             '--use_gpu', 'False',
-            '--features', 'M', 
+            '--features', 'M',
             '--label_len', '48',
-            '--pred_len', '96', 
-            '--n_heads', '8', 
-            '--d_layers', '1', 
-            '--factor', '1', 
+            '--pred_len', '96',
+            '--n_heads', '8',
+            '--d_layers', '1',
+            '--factor', '1',
             '--embed', 'timeF',
             '--des', "'Exp'",
-            "--patch_len_list", "4",
-            "--up_dim_list", "19",
+            "--patch_len_list", patch_len_list,
+            "--up_dim_list", up_dim_list,
         ]
         
         print(f"Running ML command: {' '.join(cmd)}")
