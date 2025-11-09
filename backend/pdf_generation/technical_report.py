@@ -216,6 +216,8 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
         pdf.ln(2)
 
         if similarity_data and not similarity_data.get('error'):
+            classification_type = similarity_data.get('classification_type', 'binary')
+
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_dark)
 
@@ -242,25 +244,52 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
                     pdf.add_page()
 
                 plotted_ch_idx = similarity_data.get('plotted_channel_index')
-                plot_title = f"DTW Waveform Comparison - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'N/A'}"
+
+                # Different titles based on classification type
+                if classification_type == 'multiclass':
+                    plot_title = f"DTW Waveform Comparison (CN vs MCI vs AD) - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'N/A'}"
+                else:
+                    plot_title = f"DTW Waveform Comparison (Normal vs Alzheimer's) - Channel {plotted_ch_idx + 1 if plotted_ch_idx is not None else 'N/A'}"
+
                 pdf.add_image_section(plot_title, similarity_plot_data)
 
-                # Technical DTW metrics if available
-                dtw_alz = similarity_data.get('dtw_distance_to_alz')
-                dtw_norm = similarity_data.get('dtw_distance_to_norm')
+                # Technical DTW metrics based on classification type
+                if classification_type == 'multiclass':
+                    dtw_cn = similarity_data.get('dtw_distance_to_cn')
+                    dtw_mci = similarity_data.get('dtw_distance_to_mci')
+                    dtw_ad = similarity_data.get('dtw_distance_to_ad')
 
-                if dtw_alz is not None and dtw_norm is not None:
-                    pdf.ln(2)
-                    pdf.set_font('Helvetica', 'B', 9)
-                    pdf.set_text_color(*pdf.text_color_dark)
-                    pdf.cell(0, 6, "DTW Distance Metrics:", ln=1)
-                    pdf.ln(2)
+                    if dtw_cn is not None and dtw_mci is not None and dtw_ad is not None:
+                        pdf.ln(2)
+                        pdf.set_font('Helvetica', 'B', 9)
+                        pdf.set_text_color(*pdf.text_color_dark)
+                        pdf.cell(0, 6, "DTW Distance Metrics (Multiclass):", ln=1)
+                        pdf.ln(2)
 
-                    pdf.set_font('Helvetica', '', 9)
-                    pdf.key_value_pair("Distance to Alzheimer's Reference", f"{dtw_alz:.4f}", key_width=65)
-                    pdf.ln(1)
-                    pdf.key_value_pair("Distance to Normal Reference", f"{dtw_norm:.4f}", key_width=65)
-                    pdf.ln(2)
+                        pdf.set_font('Helvetica', '', 9)
+                        pdf.key_value_pair("Distance to CN (Normal) Reference", f"{dtw_cn:.4f}", key_width=65)
+                        pdf.ln(1)
+                        pdf.key_value_pair("Distance to MCI Reference", f"{dtw_mci:.4f}", key_width=65)
+                        pdf.ln(1)
+                        pdf.key_value_pair("Distance to AD (Alzheimer's) Reference", f"{dtw_ad:.4f}", key_width=65)
+                        pdf.ln(2)
+                else:
+                    # Binary classification
+                    dtw_alz = similarity_data.get('dtw_distance_to_alz')
+                    dtw_norm = similarity_data.get('dtw_distance_to_norm')
+
+                    if dtw_alz is not None and dtw_norm is not None:
+                        pdf.ln(2)
+                        pdf.set_font('Helvetica', 'B', 9)
+                        pdf.set_text_color(*pdf.text_color_dark)
+                        pdf.cell(0, 6, "DTW Distance Metrics (Binary):", ln=1)
+                        pdf.ln(2)
+
+                        pdf.set_font('Helvetica', '', 9)
+                        pdf.key_value_pair("Distance to Alzheimer's Reference", f"{dtw_alz:.4f}", key_width=65)
+                        pdf.ln(1)
+                        pdf.key_value_pair("Distance to Normal Reference", f"{dtw_norm:.4f}", key_width=65)
+                        pdf.ln(2)
             else:
                 pdf.set_font('Helvetica', 'I', 9)
                 pdf.set_text_color(*pdf.text_color_light)
