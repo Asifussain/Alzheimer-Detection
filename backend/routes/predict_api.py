@@ -209,7 +209,7 @@ def predict_route():
             "status": "Pending",
             "prediction": "Processing...",
             "eeg_data_url": raw_eeg_storage_path,
-            "classification_type": classification_type,  # Store classification type for later interpretation
+            "analysis_type": classification_type,  # Store classification type for later interpretation
             # NEW: Metadata for role-based filtering
             "patient_id": patient_id,
             "doctor_id": doctor_id,
