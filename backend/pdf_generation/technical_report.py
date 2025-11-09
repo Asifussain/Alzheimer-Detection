@@ -86,13 +86,24 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
 
         # Model Confidence
         probabilities = prediction_data.get('probabilities')
-        if isinstance(probabilities, list) and len(probabilities) == 2:
+        if isinstance(probabilities, list):
             try:
-                prob_str = f"Normal: {format_metric_for_pdf(probabilities[0], 'percent', 2)} | Alzheimer's: {format_metric_for_pdf(probabilities[1], 'percent', 2)}"
-                pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=60)
-                pdf.ln(1)
+                if analysis_type == 'multiclass' and len(probabilities) == 3:
+                    # Multiclass: CN, MCI, AD
+                    prob_str = f"CN: {format_metric_for_pdf(probabilities[0], 'percent', 2)} | MCI: {format_metric_for_pdf(probabilities[1], 'percent', 2)} | AD: {format_metric_for_pdf(probabilities[2], 'percent', 2)}"
+                    pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=60)
+                    pdf.ln(1)
+                elif len(probabilities) == 2:
+                    # Binary: Normal, Alzheimer's
+                    prob_str = f"Normal: {format_metric_for_pdf(probabilities[0], 'percent', 2)} | Alzheimer's: {format_metric_for_pdf(probabilities[1], 'percent', 2)}"
+                    pdf.key_value_pair("Model Confidence Distribution", prob_str, key_width=60)
+                    pdf.ln(1)
+                else:
+                    # Fallback for unexpected probability array length
+                    pdf.key_value_pair("Probabilities", sanitize_for_helvetica(str(probabilities)), key_width=50)
+                    pdf.ln(1)
 
-                # Dominant class confidence
+                # Dominant class confidence (works for both binary and multiclass)
                 max_conf = max(probabilities) * 100
                 pdf.key_value_pair("Primary Classification Confidence", f"{max_conf:.2f}%", key_width=60)
                 pdf.ln(1)
