@@ -15,10 +15,10 @@ import traceback
 DEFAULT_ALZHEIMER_REF_FILE = 'feature_07.npy'
 DEFAULT_NORMAL_REF_FILE = 'feature_35.npy'
 
-# Multiclass classification (new files in representative folder)
-DEFAULT_MULTICLASS_CN_REF_FILE = 'representative/cn repr.npy'
-DEFAULT_MULTICLASS_MCI_REF_FILE = 'representative/mci repr.npy'
-DEFAULT_MULTICLASS_AD_REF_FILE = 'representative/ad repr.npy'
+# Multiclass classification (new files in representative folder - 96 timepoints)
+DEFAULT_MULTICLASS_CN_REF_FILE = 'representative/cn_repr_96.npy'
+DEFAULT_MULTICLASS_MCI_REF_FILE = 'representative/mci_repr_96.npy'
+DEFAULT_MULTICLASS_AD_REF_FILE = 'representative/ad_repr_96.npy'
 
 DEFAULT_CHANNEL_INDEX_TO_PLOT = 0
 

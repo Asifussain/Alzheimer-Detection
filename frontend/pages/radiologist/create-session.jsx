@@ -368,11 +368,56 @@ function CreateEEGSession() {
                 onChange={handleInputChange}
                 disabled={isSubmitting}
                 required
+                className={styles.selectWithInfo}
               >
-                <option value="binary">Binary Classification</option>
-                <option value="multiclass">Multiclass Classification</option>
-                <option value="regression">Regression Analysis</option>
+                <option value="binary">Binary - Normal vs Alzheimer's Disease (2 classes)</option>
+                <option value="multiclass">Multi-class - CN, MCI, AD (3 classes)</option>
+                <option value="regression">Regression Analysis - Continuous severity score</option>
               </select>
+
+              {/* Info box below dropdown */}
+              <div className={styles.analysisTypeInfo} style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                backgroundColor: '#f9fafb',
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb',
+                fontSize: '0.9rem',
+                lineHeight: '1.5'
+              }}>
+                {formData.analysisType === 'binary' && (
+                  <div>
+                    <strong style={{ color: '#1f2937' }}>Binary Classification</strong>
+                    <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>
+                      Identifies whether EEG patterns match <strong>Normal</strong> or <strong>Alzheimer's Disease</strong> patterns.
+                      Best for clear-cut diagnostic scenarios.
+                    </p>
+                  </div>
+                )}
+                {formData.analysisType === 'multiclass' && (
+                  <div>
+                    <strong style={{ color: '#1f2937' }}>Multi-class Classification</strong>
+                    <p style={{ margin: '0.5rem 0', color: '#6b7280' }}>Distinguishes between three cognitive states:</p>
+                    <ul style={{ margin: '0.25rem 0 0 1.25rem', color: '#6b7280' }}>
+                      <li><strong>CN</strong> - Cognitively Normal</li>
+                      <li><strong>MCI</strong> - Mild Cognitive Impairment (early warning signs)</li>
+                      <li><strong>AD</strong> - Alzheimer's Disease</li>
+                    </ul>
+                    <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280', fontSize: '0.85rem' }}>
+                      Recommended for early detection and monitoring of cognitive decline progression.
+                    </p>
+                  </div>
+                )}
+                {formData.analysisType === 'regression' && (
+                  <div>
+                    <strong style={{ color: '#1f2937' }}>Regression Analysis</strong>
+                    <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>
+                      Provides a continuous score indicating the severity of cognitive decline.
+                      Useful for tracking disease progression over time.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

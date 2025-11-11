@@ -117,6 +117,89 @@ function RadiologistDashboard() {
     'F7', 'F8', 'T3', 'T4', 'T5', 'T6', 'Fz', 'Cz', 'Pz'
   ];
 
+  // Calculate analytics from predictions data
+  const calculateAnalytics = (predictions) => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Calculate upload trend for last 7 days
+    const uploadTrend = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = predictions.filter(p =>
+        p.created_at && p.created_at.split('T')[0] === dateStr
+      ).length;
+
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      uploadTrend.push({
+        date: dateStr,
+        label: i === 0 ? 'Today' : dayNames[date.getDay()],
+        count
+      });
+    }
+
+    // Calculate detection statistics
+    const detectionStats = {
+      cn: 0,
+      mci: 0,
+      ad: 0,
+      normal: 0,
+      alzheimers: 0
+    };
+
+    predictions.forEach(pred => {
+      if (!pred.prediction) return;
+      const predLower = pred.prediction.toLowerCase();
+
+      if (predLower.includes('cn') || predLower.includes('cognitive') && predLower.includes('normal')) {
+        detectionStats.cn++;
+      } else if (predLower.includes('mci')) {
+        detectionStats.mci++;
+      } else if (predLower.includes('ad') || predLower.includes('alzheimer')) {
+        detectionStats.ad++;
+        detectionStats.alzheimers++;
+      } else if (predLower.includes('normal')) {
+        detectionStats.normal++;
+      }
+    });
+
+    // Calculate analysis type distribution
+    const analysisTypeDistribution = {
+      binary: predictions.filter(p => p.analysis_type === 'binary').length,
+      multiclass: predictions.filter(p => p.analysis_type === 'multiclass').length
+    };
+
+    // Calculate time-based counts
+    const thisWeekUploads = predictions.filter(p =>
+      p.created_at && new Date(p.created_at) >= oneWeekAgo
+    ).length;
+
+    const thisMonthUploads = predictions.filter(p =>
+      p.created_at && new Date(p.created_at) >= oneMonthAgo
+    ).length;
+
+    setAnalyticsData({
+      uploadTrend,
+      detectionStats,
+      analysisTypeDistribution,
+      totalUploaded: predictions.length,
+      thisWeekUploads,
+      thisMonthUploads
+    });
+  };
+
+  // State for analytics
+  const [analyticsData, setAnalyticsData] = useState({
+    uploadTrend: [],
+    detectionStats: { cn: 0, mci: 0, ad: 0, normal: 0, alzheimers: 0 },
+    analysisTypeDistribution: { binary: 0, multiclass: 0 },
+    totalUploaded: 0,
+    thisWeekUploads: 0,
+    thisMonthUploads: 0
+  });
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -128,15 +211,21 @@ function RadiologistDashboard() {
         return;
       }
 
-      // Fetch ALL predictions
+      // Fetch ONLY the radiologist's own predictions
       const { data: allPreds } = await supabase
         .from('predictions')
         .select('*')
+        .eq('user_id', user.id)  // Filter by radiologist's user_id
         .order('created_at', { ascending: false })
         .limit(100);
 
       setAllPredictions(allPreds || []);
       setRecentSessions(allPreds?.slice(0, 5) || []);
+
+      // Calculate analytics data
+      if (allPreds && allPreds.length > 0) {
+        calculateAnalytics(allPreds);
+      }
 
       let doctorsData = [];
 
@@ -481,62 +570,225 @@ function RadiologistDashboard() {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className={styles.section}>
-              <h1 className={styles.pageTitle}>Dashboard Overview</h1>
+              <div className={styles.welcomeSection}>
+                <h1 className={styles.pageTitle}>Welcome back, {userProfile?.full_name || 'Radiologist'}!</h1>
+                <p className={styles.subtitle}>Here's your personal analytics and recent activity</p>
+              </div>
 
+              {/* Personal Stats Grid */}
               <div className={styles.statsGrid}>
-                <div className={styles.statCard} onClick={() => setActiveTab('doctors')}>
-                  <Icons.Stethoscope />
+                <div className={styles.statCard}>
+                  <Icons.Upload />
                   <div>
-                    <h3>Total Doctors</h3>
-                    <div className={styles.statNumber}>{dashboardStats.totalDoctors}</div>
+                    <h3>Total Analyses</h3>
+                    <div className={styles.statNumber}>{analyticsData.totalUploaded}</div>
+                    <p className={styles.statSubtext}>All time</p>
                   </div>
                 </div>
 
                 <div className={styles.statCard}>
-                  <Icons.Activity />
+                  <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+                  </svg>
                   <div>
-                    <h3>Total Patients</h3>
-                    <div className={styles.statNumber}>{dashboardStats.totalPatients}</div>
+                    <h3>This Week</h3>
+                    <div className={styles.statNumber}>{analyticsData.thisWeekUploads}</div>
+                    <p className={styles.statSubtext}>Analyses uploaded</p>
                   </div>
                 </div>
 
-                <div className={styles.statCard} onClick={() => setActiveTab('allPredictions')}>
+                <div className={styles.statCard}>
                   <Icons.FileText />
                   <div>
-                    <h3>Total Predictions</h3>
-                    <div className={styles.statNumber}>{dashboardStats.totalSessions}</div>
+                    <h3>This Month</h3>
+                    <div className={styles.statNumber}>{analyticsData.thisMonthUploads}</div>
+                    <p className={styles.statSubtext}>Analyses uploaded</p>
                   </div>
                 </div>
 
                 <div className={styles.statCard}>
                   <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
                   </svg>
                   <div>
-                    <h3>Pending Analysis</h3>
-                    <div className={styles.statNumber}>{dashboardStats.pendingSessions}</div>
-                  </div>
-                </div>
-
-                <div className={styles.statCard}>
-                  <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                  </svg>
-                  <div>
-                    <h3>Completed</h3>
-                    <div className={styles.statNumber}>{dashboardStats.completedSessions}</div>
+                    <h3>Hospital</h3>
+                    <div className={styles.statLabel}>{hospitalData?.name || 'N/A'}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Recent Sessions */}
+              {/* Charts and Analytics */}
+              <div className={styles.analyticsGrid}>
+                {/* Analysis Type Distribution Pie Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Analysis Type Distribution</h3>
+                  <div className={styles.pieChartContainer}>
+                    <svg viewBox="0 0 200 200" className={styles.pieChart}>
+                      {(() => {
+                        const total = analyticsData.analysisTypeDistribution.binary + analyticsData.analysisTypeDistribution.multiclass;
+                        if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#666">No data yet</text>;
+
+                        const binaryPercent = (analyticsData.analysisTypeDistribution.binary / total) * 100;
+                        const multiclassPercent = (analyticsData.analysisTypeDistribution.multiclass / total) * 100;
+
+                        const createArc = (startPercent, endPercent, color) => {
+                          const startAngle = (startPercent / 100) * 360 - 90;
+                          const endAngle = (endPercent / 100) * 360 - 90;
+
+                          const startRad = startAngle * Math.PI / 180;
+                          const endRad = endAngle * Math.PI / 180;
+
+                          const x1 = 100 + 80 * Math.cos(startRad);
+                          const y1 = 100 + 80 * Math.sin(startRad);
+                          const x2 = 100 + 80 * Math.cos(endRad);
+                          const y2 = 100 + 80 * Math.sin(endRad);
+
+                          const largeArc = (endPercent - startPercent) > 50 ? 1 : 0;
+
+                          return `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                        };
+
+                        return (
+                          <>
+                            <path d={createArc(0, binaryPercent, '#3b82f6')} fill="#3b82f6" opacity="0.9" />
+                            <path d={createArc(binaryPercent, 100, '#8b5cf6')} fill="#8b5cf6" opacity="0.9" />
+                            <circle cx="100" cy="100" r="50" fill="#1e293b" />
+                            <text x="100" y="95" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">{total}</text>
+                            <text x="100" y="115" textAnchor="middle" fill="#94a3b8" fontSize="12">Total</text>
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div className={styles.pieLegend}>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#3b82f6'}}></span>
+                        <span>Binary ({analyticsData.analysisTypeDistribution.binary})</span>
+                      </div>
+                      <div className={styles.legendItem}>
+                        <span className={styles.legendColor} style={{background: '#8b5cf6'}}></span>
+                        <span>Multiclass ({analyticsData.analysisTypeDistribution.multiclass})</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upload Trend Line Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Upload Activity (Last 7 Days)</h3>
+                  <div className={styles.lineChartContainer}>
+                    {analyticsData.uploadTrend.length > 0 ? (
+                      <svg viewBox="0 0 400 200" className={styles.lineChart}>
+                        {/* Grid */}
+                        <line x1="40" y1="20" x2="40" y2="160" stroke="#1e293b" strokeWidth="2" />
+                        <line x1="40" y1="160" x2="380" y2="160" stroke="#1e293b" strokeWidth="2" />
+
+                        {/* Y-axis labels */}
+                        {[0, 1, 2, 3, 4, 5].map((val, i) => {
+                          const maxCount = Math.max(...analyticsData.uploadTrend.map(d => d.count), 5);
+                          const yPos = 160 - (val / 5) * 140;
+                          const labelVal = Math.round((val / 5) * maxCount);
+                          return (
+                            <g key={i}>
+                              <line x1="35" y1={yPos} x2="380" y2={yPos} stroke="#1e293b" strokeWidth="1" opacity="0.3" />
+                              <text x="30" y={yPos + 4} textAnchor="end" fill="#94a3b8" fontSize="10">{labelVal}</text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Line and points */}
+                        {(() => {
+                          const maxCount = Math.max(...analyticsData.uploadTrend.map(d => d.count), 5);
+                          const points = analyticsData.uploadTrend.map((d, i) => {
+                            const x = 60 + (i * 50);
+                            const y = maxCount > 0 ? 160 - (d.count / maxCount) * 140 : 160;
+                            return { x, y, count: d.count, label: d.label };
+                          });
+
+                          const pathD = points.map((p, i) =>
+                            i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`
+                          ).join(' ');
+
+                          return (
+                            <>
+                              <path d={pathD} stroke="#10b981" strokeWidth="3" fill="none" />
+                              <path d={`${pathD} L ${points[points.length - 1].x} 160 L ${points[0].x} 160 Z`}
+                                    fill="url(#uploadGradient)" opacity="0.3" />
+                              <defs>
+                                <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.8" />
+                                  <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                              {points.map((p, i) => (
+                                <g key={i}>
+                                  <circle cx={p.x} cy={p.y} r="5" fill="#10b981" stroke="#1e293b" strokeWidth="2" />
+                                  <text x={p.x} y="180" textAnchor="middle" fill="#94a3b8" fontSize="10">{p.label}</text>
+                                </g>
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    ) : (
+                      <div className={styles.noData}>No upload data available</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Detection Results Bar Chart */}
+                <div className={styles.chartCard}>
+                  <h3 className={styles.chartTitle}>Detection Results</h3>
+                  <div className={styles.barChartContainer}>
+                    {analyticsData.totalUploaded > 0 ? (
+                      <svg viewBox="0 0 400 200" className={styles.barChart}>
+                        {(() => {
+                          const stats = analyticsData.detectionStats;
+                          const values = [
+                            { label: 'CN', count: stats.cn, color: '#10b981' },
+                            { label: 'MCI', count: stats.mci, color: '#f59e0b' },
+                            { label: 'AD', count: stats.ad, color: '#ef4444' },
+                            { label: 'Normal', count: stats.normal, color: '#3b82f6' }
+                          ].filter(v => v.count > 0);
+
+                          const maxVal = Math.max(...values.map(v => v.count), 1);
+                          const barWidth = 60;
+                          const spacing = values.length > 0 ? (360 - values.length * barWidth) / (values.length + 1) : 40;
+
+                          return (
+                            <>
+                              {values.map((item, i) => {
+                                const height = (item.count / maxVal) * 120;
+                                const x = spacing + i * (barWidth + spacing);
+
+                                return (
+                                  <g key={i}>
+                                    <rect x={x} y={160 - height} width={barWidth} height={height} fill={item.color} opacity="0.9" rx="4" />
+                                    <text x={x + barWidth/2} y={150 - height} textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">
+                                      {item.count}
+                                    </text>
+                                    <text x={x + barWidth/2} y="180" textAnchor="middle" fill="#94a3b8" fontSize="12">{item.label}</text>
+                                  </g>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    ) : (
+                      <div className={styles.noData}>No detection data available</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
               <div className={styles.recentSections}>
-                <h2>Recent Predictions</h2>
+                <h2>Recent Analysis Activity</h2>
                 {recentSessions.length === 0 ? (
                   <div className={styles.emptyState}>
-                    <p>No predictions yet</p>
+                    <Icons.Upload />
+                    <p>No analyses yet - start by uploading your first EEG file!</p>
                   </div>
                 ) : (
                   <div className={styles.sessionsList}>
@@ -553,10 +805,15 @@ function RadiologistDashboard() {
                         </div>
                         <div className={styles.sessionInfo}>
                           <p><strong>Date:</strong> {new Date(session.created_at).toLocaleDateString()}</p>
+                          <p><strong>Type:</strong> {session.analysis_type || 'Binary'}</p>
                           {session.prediction && (
                             <p>
                               <strong>Result:</strong>{' '}
-                              <span style={{color: session.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981'}}>
+                              <span style={{
+                                color: session.prediction.toLowerCase().includes('alz') || session.prediction.toLowerCase().includes('ad') ? '#ef4444' :
+                                      session.prediction.toLowerCase().includes('mci') ? '#f59e0b' :
+                                      '#10b981'
+                              }}>
                                 {session.prediction}
                               </span>
                             </p>
@@ -988,34 +1245,91 @@ function RadiologistDashboard() {
                 </div>
 
                 <div className={styles.formGroup}>
-                  <label>Classification Type</label>
-                  <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="classificationType"
-                        value="binary"
-                        checked={uploadData.classificationType === 'binary'}
-                        onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
-                        disabled={isUploading}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <span>Binary (Normal vs Alzheimer's)</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="classificationType"
-                        value="multiclass"
-                        checked={uploadData.classificationType === 'multiclass'}
-                        onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
-                        disabled={isUploading}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <span>Multi-class (4 Classes)</span>
-                    </label>
+                  <label style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem', display: 'block' }}>
+                    Classification Type
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
+                    {/* Binary Classification Card */}
+                    <div
+                      onClick={() => !isUploading && setUploadData({ ...uploadData, classificationType: 'binary' })}
+                      style={{
+                        border: uploadData.classificationType === 'binary' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                        backgroundColor: uploadData.classificationType === 'binary' ? '#eff6ff' : 'white',
+                        transition: 'all 0.2s',
+                        opacity: isUploading ? 0.6 : 1
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <input
+                          type="radio"
+                          name="classificationType"
+                          value="binary"
+                          checked={uploadData.classificationType === 'binary'}
+                          onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
+                          disabled={isUploading}
+                          style={{ marginTop: '0.25rem', cursor: 'pointer' }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '600', fontSize: '1rem', marginBottom: '0.25rem' }}>
+                            Binary Classification
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: '500', marginBottom: '0.5rem' }}>
+                            2 Classes
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                            <li>Normal</li>
+                            <li>Alzheimer's Disease</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Multiclass Classification Card */}
+                    <div
+                      onClick={() => !isUploading && setUploadData({ ...uploadData, classificationType: 'multiclass' })}
+                      style={{
+                        border: uploadData.classificationType === 'multiclass' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                        backgroundColor: uploadData.classificationType === 'multiclass' ? '#eff6ff' : 'white',
+                        transition: 'all 0.2s',
+                        opacity: isUploading ? 0.6 : 1
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <input
+                          type="radio"
+                          name="classificationType"
+                          value="multiclass"
+                          checked={uploadData.classificationType === 'multiclass'}
+                          onChange={(e) => setUploadData({ ...uploadData, classificationType: e.target.value })}
+                          disabled={isUploading}
+                          style={{ marginTop: '0.25rem', cursor: 'pointer' }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '600', fontSize: '1rem', marginBottom: '0.25rem' }}>
+                            Multi-class Classification
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: '500', marginBottom: '0.5rem' }}>
+                            3 Classes
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                            <li>CN - Cognitive Normal</li>
+                            <li>MCI - Mild Cognitive Impairment</li>
+                            <li>AD - Alzheimer's Disease</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <small className={styles.helpText}>Choose between binary classification or 4-class classification (Normal, MCI, Mild AD, Moderate AD)</small>
+                  <small className={styles.helpText} style={{ display: 'block', marginTop: '0.5rem', lineHeight: '1.4' }}>
+                    <strong>Binary:</strong> Distinguishes between Normal and Alzheimer's Disease<br/>
+                    <strong>Multi-class:</strong> Provides detailed classification including early warning signs (MCI)
+                  </small>
                 </div>
 
                 <div className={styles.formGroup}>

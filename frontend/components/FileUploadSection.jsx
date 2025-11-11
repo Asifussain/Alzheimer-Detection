@@ -173,7 +173,7 @@ export default function FileUploadSection() {
               disabled={isSubmitting || !user || !session}
               style={{ cursor: 'pointer' }}
             />
-            <span style={{ color: 'var(--text-primary)', fontSize: '1rem' }}>Multi-class (4 Classes)</span>
+            <span style={{ color: 'var(--text-primary)', fontSize: '1rem' }}>Multi-class (CN, MCI, AD)</span>
           </label>
         </div>
       </div>

@@ -19,6 +19,14 @@ function PatientDashboard() {
   const [patientReports, setPatientReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState({
+    testTrend: [],
+    resultDistribution: { cn: 0, mci: 0, ad: 0, normal: 0, alzheimers: 0 },
+    statusBreakdown: { completed: 0, pending: 0 },
+    totalTests: 0,
+    thisMonthTests: 0,
+    latestResult: null
+  });
 
   // Sync activeTab with URL query parameter
   useEffect(() => {
@@ -33,6 +41,75 @@ function PatientDashboard() {
       fetchPatientData();
     }
   }, [userProfile]);
+
+  const calculateAnalytics = (sessions) => {
+    const now = new Date();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // Calculate test trend for last 7 days
+    const testTrend = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = sessions.filter(s =>
+        s.created_at && s.created_at.split('T')[0] === dateStr
+      ).length;
+      testTrend.push({
+        date: dateStr,
+        label: i === 0 ? 'Today' : dayNames[date.getDay()],
+        count
+      });
+    }
+
+    // Calculate result distribution
+    const resultDistribution = {
+      cn: 0,
+      mci: 0,
+      ad: 0,
+      normal: 0,
+      alzheimers: 0
+    };
+
+    sessions.forEach(session => {
+      if (session.prediction) {
+        const pred = session.prediction.toLowerCase();
+        if (pred.includes('cn') || pred === 'cognitive normal') {
+          resultDistribution.cn++;
+        } else if (pred.includes('mci')) {
+          resultDistribution.mci++;
+        } else if (pred === 'ad' || pred.includes('alzheimer')) {
+          resultDistribution.ad++;
+          resultDistribution.alzheimers++;
+        } else if (pred.includes('normal')) {
+          resultDistribution.normal++;
+        }
+      }
+    });
+
+    // Calculate status breakdown
+    const statusBreakdown = {
+      completed: sessions.filter(s => s.status === 'Completed').length,
+      pending: sessions.filter(s => s.status !== 'Completed').length
+    };
+
+    // Calculate this month tests
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthTests = sessions.filter(s =>
+      s.created_at && new Date(s.created_at) >= thisMonthStart
+    ).length;
+
+    // Get latest result
+    const latestResult = sessions[0]?.prediction || null;
+
+    setAnalyticsData({
+      testTrend,
+      resultDistribution,
+      statusBreakdown,
+      totalTests: sessions.length,
+      thisMonthTests,
+      latestResult
+    });
+  };
 
   const fetchPatientData = async () => {
     try {
@@ -65,6 +142,7 @@ function PatientDashboard() {
       } else {
         console.log(`✅ Fetched ${sessionsData?.length || 0} patient sessions (including unassigned)`);
         setRecentSessions(sessionsData || []);
+        calculateAnalytics(sessionsData || []);
       }
 
       // Fetch assigned doctor information
@@ -160,9 +238,27 @@ function PatientDashboard() {
 
   const renderOverview = () => {
     const verificationStatus = getVerificationStatus();
+    const { testTrend, resultDistribution, statusBreakdown } = analyticsData;
+
+    // Helper function to get result color
+    const getResultColor = (result) => {
+      if (!result) return '#94a3b8';
+      const pred = result.toLowerCase();
+      if (pred.includes('cn') || pred.includes('cognitive normal')) return '#10b981';
+      if (pred.includes('mci')) return '#f59e0b';
+      if (pred.includes('ad') || pred.includes('alzheimer')) return '#ef4444';
+      if (pred.includes('normal')) return '#10b981';
+      return '#94a3b8';
+    };
 
     return (
       <>
+        {/* Welcome Section */}
+        <div className={styles.welcomeSection}>
+          <h1>Welcome back, {userProfile?.full_name}!</h1>
+          <p className={styles.subtitle}>Here's your personal health tracking and recent test results</p>
+        </div>
+
         {/* Compact Status Bar */}
         {patientData?.verification_status !== 'verified' && (
           <div className={styles.statusBanner} style={{ backgroundColor: `${verificationStatus.color}15`, borderColor: verificationStatus.color }}>
@@ -178,7 +274,7 @@ function PatientDashboard() {
           </div>
         )}
 
-        {/* Quick Stats */}
+        {/* Enhanced Stats Grid */}
         <div className={styles.quickStatsGrid}>
           <div className={styles.quickStatCard}>
             <div className={styles.quickStatIcon} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
@@ -187,23 +283,38 @@ function PatientDashboard() {
               </svg>
             </div>
             <div>
-              <h3>Total Sessions</h3>
-              <p className={styles.quickStatNumber}>{recentSessions.length}</p>
+              <h3>Total Tests</h3>
+              <p className={styles.quickStatNumber}>{analyticsData.totalTests}</p>
             </div>
           </div>
 
           <div className={styles.quickStatCard}>
             <div className={styles.quickStatIcon} style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
               </svg>
             </div>
             <div>
-              <h3>Available Reports</h3>
-              <p className={styles.quickStatNumber}>{patientReports.length}</p>
+              <h3>Latest Result</h3>
+              <p className={styles.quickStatName} style={{ color: getResultColor(analyticsData.latestResult) }}>
+                {analyticsData.latestResult || 'No tests yet'}
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.quickStatCard}>
+            <div className={styles.quickStatIcon} style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <div>
+              <h3>This Month</h3>
+              <p className={styles.quickStatNumber}>{analyticsData.thisMonthTests}</p>
             </div>
           </div>
 
@@ -222,43 +333,233 @@ function PatientDashboard() {
           </div>
         </div>
 
-        {/* Recent Reports with Notifications */}
+        {/* Analytics Charts Grid */}
+        <div className={styles.analyticsGrid}>
+          {/* Test History Timeline */}
+          <div className={styles.chartCard}>
+            <h3 className={styles.chartTitle}>Test History (Last 7 Days)</h3>
+            {testTrend.length > 0 ? (
+              <div className={styles.lineChartContainer}>
+                <svg className={styles.lineChart} viewBox="0 0 400 200">
+                  {/* Y-axis labels */}
+                  {[0, 1, 2, 3, 4, 5].map((val) => {
+                    const maxCount = Math.max(...testTrend.map(d => d.count), 5);
+                    const y = 160 - (val / maxCount) * 140;
+                    return (
+                      <g key={val}>
+                        <line x1="40" y1={y} x2="360" y2={y} stroke="rgba(148, 163, 184, 0.1)" strokeWidth="1"/>
+                        <text x="25" y={y + 4} fill="#64748b" fontSize="10" textAnchor="end">{val}</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Line chart path */}
+                  {(() => {
+                    const maxCount = Math.max(...testTrend.map(d => d.count), 5);
+                    const points = testTrend.map((d, i) => {
+                      const x = 60 + (i * 50);
+                      const y = maxCount > 0 ? 160 - (d.count / maxCount) * 140 : 160;
+                      return { x, y, count: d.count, label: d.label };
+                    });
+
+                    const pathD = points.map((p, i) =>
+                      i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`
+                    ).join(' ');
+
+                    const areaD = `${pathD} L ${points[points.length - 1].x} 160 L ${points[0].x} 160 Z`;
+
+                    return (
+                      <>
+                        <defs>
+                          <linearGradient id="testGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        <path d={areaD} fill="url(#testGradient)"/>
+                        <path d={pathD} stroke="#3b82f6" strokeWidth="3" fill="none"/>
+                        {points.map((p, i) => (
+                          <g key={i}>
+                            <circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="2"/>
+                            <text x={p.x} y="185" fill="#cbd5e1" fontSize="11" textAnchor="middle">{p.label}</text>
+                          </g>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+              </div>
+            ) : (
+              <div className={styles.noData}>No test history available</div>
+            )}
+          </div>
+
+          {/* Results Over Time */}
+          <div className={styles.chartCard}>
+            <h3 className={styles.chartTitle}>Detection Results</h3>
+            {analyticsData.totalTests > 0 ? (
+              <div className={styles.barChartContainer}>
+                <svg className={styles.barChart} viewBox="0 0 400 200">
+                  {(() => {
+                    const results = [
+                      { label: 'CN', count: resultDistribution.cn, color: '#10b981' },
+                      { label: 'MCI', count: resultDistribution.mci, color: '#f59e0b' },
+                      { label: 'AD', count: resultDistribution.ad, color: '#ef4444' },
+                      { label: 'Normal', count: resultDistribution.normal, color: '#3b82f6' }
+                    ].filter(r => r.count > 0);
+
+                    if (results.length === 0) {
+                      return <text x="200" y="100" fill="#64748b" fontSize="14" textAnchor="middle">No results yet</text>;
+                    }
+
+                    const maxCount = Math.max(...results.map(r => r.count));
+                    const barWidth = 50;
+                    const spacing = (360 - results.length * barWidth) / (results.length + 1);
+
+                    return results.map((result, i) => {
+                      const x = 40 + spacing + i * (barWidth + spacing);
+                      const barHeight = (result.count / maxCount) * 140;
+                      const y = 160 - barHeight;
+
+                      return (
+                        <g key={i}>
+                          <rect
+                            x={x}
+                            y={y}
+                            width={barWidth}
+                            height={barHeight}
+                            fill={result.color}
+                            rx="4"
+                            opacity="0.8"
+                          />
+                          <text x={x + barWidth / 2} y={y - 8} fill="#f1f5f9" fontSize="14" fontWeight="bold" textAnchor="middle">
+                            {result.count}
+                          </text>
+                          <text x={x + barWidth / 2} y="185" fill="#cbd5e1" fontSize="12" textAnchor="middle">
+                            {result.label}
+                          </text>
+                        </g>
+                      );
+                    });
+                  })()}
+                </svg>
+              </div>
+            ) : (
+              <div className={styles.noData}>No results available</div>
+            )}
+          </div>
+
+          {/* Test Status Distribution */}
+          <div className={styles.chartCard}>
+            <h3 className={styles.chartTitle}>Test Status</h3>
+            {analyticsData.totalTests > 0 ? (
+              <div className={styles.pieChartContainer}>
+                <svg className={styles.pieChart} viewBox="0 0 200 200">
+                  {(() => {
+                    const total = statusBreakdown.completed + statusBreakdown.pending;
+                    if (total === 0) {
+                      return <text x="100" y="100" fill="#64748b" fontSize="14" textAnchor="middle">No tests</text>;
+                    }
+
+                    const completedPercent = (statusBreakdown.completed / total) * 100;
+                    const pendingPercent = (statusBreakdown.pending / total) * 100;
+
+                    const createArc = (startPercent, endPercent, color) => {
+                      const startAngle = (startPercent / 100) * 360 - 90;
+                      const endAngle = (endPercent / 100) * 360 - 90;
+                      const startRad = startAngle * Math.PI / 180;
+                      const endRad = endAngle * Math.PI / 180;
+
+                      const outerRadius = 70;
+                      const innerRadius = 40;
+
+                      const x1Outer = 100 + outerRadius * Math.cos(startRad);
+                      const y1Outer = 100 + outerRadius * Math.sin(startRad);
+                      const x2Outer = 100 + outerRadius * Math.cos(endRad);
+                      const y2Outer = 100 + outerRadius * Math.sin(endRad);
+
+                      const x1Inner = 100 + innerRadius * Math.cos(endRad);
+                      const y1Inner = 100 + innerRadius * Math.sin(endRad);
+                      const x2Inner = 100 + innerRadius * Math.cos(startRad);
+                      const y2Inner = 100 + innerRadius * Math.sin(startRad);
+
+                      const largeArc = (endPercent - startPercent) > 50 ? 1 : 0;
+
+                      return `M ${x1Outer} ${y1Outer} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
+                    };
+
+                    return (
+                      <>
+                        {completedPercent > 0 && (
+                          <path d={createArc(0, completedPercent, '#10b981')} fill="#10b981" opacity="0.8"/>
+                        )}
+                        {pendingPercent > 0 && (
+                          <path d={createArc(completedPercent, 100, '#f59e0b')} fill="#f59e0b" opacity="0.8"/>
+                        )}
+                        <text x="100" y="95" fill="#f1f5f9" fontSize="28" fontWeight="bold" textAnchor="middle">
+                          {total}
+                        </text>
+                        <text x="100" y="115" fill="#94a3b8" fontSize="12" textAnchor="middle">
+                          Total Tests
+                        </text>
+                      </>
+                    );
+                  })()}
+                </svg>
+                <div className={styles.pieLegend}>
+                  <div className={styles.legendItem}>
+                    <div className={styles.legendColor} style={{ background: '#10b981' }}></div>
+                    <span>Completed ({statusBreakdown.completed})</span>
+                  </div>
+                  <div className={styles.legendItem}>
+                    <div className={styles.legendColor} style={{ background: '#f59e0b' }}></div>
+                    <span>Pending ({statusBreakdown.pending})</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.noData}>No test data</div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Reports Section */}
         <div className={styles.recentReportsSection}>
           <div className={styles.sectionHeaderSmall}>
-            <h3>Recent Reports</h3>
+            <h3>Recent Test Results</h3>
             <button onClick={() => handleTabChange('sessions')} className={styles.viewAllBtn}>
               View All →
             </button>
           </div>
 
-          {patientReports.length > 0 ? (
+          {recentSessions.length > 0 ? (
             <div className={styles.reportsGrid}>
-              {patientReports.slice(0, 3).map((report) => {
-                const confidence = report.probabilities && Array.isArray(report.probabilities)
-                  ? (Math.max(...report.probabilities) * 100).toFixed(1)
+              {recentSessions.slice(0, 3).map((session) => {
+                const confidence = session.probabilities && Array.isArray(session.probabilities)
+                  ? (Math.max(...session.probabilities) * 100).toFixed(1)
                   : 'N/A';
 
                 return (
-                  <div key={report.id} className={styles.reportPreviewCard}>
+                  <div key={session.id} className={styles.reportPreviewCard}>
                     <div className={styles.reportPreviewHeader}>
-                      <h4>{report.session_code || `Session-${report.id.substring(0, 8)}`}</h4>
-                      <span className={`${styles.statusBadgeSmall} ${styles[report.status?.toLowerCase()]}`}>
-                        {report.status}
+                      <h4>{session.session_code || `Test-${session.id.substring(0, 8)}`}</h4>
+                      <span className={`${styles.statusBadgeSmall} ${styles[session.status?.toLowerCase()]}`}>
+                        {session.status}
                       </span>
                     </div>
                     <div className={styles.reportPreviewDetails}>
-                      <p><strong>Date:</strong> {formatDate(report.created_at)}</p>
-                      {report.prediction && (
-                        <p><strong>Result:</strong> <span style={{ color: report.prediction.toLowerCase().includes('alz') ? '#ef4444' : '#10b981' }}>{report.prediction}</span></p>
+                      <p><strong>Date:</strong> {formatDate(session.created_at)}</p>
+                      {session.prediction && (
+                        <p><strong>Result:</strong> <span style={{ color: getResultColor(session.prediction) }}>{session.prediction}</span></p>
                       )}
                       {confidence !== 'N/A' && (
                         <p><strong>Confidence:</strong> {confidence}%</p>
                       )}
                     </div>
-                    {report.patient_pdf_url && (
+                    {session.patient_pdf_url && (
                       <button
                         className={styles.viewReportBtn}
-                        onClick={() => window.open(report.patient_pdf_url, '_blank')}
+                        onClick={() => window.open(session.patient_pdf_url, '_blank')}
                       >
                         View Report
                       </button>
@@ -270,11 +571,10 @@ function PatientDashboard() {
           ) : (
             <div className={styles.emptyStateSmall}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
               </svg>
-              <p>No reports available yet</p>
-              <span>Your reports will appear here once your doctor reviews your EEG sessions</span>
+              <p>No test results yet</p>
+              <span>Your test results will appear here once completed</span>
             </div>
           )}
         </div>

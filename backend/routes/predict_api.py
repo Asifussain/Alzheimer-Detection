@@ -12,7 +12,8 @@ from celery_utils import celery_app
 from supabase_client_setup import get_supabase_client
 from config import (
     UPLOAD_FOLDER, RAW_EEG_BUCKET, REPORT_ASSET_BUCKET,
-    DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH, MCI_REF_PATH
+    DEFAULT_FS, ALZ_REF_PATH, NORM_REF_PATH, MCI_REF_PATH,
+    ALZ_REF_MULTICLASS_PATH, NORM_REF_MULTICLASS_PATH
 )
 from utils import NpEncoder
 from database import get_prediction_and_eeg, get_comprehensive_report_data, cleanup_storage_on_error
@@ -59,7 +60,7 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
         # Map prediction to label based on classification type
         majority_pred_value = ml_output_data.get('majority_prediction')
         if classification_type == 'multiclass':
-            # Multiclass: 0=CN (Cognitively Normal), 1=MCI (Mild Cognitive Impairment), 2=AD (Alzheimer's Disease)
+            # Multiclass: 0=CN, 1=MCI, 2=AD (3 classes)
             class_labels = {0: "CN (Normal)", 1: "MCI", 2: "AD"}
             prediction_label = class_labels.get(majority_pred_value, "Unknown")
         else:
@@ -84,7 +85,14 @@ def run_full_analysis_task(prediction_id, encoded_file_content, channel_index_fo
 
         # Run appropriate similarity analysis based on classification type
         if classification_type == 'multiclass':
-            similarity_results = run_multiclass_similarity_analysis(temp_filepath_in_worker, NORM_REF_PATH, MCI_REF_PATH, ALZ_REF_PATH, channel_index_for_plot)
+            # Use 256-timepoint reference files for multiclass (ADFD-Indep model)
+            similarity_results = run_multiclass_similarity_analysis(
+                temp_filepath_in_worker,
+                NORM_REF_MULTICLASS_PATH,  # cn_repr.npy (256 timepoints)
+                MCI_REF_PATH,               # mci_repr.npy (256 timepoints)
+                ALZ_REF_MULTICLASS_PATH,    # ad_repr.npy (256 timepoints)
+                channel_index_for_plot
+            )
         else:
             similarity_results = run_similarity_analysis(temp_filepath_in_worker, ALZ_REF_PATH, NORM_REF_PATH, channel_index_for_plot)
 

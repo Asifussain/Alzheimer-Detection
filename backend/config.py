@@ -18,9 +18,15 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_JSON_PATH = os.path.join(BACKEND_DIR, SIDDHI_FOLDER, 'output.json')
 
 # Reference EEG data paths
+# Binary classification references (128 or 256 timepoints)
 ALZ_REF_PATH = os.path.join(BACKEND_DIR, 'feature_07.npy')  # Alzheimer's Disease reference
 NORM_REF_PATH = os.path.join(BACKEND_DIR, 'feature_35.npy')  # Normal/CN reference
-MCI_REF_PATH = os.path.join(BACKEND_DIR, 'feature_mci.npy')  # MCI reference (for multiclass)
+
+# Multiclass classification references (256 timepoints - for ADFD-Indep model)
+# Note: File names have spaces in them
+MCI_REF_PATH = os.path.join(BACKEND_DIR, 'representative', 'mci repr.npy')  # MCI reference
+ALZ_REF_MULTICLASS_PATH = os.path.join(BACKEND_DIR, 'representative', 'ad repr.npy')  # AD reference (multiclass)
+NORM_REF_MULTICLASS_PATH = os.path.join(BACKEND_DIR, 'representative', 'cn repr.npy')  # CN reference (multiclass)
 
 DEFAULT_FS = 128
 

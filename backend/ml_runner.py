@@ -28,14 +28,14 @@ def run_model(filepath_to_process: str, classification_type: str = 'binary'):
         model_id = 'ADFD-Indep'
         data_type = 'ADFDIndep'
         num_classes = '3'  # CN, MCI, AD
-        seq_len = '96'  # Multiclass uses 96 timepoints
+        seq_len = '256'  # ADFD model was trained with 256 timepoints (checkpoint weights confirm this)
         patch_len_list = '2,2,2,4,4,4'
         up_dim_list = '19,38,76,152'
     else:  # binary
         model_id = 'ADSZ-Indep'
         data_type = 'ADSZIndep'
         num_classes = '2'  # Normal, Alzheimer's
-        seq_len = '128'  # Binary uses 128 timepoints
+        seq_len = '128'  # Both models use 128 timepoints
         patch_len_list = '4'
         up_dim_list = '19'
 
@@ -56,6 +56,7 @@ def run_model(filepath_to_process: str, classification_type: str = 'binary'):
     os.chdir(siddhi_absolute_path)
 
     try:
+        # Build base command
         cmd = [
             'python', 'run.py',
             '--task_name', 'classification',
@@ -69,7 +70,7 @@ def run_model(filepath_to_process: str, classification_type: str = 'binary'):
             '--d_ff', '256',
             '--enc_in', '19',
             '--num_class', num_classes,
-            '--seq_len', seq_len,  # Use dynamic seq_len based on classification type
+            '--seq_len', seq_len,
             '--input_file', absolute_filepath_for_ml,
             '--use_gpu', 'False',
             '--features', 'M',
@@ -83,6 +84,10 @@ def run_model(filepath_to_process: str, classification_type: str = 'binary'):
             "--patch_len_list", patch_len_list,
             "--up_dim_list", up_dim_list,
         ]
+
+        # Add SWA flag for multiclass (ADFD was trained with SWA)
+        if classification_type == 'multiclass':
+            cmd.append('--swa')
         
         print(f"Running ML command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=360)

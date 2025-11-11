@@ -107,7 +107,9 @@ if __name__ == '__main__':
     # It seems to combine many args. The original code's format function does this.
     # Make sure args passed from app.py result in the correct string here.
     # In backend/SIDDHI/run.py
-    setting = '{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}'.format(
+    # Note: ADFD checkpoints use double underscore before des, ADSZ uses single
+    underscore_before_des = '__' if args.model_id == 'ADFD-Indep' else '_'
+    setting = '{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}{}{}'.format(
         args.model_id,       # e.g., ADSZ-Indep
         args.features,       # e.g., M  <- MUST be passed correctly now
         args.seq_len,        # e.g., 128
@@ -121,6 +123,7 @@ if __name__ == '__main__':
         args.factor,         # e.g., 1  <- MUST be passed correctly now
         args.embed,          # e.g., timeF <- MUST be passed correctly now
         args.distil,         # e.g., True <- MUST be passed correctly now (as string 'True' or bool True)
+        underscore_before_des,  # __ for ADFD, _ for others
         args.des             # e.g., Exp <- MUST be passed correctly now
     )
     # --- End Setting String Construction ---
